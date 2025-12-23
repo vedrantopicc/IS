@@ -137,7 +137,7 @@ export default function LoginPage() {
                     className={cn(
                       "pl-10 transition-all duration-200 !bg-gray-700 !border-gray-600 !text-white placeholder:!text-gray-400 focus:!border-blue-500 focus:!ring-blue-500 focus:!bg-gray-700 [&:-webkit-autofill]:!bg-gray-700 [&:-webkit-autofill]:!text-white [&:-webkit-autofill]:shadow-[0_0_0_1000px_rgb(55,65,81)_inset] [&:-webkit-autofill]:[-webkit-text-fill-color:white]",
                       errors.email &&
-                        "!border-red-500 focus:!border-red-500 focus:!ring-red-500"
+                      "!border-red-500 focus:!border-red-500 focus:!ring-red-500"
                     )}
                     disabled={isLoading}
                     required
@@ -159,7 +159,7 @@ export default function LoginPage() {
                   <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                   <Input
                     id="password"
-                    type={showPassword ? "text" : "password"}  
+                    type={showPassword ? "text" : "password"}
                     placeholder="Enter your password"
                     value={formData.password}
                     onChange={(e) =>
@@ -168,7 +168,7 @@ export default function LoginPage() {
                     className={cn(
                       "pl-10 pr-10 transition-all duration-200 bg-gray-700 border-gray-600 text-white placeholder:text-gray-400 focus:border-blue-500 focus:ring-blue-500",
                       errors.password &&
-                        "border-red-500 focus:border-red-500 focus:ring-red-500"
+                      "border-red-500 focus:border-red-500 focus:ring-red-500"
                     )}
                     disabled={isLoading}
                     required
@@ -179,12 +179,12 @@ export default function LoginPage() {
                       onClick={() => setShowPassword((prev) => !prev)}
                       className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-white focus:outline-none p-0 m-0 border-none bg-transparent cursor-pointer"
                       style={{ padding: '0', margin: '0', border: 'none', background: 'transparent' }}
-                      aria-label={showPassword ? "Show password" : "Hide password"}  
+                      aria-label={showPassword ? "Show password" : "Hide password"}
                     >
                       {showPassword ? (
-                        <Eye className="w-4 h-4" /> 
+                        <Eye className="w-4 h-4" />
                       ) : (
-                        <EyeOff className="w-4 h-4" />  
+                        <EyeOff className="w-4 h-4" />
                       )}
                     </button>
                   )}
@@ -208,6 +208,15 @@ export default function LoginPage() {
                   "Sign in"
                 )}
               </Button>
+              <div className="text-center pt-2">
+                <button
+                  type="button"
+                  onClick={() => navigate("/forgot-password")}
+                  className="!text-blue-400 hover:!text-blue-300 font-medium transition-colors duration-200 !bg-transparent border-none underline p-0 m-0 cursor-pointer"
+                >
+                  Forgot your password?
+                </button>
+              </div>
             </form>
           </CardContent>
           <CardFooter className="pt-6">

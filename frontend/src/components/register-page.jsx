@@ -1,3 +1,4 @@
+// frontend/src/components/register-page.jsx
 import { useState } from "react";
 import {
   Card,
@@ -31,6 +32,7 @@ export default function RegisterPage() {
     email: "",
     username: "",
     password: "",
+    confirmPassword: "", // 🔹 Dodato
     role: "",
   });
 
@@ -71,6 +73,13 @@ export default function RegisterPage() {
       newErrors.password = "Password must be at least 6 characters";
     }
 
+    // 🔹 Validacija potvrde lozinke
+    if (!formData.confirmPassword) {
+      newErrors.confirmPassword = "Please confirm your password";
+    } else if (formData.confirmPassword !== formData.password) {
+      newErrors.confirmPassword = "Passwords do not match";
+    }
+
     if (!formData.role) {
       newErrors.role = "Please select a role";
     }
@@ -85,8 +94,7 @@ export default function RegisterPage() {
   
     setIsLoading(true);
     setErrors({});
-        try {
-      console.log("Attempting registration...");
+    try {
       const result = await registerApi({
         name: formData.name,
         surname: formData.surname,
@@ -96,22 +104,14 @@ export default function RegisterPage() {
         role: formData.role,
       });
       
-      console.log("Registration successful:", result);
-      console.log("Showing toast...");
-
-      toast.success(
-        "You successfully created an account in StudLife. Please log in now.",
-        {
-          position: "bottom-center",
-          autoClose: 5000,
-          hideProgressBar: false,
-          closeOnClick: true,
-          pauseOnHover: true,
-          draggable: true,
-        }
-      );
-      
-      console.log("Toast should be visible now");
+      toast.success("You successfully created an account in StudLife. Please log in now.", {
+        position: "bottom-center",
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+      });
 
       setTimeout(() => {
         navigate("/");
@@ -125,7 +125,6 @@ export default function RegisterPage() {
 
   const handleInputChange = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
-
     if (errors[field]) {
       setErrors((prev) => ({ ...prev, [field]: undefined }));
     }
@@ -155,10 +154,7 @@ export default function RegisterPage() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label
-                    htmlFor="name"
-                    className="text-sm font-medium text-white"
-                  >
+                  <Label htmlFor="name" className="text-sm font-medium text-white">
                     Name
                   </Label>
                   <div className="relative">
@@ -168,13 +164,11 @@ export default function RegisterPage() {
                       type="text"
                       placeholder="First name"
                       value={formData.name}
-                      onChange={(e) =>
-                        handleInputChange("name", e.target.value)
-                      }
+                      onChange={(e) => handleInputChange("name", e.target.value)}
                       className={cn(
-                        "pl-10 transition-all duration-200 bg-gray-700 border-gray-600 text-white placeholder:text-gray-400 focus:border-green-500 focus:ring-green-500",
-                        errors.name &&
-                        "border-red-500 focus:border-red-500 focus:ring-red-500"
+                        "pl-10 transition-all duration-200 !bg-gray-700 !border-gray-600 !text-white placeholder:!text-gray-400 focus:!border-green-500 focus:!ring-green-500",
+                        "[&:-webkit-autofill]:!bg-gray-700 [&:-webkit-autofill]:!text-white [&:-webkit-autofill]:shadow-[0_0_0_1000px_rgb(55,65,81)_inset] [&:-webkit-autofill]:[-webkit-text-fill-color:white]",
+                        errors.name && "!border-red-500 focus:!border-red-500 focus:!ring-red-500"
                       )}
                       disabled={isLoading}
                       required
@@ -186,10 +180,7 @@ export default function RegisterPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label
-                    htmlFor="surname"
-                    className="text-sm font-medium text-white"
-                  >
+                  <Label htmlFor="surname" className="text-sm font-medium text-white">
                     Surname
                   </Label>
                   <div className="relative">
@@ -199,31 +190,24 @@ export default function RegisterPage() {
                       type="text"
                       placeholder="Last name"
                       value={formData.surname}
-                      onChange={(e) =>
-                        handleInputChange("surname", e.target.value)
-                      }
+                      onChange={(e) => handleInputChange("surname", e.target.value)}
                       className={cn(
-                        "pl-10 transition-all duration-200 bg-gray-700 border-gray-600 text-white placeholder:text-gray-400 focus:border-green-500 focus:ring-green-500",
-                        errors.surname &&
-                        "border-red-500 focus:border-red-500 focus:ring-red-500"
+                        "pl-10 transition-all duration-200 !bg-gray-700 !border-gray-600 !text-white placeholder:!text-gray-400 focus:!border-green-500 focus:!ring-green-500",
+                        "[&:-webkit-autofill]:!bg-gray-700 [&:-webkit-autofill]:!text-white [&:-webkit-autofill]:shadow-[0_0_0_1000px_rgb(55,65,81)_inset] [&:-webkit-autofill]:[-webkit-text-fill-color:white]",
+                        errors.surname && "!border-red-500 focus:!border-red-500 focus:!ring-red-500"
                       )}
                       disabled={isLoading}
                       required
                     />
                   </div>
                   {errors.surname && (
-                    <p className="text-xs text-red-400 mt-1">
-                      {errors.surname}
-                    </p>
+                    <p className="text-xs text-red-400 mt-1">{errors.surname}</p>
                   )}
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label
-                  htmlFor="email"
-                  className="text-sm font-medium text-white"
-                >
+                <Label htmlFor="email" className="text-sm font-medium text-white">
                   Email address
                 </Label>
                 <div className="relative">
@@ -235,9 +219,9 @@ export default function RegisterPage() {
                     value={formData.email}
                     onChange={(e) => handleInputChange("email", e.target.value)}
                     className={cn(
-                      "pl-10 transition-all duration-200 bg-gray-700 border-gray-600 text-white placeholder:text-gray-400 focus:border-green-500 focus:ring-green-500",
-                      errors.email &&
-                      "border-red-500 focus:border-red-500 focus:ring-red-500"
+                      "pl-10 transition-all duration-200 !bg-gray-700 !border-gray-600 !text-white placeholder:!text-gray-400 focus:!border-green-500 focus:!ring-green-500",
+                      "[&:-webkit-autofill]:!bg-gray-700 [&:-webkit-autofill]:!text-white [&:-webkit-autofill]:shadow-[0_0_0_1000px_rgb(55,65,81)_inset] [&:-webkit-autofill]:[-webkit-text-fill-color:white]",
+                      errors.email && "!border-red-500 focus:!border-red-500 focus:!ring-red-500"
                     )}
                     disabled={isLoading}
                     required
@@ -249,10 +233,7 @@ export default function RegisterPage() {
               </div>
 
               <div className="space-y-2">
-                <Label
-                  htmlFor="username"
-                  className="text-sm font-medium text-white"
-                >
+                <Label htmlFor="username" className="text-sm font-medium text-white">
                   Username
                 </Label>
                 <div className="relative">
@@ -262,13 +243,11 @@ export default function RegisterPage() {
                     type="text"
                     placeholder="Choose a username"
                     value={formData.username}
-                    onChange={(e) =>
-                      handleInputChange("username", e.target.value)
-                    }
+                    onChange={(e) => handleInputChange("username", e.target.value)}
                     className={cn(
-                      "pl-10 transition-all duration-200 bg-gray-700 border-gray-600 text-white placeholder:text-gray-400 focus:border-green-500 focus:ring-green-500",
-                      errors.username &&
-                      "border-red-500 focus:border-red-500 focus:ring-red-500"
+                      "pl-10 transition-all duration-200 !bg-gray-700 !border-gray-600 !text-white placeholder:!text-gray-400 focus:!border-green-500 focus:!ring-green-500",
+                      "[&:-webkit-autofill]:!bg-gray-700 [&:-webkit-autofill]:!text-white [&:-webkit-autofill]:shadow-[0_0_0_1000px_rgb(55,65,81)_inset] [&:-webkit-autofill]:[-webkit-text-fill-color:white]",
+                      errors.username && "!border-red-500 focus:!border-red-500 focus:!ring-red-500"
                     )}
                     disabled={isLoading}
                     required
@@ -279,11 +258,9 @@ export default function RegisterPage() {
                 )}
               </div>
 
+              {/* 🔹 Novo: Password */}
               <div className="space-y-2">
-                <Label
-                  htmlFor="password"
-                  className="text-sm font-medium text-white"
-                >
+                <Label htmlFor="password" className="text-sm font-medium text-white">
                   Password
                 </Label>
                 <div className="relative">
@@ -293,13 +270,11 @@ export default function RegisterPage() {
                     type="password"
                     placeholder="Create a password"
                     value={formData.password}
-                    onChange={(e) =>
-                      handleInputChange("password", e.target.value)
-                    }
+                    onChange={(e) => handleInputChange("password", e.target.value)}
                     className={cn(
-                      "pl-10 transition-all duration-200 bg-gray-700 border-gray-600 text-white placeholder:text-gray-400 focus:border-green-500 focus:ring-green-500",
-                      errors.password &&
-                      "border-red-500 focus:border-red-500 focus:ring-red-500"
+                      "pl-10 transition-all duration-200 !bg-gray-700 !border-gray-600 !text-white placeholder:!text-gray-400 focus:!border-green-500 focus:!ring-green-500",
+                      "[&:-webkit-autofill]:!bg-gray-700 [&:-webkit-autofill]:!text-white [&:-webkit-autofill]:shadow-[0_0_0_1000px_rgb(55,65,81)_inset] [&:-webkit-autofill]:[-webkit-text-fill-color:white]",
+                      errors.password && "!border-red-500 focus:!border-red-500 focus:!ring-red-500"
                     )}
                     disabled={isLoading}
                     required
@@ -310,11 +285,35 @@ export default function RegisterPage() {
                 )}
               </div>
 
+              {/* 🔹 Novo: Confirm Password */}
               <div className="space-y-2">
-                <Label
-                  htmlFor="role"
-                  className="text-sm font-medium text-white"
-                >
+                <Label htmlFor="confirmPassword" className="text-sm font-medium text-white">
+                  Confirm Password
+                </Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <Input
+                    id="confirmPassword"
+                    type="password"
+                    placeholder="Confirm your password"
+                    value={formData.confirmPassword}
+                    onChange={(e) => handleInputChange("confirmPassword", e.target.value)}
+                    className={cn(
+                      "pl-10 transition-all duration-200 !bg-gray-700 !border-gray-600 !text-white placeholder:!text-gray-400 focus:!border-green-500 focus:!ring-green-500",
+                      "[&:-webkit-autofill]:!bg-gray-700 [&:-webkit-autofill]:!text-white [&:-webkit-autofill]:shadow-[0_0_0_1000px_rgb(55,65,81)_inset] [&:-webkit-autofill]:[-webkit-text-fill-color:white]",
+                      errors.confirmPassword && "!border-red-500 focus:!border-red-500 focus:!ring-red-500"
+                    )}
+                    disabled={isLoading}
+                    required
+                  />
+                </div>
+                {errors.confirmPassword && (
+                  <p className="text-xs text-red-400 mt-1">{errors.confirmPassword}</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="role" className="text-sm font-medium text-white">
                   Role
                 </Label>
                 <Select
@@ -325,8 +324,7 @@ export default function RegisterPage() {
                   <SelectTrigger
                     className={cn(
                       "!bg-gray-700 !border-gray-600 !text-white focus:!border-green-500 focus:!ring-green-500 w-full cursor-pointer hover:!bg-gray-600 transition-colors disabled:cursor-not-allowed",
-                      errors.role &&
-                      "!border-red-500 focus:!border-red-500 focus:!ring-red-500"
+                      errors.role && "!border-red-500 focus:!border-red-500 focus:!ring-red-500"
                     )}
                   >
                     <SelectValue placeholder="Select your role" />

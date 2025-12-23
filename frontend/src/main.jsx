@@ -14,6 +14,8 @@ import { ToastContainer } from "react-toastify";
 import SettingsPage from "./components/settings-page";
 import ProtectedRoute from "./components/protected-route";
 import PublicRoute from "./components/public-route";
+import ForgotPassword from "./components/forgot-password.jsx";
+import ResetPassword from "./components/reset-password";
 
 const router = createBrowserRouter([
   {
@@ -39,6 +41,14 @@ const router = createBrowserRouter([
         <EventsPage />
       </ProtectedRoute>
     ),
+  },
+  {
+    path: "/forgot-password",
+    element: <ForgotPassword />,
+  },
+  {
+    path: "/reset-password",
+    element: <ResetPassword />,
   },
   {
     path: "/events/:id",
