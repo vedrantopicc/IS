@@ -1,10 +1,13 @@
+// EventsPage.jsx
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import EventCard from "./event-card";
 import { Avatar, AvatarFallback } from "../components/ui/avatar";
 import {
-  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
-  DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
 } from "../components/ui/dropdown-menu";
 import { Button } from "../components/ui/button";
 import { Settings, LogOut, Calendar as CalendarIcon, Shield, Ticket } from "lucide-react";
@@ -14,15 +17,34 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from ".
 import { Popover, PopoverTrigger, PopoverContent } from "../components/ui/popover";
 import { Calendar } from "../components/ui/calendar";
 
-function getToken() { return localStorage.getItem("token"); }
-function decodeJwt(token) { try { const b = token.split(".")[1]; const j = atob(b.replace(/-/g, "+").replace(/_/g, "/")); return JSON.parse(decodeURIComponent(escape(j))); } catch { return null; } }
-function getDisplayName(p) { if (!p) return "User"; if (p.name && p.surname) return `${p.name} ${p.surname}`; return p.name || p.username || p.email || "User"; }
-function getInitials(name) { return (name.split(" ").filter(Boolean).slice(0,2).map(s=>s[0]?.toUpperCase()||"").join("")) || "U"; }
+function getToken() {
+  return localStorage.getItem("token");
+}
+
+function decodeJwt(token) {
+  try {
+    const b = token.split(".")[1];
+    const j = atob(b.replace(/-/g, "+").replace(/_/g, "/"));
+    return JSON.parse(decodeURIComponent(escape(j)));
+  } catch {
+    return null;
+  }
+}
+
+function getDisplayName(p) {
+  if (!p) return "User";
+  if (p.name && p.surname) return `${p.name} ${p.surname}`;
+  return p.name || p.username || p.email || "User";
+}
+
+function getInitials(name) {
+  return (name.split(" ").filter(Boolean).slice(0, 2).map(s => s[0]?.toUpperCase() || "").join("")) || "U";
+}
 
 function getCurrentUserRole() {
   const token = getToken();
   if (!token) return null;
-  
+
   const userStr = localStorage.getItem("user");
   if (userStr) {
     try {
@@ -30,17 +52,20 @@ function getCurrentUserRole() {
       return user.role;
     } catch {}
   }
-  
+
   return null;
 }
 
 const z = (n) => String(n).padStart(2, "0");
-const toParamDate = (d) => d ? `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())}` : undefined;
-const fmtDisplay = (d) => d ? `${z(d.getDate())}.${z(d.getMonth()+1)}.${d.getFullYear()}` : "";
+const toParamDate = (d) => (d ? `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}` : undefined);
+const fmtDisplay = (d) => (d ? `${z(d.getDate())}.${z(d.getMonth() + 1)}.${d.getFullYear()}` : "");
 
 export const EventsPage = () => {
   const navigate = useNavigate();
-  const payload = useMemo(() => { const t = getToken(); return t ? decodeJwt(t) : null; }, []);
+  const payload = useMemo(() => {
+    const t = getToken();
+    return t ? decodeJwt(t) : null;
+  }, []);
   const displayName = useMemo(() => getDisplayName(payload), [payload]);
   const initials = useMemo(() => getInitials(displayName), [displayName]);
   const userRole = useMemo(() => getCurrentUserRole(), []);
@@ -51,13 +76,12 @@ export const EventsPage = () => {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
 
-
-  const [sort, setSort] = useState("desc");   
+  const [sort, setSort] = useState("desc");
   const [fromDate, setFromDate] = useState(null);
   const [toDate, setToDate] = useState(null);
 
   const fromParam = useMemo(() => toParamDate(fromDate), [fromDate]);
-  const toParam   = useMemo(() => toParamDate(toDate),   [toDate]);
+  const toParam = useMemo(() => toParamDate(toDate), [toDate]);
 
   useEffect(() => {
     let alive = true;
@@ -68,15 +92,16 @@ export const EventsPage = () => {
         const data = await getEvents({
           from: fromParam,
           to: toParam,
-          sort
+          sort,
         });
         if (!alive) return;
+
+        // ⬇️ Uklanjamo obradu cena – ne treba nam za listu
         setRows(
-          data.map(r => ({
+          data.map((r) => ({
             id: r.id,
             title: r.title,
             image: r.image,
-            price: Number(r.price ?? 0),
             dt: r.date_and_time ? new Date(r.date_and_time) : null,
           }))
         );
@@ -87,24 +112,28 @@ export const EventsPage = () => {
       }
     })();
 
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
   }, [sort, fromParam, toParam]);
 
   const cards = useMemo(() => {
     const currentDate = new Date();
-    return rows.map(e => ({
+    return rows.map((e) => ({
       id: e.id,
       image: e.image,
       title: e.title,
       date: e.dt ? e.dt.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" }) : "",
       time: e.dt ? e.dt.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }) : "",
-      price: e.price.toFixed(2),
       isPastEvent: e.dt ? e.dt < currentDate : false,
     }));
   }, [rows]);
 
   const handleLogout = async () => {
-    try { await logoutApi(); } catch {} finally {
+    try {
+      await logoutApi();
+    } catch {}
+    finally {
       localStorage.removeItem("token");
       localStorage.removeItem("user");
       navigate("/");
@@ -121,7 +150,10 @@ export const EventsPage = () => {
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-10 w-10 rounded-full p-0 relative z-50 cursor-pointer hover:bg-gray-100 transition-colors">
+              <Button
+                variant="ghost"
+                className="h-10 w-10 rounded-full p-0 relative z-50 cursor-pointer hover:bg-gray-100 transition-colors"
+              >
                 <Avatar className="h-9 w-9">
                   <AvatarFallback className="bg-gray-900 text-white text-sm font-medium">
                     {initials}
@@ -129,8 +161,8 @@ export const EventsPage = () => {
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent 
-              align="end" 
+            <DropdownMenuContent
+              align="end"
               className="w-60 text-gray-900 bg-white shadow-xl border border-gray-200 rounded-md z-[9999] mt-2"
               side="bottom"
               sideOffset={8}
@@ -138,66 +170,55 @@ export const EventsPage = () => {
               <div className="px-4 py-3 border-b border-gray-100">
                 <p className="text-sm font-medium text-gray-900 truncate">{displayName}</p>
               </div>
-              
+
               {isAdmin && (
-                <>
-                  <div className="p-1">
-                    <DropdownMenuItem 
-                      onClick={() => navigate("/admin")} 
-                      className="flex items-center px-3 py-2 text-sm hover:bg-gray-100 cursor-pointer rounded-sm"
-                    >
-                      <Shield className="mr-3 h-4 w-4" />
-                      <span>Admin Panel</span>
-                    </DropdownMenuItem>
-                  </div>
-                  <div className="h-px bg-gray-100 mx-2"></div>
-                </>
+                <div className="p-1">
+                  <DropdownMenuItem
+                    onClick={() => navigate("/admin")}
+                    className="flex items-center px-3 py-2 text-sm hover:bg-gray-100 cursor-pointer rounded-sm"
+                  >
+                    <Shield className="mr-3 h-4 w-4" />
+                    <span>Admin Panel</span>
+                  </DropdownMenuItem>
+                </div>
               )}
-              
+
               {isStudent && (
-                <>
-                  <div className="p-1">
-                    <DropdownMenuItem 
-                      onClick={() => navigate("/student-dashboard")} 
-                      className="flex items-center px-3 py-2 text-sm hover:bg-gray-100 cursor-pointer rounded-sm"
-                    >
-                      <Ticket className="mr-3 h-4 w-4" />
-                      <span>My Reservations</span>
-                    </DropdownMenuItem>
-                  </div>
-                  <div className="h-px bg-gray-100 mx-2"></div>
-                </>
+                <div className="p-1">
+                  <DropdownMenuItem
+                    onClick={() => navigate("/student-dashboard")}
+                    className="flex items-center px-3 py-2 text-sm hover:bg-gray-100 cursor-pointer rounded-sm"
+                  >
+                    <Ticket className="mr-3 h-4 w-4" />
+                    <span>My Reservations</span>
+                  </DropdownMenuItem>
+                </div>
               )}
-              
+
               {isOrganizer && (
-                <>
-                  <div className="p-1">
-                    <DropdownMenuItem 
-                      onClick={() => navigate("/organizer-dashboard")} 
-                      className="flex items-center px-3 py-2 text-sm hover:bg-gray-100 cursor-pointer rounded-sm"
-                    >
-                      <span>My Events</span>
-                    </DropdownMenuItem>
-                  </div>
-                  <div className="h-px bg-gray-100 mx-2"></div>
-                </>
+                <div className="p-1">
+                  <DropdownMenuItem
+                    onClick={() => navigate("/organizer-dashboard")}
+                    className="flex items-center px-3 py-2 text-sm hover:bg-gray-100 cursor-pointer rounded-sm"
+                  >
+                    <span>My Events</span>
+                  </DropdownMenuItem>
+                </div>
               )}
-              
+
               <div className="p-1">
-                <DropdownMenuItem 
-                  onClick={() => navigate("/settings")} 
+                <DropdownMenuItem
+                  onClick={() => navigate("/settings")}
                   className="flex items-center px-3 py-2 text-sm hover:bg-gray-100 cursor-pointer rounded-sm"
                 >
                   <Settings className="mr-3 h-4 w-4" />
                   <span>Settings</span>
                 </DropdownMenuItem>
               </div>
-              
-              <div className="h-px bg-gray-100 mx-2"></div>
-              
+
               <div className="p-1">
-                <DropdownMenuItem 
-                  onClick={handleLogout} 
+                <DropdownMenuItem
+                  onClick={handleLogout}
                   className="flex items-center px-3 py-2 text-sm hover:bg-red-50 hover:text-red-700 cursor-pointer rounded-sm"
                 >
                   <LogOut className="mr-3 h-4 w-4" />
@@ -223,8 +244,12 @@ export const EventsPage = () => {
                   <SelectValue placeholder="Sort" />
                 </SelectTrigger>
                 <SelectContent className="text-white bg-gray-800 border-gray-800">
-                  <SelectItem value="desc" className="cursor-pointer hover:bg-gray-700">Newest first</SelectItem>
-                  <SelectItem value="asc" className="cursor-pointer hover:bg-gray-700">Oldest first</SelectItem>
+                  <SelectItem value="desc" className="cursor-pointer hover:bg-gray-700">
+                    Newest first
+                  </SelectItem>
+                  <SelectItem value="asc" className="cursor-pointer hover:bg-gray-700">
+                    Oldest first
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -232,7 +257,10 @@ export const EventsPage = () => {
             <div className="flex items-center gap-3 text-black">
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-40 justify-start bg-white cursor-pointer hover:bg-gray-50 transition-colors">
+                  <Button
+                    variant="outline"
+                    className="w-40 justify-start bg-white cursor-pointer hover:bg-gray-50 transition-colors"
+                  >
                     <CalendarIcon className="mr-2 h-4 w-4" />
                     {fromDate ? fmtDisplay(fromDate) : "From date"}
                   </Button>
@@ -249,7 +277,10 @@ export const EventsPage = () => {
 
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-40 justify-start bg-white cursor-pointer hover:bg-gray-50 transition-colors">
+                  <Button
+                    variant="outline"
+                    className="w-40 justify-start bg-white cursor-pointer hover:bg-gray-50 transition-colors"
+                  >
                     <CalendarIcon className="mr-2 h-4 w-4" />
                     {toDate ? fmtDisplay(toDate) : "To date"}
                   </Button>
@@ -264,11 +295,13 @@ export const EventsPage = () => {
                 </PopoverContent>
               </Popover>
 
-            
               <Button
                 variant="ghost"
                 className="text-sm cursor-pointer hover:bg-gray-100 transition-colors"
-                onClick={() => { setFromDate(null); setToDate(null); }}
+                onClick={() => {
+                  setFromDate(null);
+                  setToDate(null);
+                }}
               >
                 Clear
               </Button>
@@ -286,7 +319,6 @@ export const EventsPage = () => {
                   title={event.title}
                   date={event.date}
                   time={event.time}
-                  price={event.price}
                   isPastEvent={event.isPastEvent}
                   onClick={() => navigate(`/events/${event.id}`)}
                 />

@@ -1,3 +1,4 @@
+// StudentDashboard.jsx
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
@@ -7,7 +8,7 @@ import { Alert, AlertDescription } from "./ui/alert";
 import { Avatar, AvatarFallback } from "./ui/avatar";
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
-  DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator
+  DropdownMenuItem, DropdownMenuLabel
 } from "./ui/dropdown-menu";
 import {
   Tabs, TabsContent, TabsList, TabsTrigger
@@ -18,21 +19,19 @@ import {
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader,
-  AlertDialogTitle, AlertDialogTrigger
+  AlertDialogTitle
 } from "./ui/alert-dialog";
 import { 
   Calendar, Settings, LogOut, Trash2, Eye, 
-  Ticket, Clock, DollarSign, CalendarDays, Shield
+  Ticket, Clock, CalendarDays
 } from "lucide-react";
 import { logoutApi } from "../services/auth";
 import { getUserReservations, deleteReservation } from "../services/reservations";
 import { getEvents } from "../services/events";
 import { toast } from "react-toastify";
 
-function getToken() { 
-  return localStorage.getItem("token"); 
-}
-
+// Helper funkcije
+function getToken() { return localStorage.getItem("token"); }
 function decodeJwt(token) { 
   try { 
     const b = token.split(".")[1]; 
@@ -42,13 +41,11 @@ function decodeJwt(token) {
     return null; 
   } 
 }
-
 function getDisplayName(p) { 
   if (!p) return "Student"; 
   if (p.name && p.surname) return `${p.name} ${p.surname}`; 
   return p.name || p.username || p.email || "Student"; 
 }
-
 function getInitials(name) { 
   return (name.split(" ").filter(Boolean).slice(0,2).map(s=>s[0]?.toUpperCase()||"").join("")) || "S"; 
 }
@@ -57,11 +54,7 @@ export default function StudentDashboard() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   
-  const payload = useMemo(() => { 
-    const t = getToken(); 
-    return t ? decodeJwt(t) : null; 
-  }, []);
-  
+  const payload = useMemo(() => getToken() ? decodeJwt(getToken()) : null, []);
   const displayName = useMemo(() => getDisplayName(payload), [payload]);
   const initials = useMemo(() => getInitials(displayName), [displayName]);
   
@@ -73,10 +66,7 @@ export default function StudentDashboard() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   const activeTab = searchParams.get("tab") || "events";
-
-  const setActiveTab = (tab) => {
-    setSearchParams({ tab });
-  };
+  const setActiveTab = (tab) => setSearchParams({ tab });
 
   useEffect(() => {
     loadStudentData();
@@ -122,11 +112,7 @@ export default function StudentDashboard() {
   };
 
   const handleLogout = async () => {
-    try {
-      await logoutApi();
-    } catch (err) {
-      console.error("Logout error:", err);
-    } finally {
+    try { await logoutApi(); } catch {} finally {
       localStorage.removeItem("token");
       localStorage.removeItem("user");
       navigate("/");
@@ -137,11 +123,8 @@ export default function StudentDashboard() {
     try {
       const date = new Date(dateString);
       return date.toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit"
+        year: "numeric", month: "short", day: "numeric",
+        hour: "2-digit", minute: "2-digit"
       });
     } catch {
       return dateString;
@@ -274,6 +257,7 @@ export default function StudentDashboard() {
                         <TableHeader>
                           <TableRow>
                             <TableHead className="text-gray-900 font-semibold">Event</TableHead>
+                            <TableHead className="text-gray-900 font-semibold">Ticket Type</TableHead>
                             <TableHead className="text-gray-900 font-semibold">Date & Time</TableHead>
                             <TableHead className="text-gray-900 font-semibold">Tickets</TableHead>
                             <TableHead className="text-gray-900 font-semibold">Total Price</TableHead>
@@ -285,12 +269,12 @@ export default function StudentDashboard() {
                           {reservations.map((reservation) => (
                             <TableRow key={reservation.id}>
                               <TableCell>
-                                <div>
-                                  <div className="font-medium text-gray-900">{reservation.event_title}</div>
-                                  {reservation.event_location && (
-                                    <div className="text-sm text-gray-600">{reservation.event_location}</div>
-                                  )}
-                                </div>
+                                <div className="font-medium text-gray-900">{reservation.event_title}</div>
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant="secondary" className="text-xs">
+                                  {reservation.ticket_type_name}
+                                </Badge>
                               </TableCell>
                               <TableCell>
                                 <div className="flex items-center gap-1 text-gray-800">
@@ -304,9 +288,8 @@ export default function StudentDashboard() {
                                 </Badge>
                               </TableCell>
                               <TableCell>
-                                <div className="flex items-center gap-1 text-green-600 font-semibold">
-                                  <DollarSign className="w-4 h-4" />
-                                  {(parseFloat(reservation.event_price || 0) * reservation.number_of_tickets).toFixed(2)}
+                                <div className="text-green-600 font-semibold">
+                                  {reservation.total_price} KM
                                 </div>
                               </TableCell>
                               <TableCell>
@@ -363,40 +346,48 @@ export default function StudentDashboard() {
                     </div>
                   ) : (
                     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                      {availableEvents.map((event) => (
-                        <Card key={event.id} className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer">
-                          <div className="relative h-48 overflow-hidden">
-                            <img
-                              src={event.image || "https://images.pexels.com/photos/1190298/pexels-photo-1190298.jpeg?auto=compress&cs=tinysrgb&w=800"}
-                              alt={event.title}
-                              className="w-full h-full object-cover"
-                            />
-                          </div>
-                          <CardContent className="p-4">
-                            <h3 className="font-semibold text-lg mb-2 line-clamp-2 text-gray-900">{event.title}</h3>
-                            <div className="space-y-2 text-sm text-gray-600 mb-4">
-                              <div className="flex items-center gap-2">
-                                <Clock className="w-4 h-4" />
-                                {formatDateTime(event.date_and_time)}
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <DollarSign className="w-4 h-4 text-green-600" />
-                                <span className="font-semibold text-green-600">${parseFloat(event.price || 0).toFixed(2)}</span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <Ticket className="w-4 h-4" />
-                                {event.available_seats || event.number_of_available_seats} seats available
-                              </div>
+                      {availableEvents.map((event) => {
+                        // ✅ KORISTI total_available_seats IZ BACKENDA
+                        const totalAvailable = event.total_available_seats || 0;
+                        const seatsDisplay = totalAvailable > 0 
+                          ? `${totalAvailable} seat${totalAvailable === 1 ? '' : 's'} available`
+                          : "No seats available";
+
+                        return (
+                          <Card key={event.id} className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer">
+                            <div className="relative h-48 overflow-hidden">
+                              <img
+                                src={event.image || "https://images.pexels.com/photos/1190298/pexels-photo-1190298.jpeg?auto=compress&cs=tinysrgb&w=800"}
+                                alt={event.title}
+                                className="w-full h-full object-cover"
+                              />
                             </div>
-                            <Button 
-                              className="w-full !bg-blue-600 hover:!bg-blue-700 !text-white font-medium py-2 px-4 rounded-md transition-all duration-200 hover:shadow-md hover:scale-105 border-0 cursor-pointer"
-                              onClick={() => navigate(`/events/${event.id}?returnTo=dashboard&tab=events`)}
-                            >
-                              View Details & Reserve
-                            </Button>
-                          </CardContent>
-                        </Card>
-                      ))}
+                            <CardContent className="p-4">
+                              <h3 className="font-semibold text-lg mb-2 line-clamp-2 text-gray-900">{event.title}</h3>
+                              <div className="space-y-2 text-sm text-gray-600 mb-4">
+                                <div className="flex items-center gap-2">
+                                  <Clock className="w-4 h-4" />
+                                  {formatDateTime(event.date_and_time)}
+                                </div>
+                                {/* ✅ CIJENA NIKAD SE NE PRIKAZUJE NA LISTI */}
+                                <div className="flex items-center gap-2">
+                                  <Ticket className="w-4 h-4" />
+                                  <span className={totalAvailable === 0 ? "text-red-600" : ""}>
+                                    {seatsDisplay}
+                                  </span>
+                                </div>
+                              </div>
+                              <Button 
+                                className="w-full !bg-blue-600 hover:!bg-blue-700 !text-white font-medium py-2 px-4 rounded-md transition-all duration-200 hover:shadow-md hover:scale-105 border-0 cursor-pointer"
+                                onClick={() => navigate(`/events/${event.id}?returnTo=dashboard&tab=events`)}
+                                disabled={totalAvailable === 0}
+                              >
+                                {totalAvailable === 0 ? "Sold Out" : "View Details & Reserve"}
+                              </Button>
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
                     </div>
                   )}
                 </CardContent>
@@ -407,7 +398,7 @@ export default function StudentDashboard() {
           <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
             <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogTitle></AlertDialogTitle>
+                <AlertDialogTitle>Cancel Reservation</AlertDialogTitle>
                 <AlertDialogDescription>
                   Are you sure you want to cancel your reservation for "{selectedReservation?.event_title}"? 
                   This action cannot be undone.

@@ -1,3 +1,4 @@
+// organizer-api.js
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
 
 function getAuthHeader() {
@@ -19,7 +20,16 @@ export async function getOrganizerEvents() {
   return response.json();
 }
 
+/**
+ * Kreira događaj sa višestrukim tipovima ulaznica
+ * @param {Object} eventData - mora sadržati `ticketTypes` niz
+ */
 export async function createEvent(eventData) {
+  // Provera: da li postoji ticketTypes niz?
+  if (!Array.isArray(eventData.ticketTypes) || eventData.ticketTypes.length === 0) {
+    throw new Error("At least one ticket type is required");
+  }
+
   const response = await fetch(`${API_BASE_URL}/events/organizer/create`, {
     method: "POST",
     headers: {
@@ -38,7 +48,9 @@ export async function createEvent(eventData) {
 }
 
 export async function updateEvent(eventId, eventData) {
-  const response = await fetch(`${API_BASE_URL}/events/organizer/${eventId}`, {
+  // ⚠️ Ako ažuriraš i ticketTypes, backend trenutno NE podržava to!
+  // Za sada ažuriraš samo osnovne podatke (naslov, opis...)
+  const response = await fetch(`${API_BASE_URL}/events/organiganizer/${eventId}`, {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
@@ -70,24 +82,15 @@ export async function deleteEvent(eventId) {
 }
 
 export async function getEventReservations(eventId) {
-  console.log("Making API call to:", `${API_BASE_URL}/events/organizer/${eventId}/reservations`);
-  console.log("Auth header:", getAuthHeader());
-  
   const response = await fetch(`${API_BASE_URL}/events/organizer/${eventId}/reservations`, {
     method: "GET",
     headers: getAuthHeader(),
   });
 
-  console.log("Response status:", response.status);
-  console.log("Response ok:", response.ok);
-
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
-    console.log("Error response:", error);
     throw new Error(error.error || `HTTP ${response.status}: ${response.statusText}`);
   }
 
-  const data = await response.json();
-  console.log("Received reservations data:", data);
-  return data;
+  return response.json();
 }

@@ -1,3 +1,4 @@
+// reservations-api.js
 const BASE = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
 
 function authHeaders() {
@@ -7,11 +8,17 @@ function authHeaders() {
   return headers;
 }
 
-export async function createReservation(eventId, numberOfTickets = 1) {
+/**
+ * Kreira rezervaciju za određeni TIP ulaznice
+ * @param {number} eventId
+ * @param {number} ticketTypeId  ← OVO JE NOVO!
+ * @param {number} numberOfTickets
+ */
+export async function createReservation(eventId, ticketTypeId, numberOfTickets = 1) {
   const res = await fetch(`${BASE}/reservations/events/${eventId}`, {
     method: "POST",
     headers: authHeaders(),
-    body: JSON.stringify({ numberOfTickets }),
+    body: JSON.stringify({ ticketTypeId, numberOfTickets }),
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || "Failed to create reservation");

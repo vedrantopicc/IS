@@ -1,49 +1,64 @@
 import { pool } from "../db.js";
+
+// ✅ DOHVATI JEDAN DOGAĐAJ SA SVIM TIPOVIMA ULAZNICA
 export async function getEventById(req, res, next) {
   try {
     const { id } = req.params;
-    const [rows] = await pool.query(
+
+    // Osnovni podaci o događaju
+    const [eventRows] = await pool.query(
       `SELECT
          e.id,
          e.title,
          e.date_and_time,
-         e.number_of_available_seats,
-         e.price,
+         e.description,
          e.image,
          e.user_id,
-         e.description,
          CONCAT_WS(' ', u.name, u.surname) AS organizer_name,
-         u.username AS organizer_username,
-         COALESCE(SUM(r.number_of_tickets), 0) as reserved_tickets,
-         (e.number_of_available_seats - COALESCE(SUM(r.number_of_tickets), 0)) as available_seats
+         u.username AS organizer_username
        FROM event e
        JOIN \`user\` u ON u.id = e.user_id
-       LEFT JOIN reservation r ON r.event_id = e.id
-       WHERE e.id = ?
-       GROUP BY e.id
-       LIMIT 1`,
+       WHERE e.id = ?`,
       [id]
     );
-    if (!rows.length) return res.status(404).json({ error: "Event not found" });
-    
-    const event = rows[0];
-    event.available_seats = Math.max(0, event.available_seats);
-    
-    res.json(event);
+
+    if (!eventRows?.length) {
+      return res.status(404).json({ error: "Event not found" });
+    }
+
+    const event = eventRows[0];
+
+    // Tipovi ulaznica + rezervisana mesta po tipu
+    const [ticketTypes] = await pool.query(
+      `SELECT
+         tt.id,
+         tt.name,
+         tt.price,
+         tt.total_seats,
+         COALESCE(SUM(r.number_of_tickets), 0) AS reserved_tickets,
+         GREATEST(tt.total_seats - COALESCE(SUM(r.number_of_tickets), 0), 0) AS available_seats
+       FROM ticket_type tt
+       LEFT JOIN reservation r ON r.ticket_type_id = tt.id
+       WHERE tt.event_id = ?
+       GROUP BY tt.id`,
+      [id]
+    );
+
+    res.json({
+      ...event,
+      ticket_types: ticketTypes
+    });
   } catch (err) {
     next(err);
   }
 }
 
+// ✅ DOHVATI SVE DOGAĐAJE (osnovni podaci + opseg cena)
 export async function getAllEvents(req, res, next) {
   try {
     let { from, to, sort = "desc" } = req.query;
-
-    console.log("=== getAllEvents called ===");
-    console.log("Query params:", { from, to, sort });
-
-    from = (from && from.trim()) || undefined; 
-    to   = (to   && to.trim())   || undefined;
+    from = (from && from.trim()) || undefined;
+    to = (to && to.trim()) || undefined;
 
     const where = [];
     const params = [];
@@ -51,197 +66,159 @@ export async function getAllEvents(req, res, next) {
     if (from) {
       where.push("e.date_and_time >= ?");
       params.push(`${from} 00:00:00`);
-      console.log("Adding FROM filter:", `${from} 00:00:00`);
     }
-
     if (to) {
       where.push("e.date_and_time < DATE_ADD(?, INTERVAL 1 DAY)");
       params.push(to);
-      console.log("Adding TO filter:", to);
     }
 
     const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
-    const orderSql = String(sort).toLowerCase() === "asc" ? "ASC" : "DESC";
+    const orderSql = sort?.toLowerCase() === "asc" ? "ASC" : "DESC";
 
-    const sql = `
-      SELECT e.id, e.title, e.date_and_time, e.number_of_available_seats,
-             e.price, e.image, e.user_id, e.description,
-             COALESCE(SUM(r.number_of_tickets), 0) as reserved_tickets,
-             (e.number_of_available_seats - COALESCE(SUM(r.number_of_tickets), 0)) as available_seats
-      FROM \`event\` e
-      LEFT JOIN reservation r ON r.event_id = e.id
-      ${whereSql}
-      GROUP BY e.id, e.title, e.date_and_time, e.number_of_available_seats, e.price, e.image, e.user_id, e.description
-      ORDER BY e.date_and_time ${orderSql}
-    `;
-    console.log("SQL query:", sql);
-    console.log("SQL params:", params);
-    
-    const [rows] = await pool.query(sql, params);
-    
-    const eventsWithAvailableSeats = rows.map(event => ({
-      ...event,
-      available_seats: Math.max(0, event.available_seats)
-    }));
-    
-    console.log("Query results count:", eventsWithAvailableSeats.length);
-    console.log("First 2 rows:", eventsWithAvailableSeats.slice(0, 2));
-    
-    res.json(eventsWithAvailableSeats);
-  } catch (err) {
-    console.error("Error in getAllEvents:", err);
-    next(err);
-  }
-}
-
-export async function deleteEventById(req, res, next) {
-  try {
-    const { id } = req.params;
-
-    const [existingEvent] = await pool.query(
-      "SELECT id, title, user_id FROM `event` WHERE id = ? LIMIT 1",
-      [id]
-    );
-
-    if (!existingEvent.length) {
-      return res.status(404).json({ error: "Event not found" });
-    }
-
-    const [result] = await pool.query(
-      "DELETE FROM `event` WHERE id = ?",
-      [id]
-    );
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ error: "Event not found" });
-    }
-
-    res.json({ 
-      message: "Event deleted successfully", 
-      deletedEvent: existingEvent[0] 
-    });
-
-  } catch (err) {
-    next(err);
-  }
-}
-
-export async function getOrganizerEvents(req, res, next) {
-  try {
-    const userId = req.user.id;
-    
+    // Dohvata događaje i agregira cene i dostupna mesta
     const [rows] = await pool.query(
       `SELECT
          e.id,
          e.title,
          e.date_and_time,
-         e.number_of_available_seats,
-         e.price,
-         e.image,
          e.description,
+         e.image,
+         e.user_id,
          CONCAT_WS(' ', u.name, u.surname) AS organizer_name,
          u.username AS organizer_username,
-         COALESCE(SUM(r.number_of_tickets), 0) as reserved_tickets,
-         (e.number_of_available_seats - COALESCE(SUM(r.number_of_tickets), 0)) as available_seats
+         MIN(tt.price) AS min_price,
+         MAX(tt.price) AS max_price,
+         SUM(GREATEST(tt.total_seats - COALESCE(res_sum.reserved, 0), 0)) AS total_available_seats
        FROM event e
        JOIN \`user\` u ON u.id = e.user_id
-       LEFT JOIN reservation r ON r.event_id = e.id
-       WHERE e.user_id = ?
+       JOIN ticket_type tt ON tt.event_id = e.id
+       LEFT JOIN (
+         SELECT 
+           ticket_type_id, 
+           SUM(number_of_tickets) AS reserved
+         FROM reservation
+         GROUP BY ticket_type_id
+       ) res_sum ON res_sum.ticket_type_id = tt.id
+       ${whereSql}
        GROUP BY e.id
-       ORDER BY e.date_and_time DESC`,
-      [userId]
+       ORDER BY e.date_and_time ${orderSql}`,
+      params
     );
-    
-    const eventsWithAvailableSeats = rows.map(event => ({
-      ...event,
-      available_seats: Math.max(0, event.available_seats)
-    }));
-    
-    res.json(eventsWithAvailableSeats);
+
+    res.json(rows);
   } catch (err) {
     next(err);
   }
 }
 
+// ✅ KREIRAJ DOGAĐAJ SA VIŠE TIPOVA ULAZNICA
 export async function createEvent(req, res, next) {
   try {
     const userId = req.user.id;
-    const { title, description, date_and_time, number_of_available_seats, price, image } = req.body;
-    
-    if (!title || !date_and_time || !number_of_available_seats || !price) {
-      return res.status(400).json({ error: "Missing required fields" });
+    const { title, description, date_and_time, image, ticketTypes } = req.body;
+
+    // Validacija
+    if (!title || !date_and_time || !Array.isArray(ticketTypes) || ticketTypes.length === 0) {
+      return res.status(400).json({ error: "Title, date, and at least one ticket type are required" });
     }
-    
-    const [result] = await pool.query(
-      `INSERT INTO event (title, description, date_and_time, number_of_available_seats, price, image, user_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [title, description, date_and_time, number_of_available_seats, price, image || null, userId]
+
+    for (const tt of ticketTypes) {
+      if (!tt.name || tt.price == null || tt.total_seats == null || tt.total_seats <= 0) {
+        return res.status(400).json({ error: "Each ticket type must have 'name', 'price', and 'total_seats > 0'" });
+      }
+    }
+
+    // Kreiraj događaj
+    const [eventResult] = await pool.query(
+      `INSERT INTO event (title, description, date_and_time, image, user_id)
+       VALUES (?, ?, ?, ?, ?)`,
+      [title, description, date_and_time, image || null, userId]
     );
-    
-    const [newEvent] = await pool.query(
+
+    const eventId = eventResult.insertId;
+
+    // Kreiraj tipove ulaznica
+    const ticketTypeValues = ticketTypes.map(tt => [
+      eventId,
+      tt.name,
+      tt.price,
+      tt.total_seats
+    ]);
+
+    await pool.query(
+      `INSERT INTO ticket_type (event_id, name, price, total_seats)
+       VALUES ?`,
+      [ticketTypeValues]
+    );
+
+    // Vrati potpuni događaj
+    const [fullEvent] = await pool.query(
       `SELECT
          e.id,
          e.title,
          e.date_and_time,
-         e.number_of_available_seats,
-         e.price,
-         e.image,
          e.description,
+         e.image,
          e.user_id,
          CONCAT_WS(' ', u.name, u.surname) AS organizer_name,
          u.username AS organizer_username
        FROM event e
        JOIN \`user\` u ON u.id = e.user_id
        WHERE e.id = ?`,
-      [result.insertId]
+      [eventId]
     );
-    
-    res.status(201).json(newEvent[0]);
+
+    const [ticketTypesResult] = await pool.query(
+      `SELECT id, name, price, total_seats FROM ticket_type WHERE event_id = ?`,
+      [eventId]
+    );
+
+    res.status(201).json({
+      ...fullEvent[0],
+      ticket_types: ticketTypesResult
+    });
   } catch (err) {
     next(err);
   }
 }
 
+// ✅ AŽURIRAJ OSNOVNE PODATKE DOGAĐAJA (naslov, datum...)
 export async function updateEvent(req, res, next) {
   try {
     const { id } = req.params;
     const userId = req.user.id;
-    const { title, description, date_and_time, number_of_available_seats, price, image } = req.body;
-    
-    const [existingEvent] = await pool.query(
-      "SELECT id, user_id FROM `event` WHERE id = ? AND user_id = ? LIMIT 1",
+    const { title, description, date_and_time, image } = req.body;
+
+    const [existing] = await pool.query(
+      "SELECT id FROM event WHERE id = ? AND user_id = ?",
       [id, userId]
     );
-    
-    if (!existingEvent.length) {
-      return res.status(404).json({ error: "Event not found or you don't have permission to edit it" });
+
+    if (!existing.length) {
+      return res.status(404).json({ error: "Event not found or no permission" });
     }
-    
+
     const [result] = await pool.query(
       `UPDATE event SET 
          title = COALESCE(?, title),
          description = COALESCE(?, description),
          date_and_time = COALESCE(?, date_and_time),
-         number_of_available_seats = COALESCE(?, number_of_available_seats),
-         price = COALESCE(?, price),
-         image = COALESCE(?, image)
+         image = ?
        WHERE id = ?`,
-      [title, description, date_and_time, number_of_available_seats, price, image, id]
+      [title, description, date_and_time, image || null, id]
     );
-    
+
     if (result.affectedRows === 0) {
       return res.status(404).json({ error: "Event not found" });
     }
-    
-    const [updatedEvent] = await pool.query(
+
+    const [updated] = await pool.query(
       `SELECT
          e.id,
          e.title,
          e.date_and_time,
-         e.number_of_available_seats,
-         e.price,
-         e.image,
          e.description,
+         e.image,
          e.user_id,
          CONCAT_WS(' ', u.name, u.surname) AS organizer_name,
          u.username AS organizer_username
@@ -250,8 +227,61 @@ export async function updateEvent(req, res, next) {
        WHERE e.id = ?`,
       [id]
     );
-    
-    res.json(updatedEvent[0]);
+
+    // Dohvati i tipove ulaznica
+    const [ticketTypes] = await pool.query(
+      `SELECT id, name, price, total_seats FROM ticket_type WHERE event_id = ?`,
+      [id]
+    );
+
+    res.json({
+      ...updated[0],
+      ticket_types: ticketTypes
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ✅ BRISANJE DOGAĐAJA (automatski briše i ticket_type i reservation zbog CASCADE)
+export async function deleteEventById(req, res, next) {
+  try {
+    const { id } = req.params;
+    const [result] = await pool.query("DELETE FROM event WHERE id = ?", [id]);
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: "Event not found" });
+    }
+    res.json({ message: "Event deleted successfully" });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ✅ DOGAĐAJI ORGANIZATORA
+export async function getOrganizerEvents(req, res, next) {
+  try {
+    const userId = req.user.id;
+    const [rows] = await pool.query(
+      `SELECT
+         e.id,
+         e.title,
+         e.date_and_time,
+         e.description,
+         e.image,
+         e.user_id,
+         CONCAT_WS(' ', u.name, u.surname) AS organizer_name,
+         u.username AS organizer_username,
+         MIN(tt.price) AS min_price,
+         MAX(tt.price) AS max_price
+       FROM event e
+       JOIN \`user\` u ON u.id = e.user_id
+       JOIN ticket_type tt ON tt.event_id = e.id
+       WHERE e.user_id = ?
+       GROUP BY e.id
+       ORDER BY e.date_and_time DESC`,
+      [userId]
+    );
+    res.json(rows);
   } catch (err) {
     next(err);
   }
@@ -290,37 +320,39 @@ export async function deleteOrganizerEvent(req, res, next) {
   }
 }
 
+// ✅ REZERVACIJE ZA DOGAĐAJ (vidljivo organizatoru)
 export async function getEventReservations(req, res, next) {
   try {
     const { eventId } = req.params;
     const userId = req.user.id;
-    
+
     const [eventCheck] = await pool.query(
-      "SELECT id FROM `event` WHERE id = ? AND user_id = ? LIMIT 1",
+      "SELECT id FROM event WHERE id = ? AND user_id = ?",
       [eventId, userId]
     );
-    
+
     if (!eventCheck.length) {
-      return res.status(404).json({ error: "Event not found or you don't have permission to view its reservations" });
+      return res.status(404).json({ error: "Event not found or no permission" });
     }
-    
+
     const [reservations] = await pool.query(
       `SELECT
          r.id,
          r.number_of_tickets,
          r.reservation_date,
+         tt.name AS ticket_type_name,
+         tt.price AS ticket_price,
          CONCAT_WS(' ', u.name, u.surname) AS student_name,
          u.username AS student_username,
-         u.email AS student_email,
-         e.title AS event_title
+         u.email AS student_email
        FROM reservation r
        JOIN \`user\` u ON u.id = r.user_id
-       JOIN event e ON e.id = r.event_id
+       JOIN ticket_type tt ON tt.id = r.ticket_type_id
        WHERE r.event_id = ?
        ORDER BY r.reservation_date DESC`,
       [eventId]
     );
-    
+
     res.json(reservations);
   } catch (err) {
     next(err);

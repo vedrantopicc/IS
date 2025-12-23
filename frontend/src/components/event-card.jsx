@@ -1,4 +1,5 @@
-import { Calendar, Clock, DollarSign } from "lucide-react";
+// EventCard.jsx
+import { Calendar, Clock } from "lucide-react";
 import { Card, CardContent } from "./ui/card";
 
 export default function EventCard({ 
@@ -6,7 +7,6 @@ export default function EventCard({
   title, 
   date, 
   time, 
-  price,
   onClick,
   className = "",
   isPastEvent = false
@@ -29,32 +29,25 @@ export default function EventCard({
 
       <CardContent className="p-6 space-y-4">
         <h3 className="text-xl font-bold text-gray-900 line-clamp-2 leading-tight">
-          {title || "Event Title"}
+          {title}
         </h3>
 
         <div className="flex items-center space-x-4 text-gray-600">
           <div className="flex items-center space-x-2">
             <Calendar className="w-4 h-4 text-blue-600" />
-            <span className="text-sm font-medium">
-              {date || "Dec 25, 2024"}
-            </span>
+            <span className="text-sm font-medium">{date}</span>
           </div>
           <div className="flex items-center space-x-2">
             <Clock className="w-4 h-4 text-blue-600" />
-            <span className="text-sm font-medium">
-              {time || "7:00 PM"}
-            </span>
+            <span className="text-sm font-medium">{time}</span>
           </div>
         </div>
 
-          <div className="flex items-center justify-between pt-2 border-t border-gray-100">
-          <div className="flex items-center space-x-2">
-            <DollarSign className="w-5 h-5 text-green-600" />
-            <span className="text-2xl font-bold text-green-600">
-              {price || "25.00"}
-            </span>
-          </div>
-           <button onClick={onClick} className="px-4 py-2 !bg-blue-600 hover:!bg-blue-700 !text-white text-sm font-medium rounded-lg transition-colors duration-200 cursor-pointer">
+        <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+          <button 
+            onClick={onClick} 
+            className="px-4 py-2 !bg-blue-600 hover:!bg-blue-700 !text-white text-sm font-medium rounded-lg transition-colors duration-200 cursor-pointer"
+          >
             View Details
           </button>
         </div>

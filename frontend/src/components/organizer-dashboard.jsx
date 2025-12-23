@@ -1,9 +1,10 @@
+// OrganizerDashboard.jsx
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Avatar, AvatarFallback } from "../components/ui/avatar";
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
-  DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator
+  DropdownMenuItem, DropdownMenuLabel
 } from "../components/ui/dropdown-menu";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -13,11 +14,12 @@ import { Badge } from "../components/ui/badge";
 import { Table, TableHead, TableRow, TableCell, TableHeader, TableBody } from "../components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../components/ui/dialog";
-import { Settings, LogOut, Plus, Edit, Trash2, Users, Calendar, Clock, DollarSign, Eye, Shield } from "lucide-react";
+import { Settings, LogOut, Plus, Edit, Trash2, Users, Calendar, Clock, DollarSign, Eye, Shield, Minus } from "lucide-react";
 import { logoutApi } from "../services/auth";
 import { getOrganizerEvents, createEvent, updateEvent, deleteEvent, getEventReservations } from "../services/organizer";
 import { toast } from "react-toastify";
 
+// Helper funkcije (ostaju iste)
 function getToken() { return localStorage.getItem("token"); }
 function decodeJwt(token) { 
   try { 
@@ -40,7 +42,6 @@ function getInitials(name) {
 function getCurrentUserRole() {
   const token = getToken();
   if (!token) return null;
-  
   const userStr = localStorage.getItem("user");
   if (userStr) {
     try {
@@ -48,7 +49,6 @@ function getCurrentUserRole() {
       return user.role;
     } catch {}
   }
-  
   return null;
 }
 
@@ -60,14 +60,25 @@ const formatDateTime = (dateTimeString) => {
   return { date, time };
 };
 
+const isEventInPast = (dateTimeString) => {
+  const eventDate = new Date(dateTimeString);
+  const currentDate = new Date();
+  return eventDate < currentDate;
+};
+
+const formatDateTimeForMySQL = (dateTime) => {
+  const date = new Date(dateTime);
+  return date.getFullYear() + '-' +
+    String(date.getMonth() + 1).padStart(2, '0') + '-' +
+    String(date.getDate()).padStart(2, '0') + ' ' +
+    String(date.getHours()).padStart(2, '0') + ':' +
+    String(date.getMinutes()).padStart(2, '0') + ':' +
+    String(date.getSeconds()).padStart(2, '0');
+};
+
 export default function OrganizerDashboard() {
   const navigate = useNavigate();
-  
-  const payload = useMemo(() => { 
-    const t = getToken(); 
-    return t ? decodeJwt(t) : null; 
-  }, []);
-  
+  const payload = useMemo(() => getToken() ? decodeJwt(getToken()) : null, []);
   const displayName = useMemo(() => getDisplayName(payload), [payload]);
   const initials = useMemo(() => getInitials(displayName), [displayName]);
   const userRole = useMemo(() => getCurrentUserRole(), []);
@@ -81,22 +92,23 @@ export default function OrganizerDashboard() {
   const [showReservationsDialog, setShowReservationsDialog] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [reservations, setReservations] = useState([]);
-  
+
+  // ⬇️ NOVI STATE: ticketTypes niz
+  const [ticketTypes, setTicketTypes] = useState([
+    { name: "", price: "", total_seats: "" }
+  ]);
+
   const getInitialFormData = () => {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     tomorrow.setHours(12, 0, 0, 0);
-    
     return {
       title: "",
       description: "",
       date_and_time: tomorrow.toISOString().slice(0, 16),
-      number_of_available_seats: "",
-      price: "",
       image: ""
     };
   };
-  
   const [formData, setFormData] = useState(getInitialFormData);
 
   useEffect(() => {
@@ -116,37 +128,64 @@ export default function OrganizerDashboard() {
     }
   };
 
+  // ⬇️ DODAVANJE NOVOG TIPA ULAZNICE
+  const addTicketType = () => {
+    setTicketTypes([...ticketTypes, { name: "", price: "", total_seats: "" }]);
+  };
+
+  // ⬇️ BRISANJE TIPA ULAZNICE
+  const removeTicketType = (index) => {
+    if (ticketTypes.length > 1) {
+      const newTypes = ticketTypes.filter((_, i) => i !== index);
+      setTicketTypes(newTypes);
+    }
+  };
+
+  // ⬇️ UPDATE ODREĐENOG TIPA
+  const updateTicketType = (index, field, value) => {
+    const newTypes = [...ticketTypes];
+    newTypes[index][field] = value;
+    setTicketTypes(newTypes);
+  };
+
+  // ⬇️ VALIDACIJA TIPova
+  const validateTicketTypes = () => {
+    for (let tt of ticketTypes) {
+      if (!tt.name.trim() || tt.price === "" || tt.total_seats === "" || 
+          isNaN(parseFloat(tt.price)) || isNaN(parseInt(tt.total_seats)) ||
+          parseFloat(tt.price) < 0 || parseInt(tt.total_seats) <= 0) {
+        return false;
+      }
+    }
+    return true;
+  };
+
   const handleCreateEvent = async (e) => {
     e.preventDefault();
     
-    if (!formData.date_and_time || formData.date_and_time.length < 16) {
-      toast.error("Please select a complete date and time for the event");
-      return;
-    }
-    
-    const eventDate = new Date(formData.date_and_time);
-    if (isNaN(eventDate.getTime())) {
-      toast.error("Please enter a valid date and time");
-      return;
-    }
-    
-    if (eventDate <= new Date()) {
+    if (!formData.date_and_time || new Date(formData.date_and_time) <= new Date()) {
       toast.error("Event date must be in the future");
       return;
     }
-    
+
+    if (!validateTicketTypes()) {
+      toast.error("Please fill all ticket type fields correctly (name, price ≥ 0, seats > 0)");
+      return;
+    }
+
     try {
       const eventData = {
         title: formData.title.trim(),
         description: formData.description.trim(),
         date_and_time: formatDateTimeForMySQL(formData.date_and_time),
-        number_of_available_seats: parseInt(formData.number_of_available_seats),
-        price: parseFloat(formData.price),
-        image: formData.image.trim() || null
+        image: formData.image.trim() || null,
+        ticketTypes: ticketTypes.map(tt => ({
+          name: tt.name.trim(),
+          price: parseFloat(tt.price),
+          total_seats: parseInt(tt.total_seats)
+        }))
       };
-      
-      console.log('Sending event data:', eventData);
-      
+
       await createEvent(eventData);
       toast.success("Event created successfully");
       setShowCreateDialog(false);
@@ -158,32 +197,24 @@ export default function OrganizerDashboard() {
     }
   };
 
+  // ⬇️ EDIT: SAMO OSNOVNI PODACI (BEZ TIPova)
   const handleUpdateEvent = async (e) => {
     e.preventDefault();
     
-    if (!formData.date_and_time) {
-      toast.error("Please select a date and time for the event");
+    if (!formData.date_and_time || new Date(formData.date_and_time) <= new Date()) {
+      toast.error("Event date must be in the future");
       return;
     }
-    
-    const eventDate = new Date(formData.date_and_time);
-    if (isNaN(eventDate.getTime())) {
-      toast.error("Please enter a valid date and time");
-      return;
-    }
-    
+
     try {
       const eventData = {
         title: formData.title.trim(),
         description: formData.description.trim(),
         date_and_time: formatDateTimeForMySQL(formData.date_and_time),
-        number_of_available_seats: parseInt(formData.number_of_available_seats),
-        price: parseFloat(formData.price),
         image: formData.image.trim() || null
+        // ⚠️ Ne šaljemo ticketTypes – backend trenutno ne podržava ažuriranje tipova
       };
-      
-      console.log('Updating event data:', eventData);
-      
+
       await updateEvent(selectedEvent.id, eventData);
       toast.success("Event updated successfully");
       setShowEditDialog(false);
@@ -211,18 +242,11 @@ export default function OrganizerDashboard() {
   const handleViewReservations = async (event) => {
     try {
       setSelectedEvent(event);
-      console.log("Fetching reservations for event:", event.id);
       const data = await getEventReservations(event.id);
-      console.log("Reservations data:", data);
       setReservations(data);
       setShowReservationsDialog(true);
     } catch (err) {
       console.error("Failed to load reservations:", err);
-      console.error("Error details:", {
-        message: err.message,
-        status: err.status,
-        eventId: event.id
-      });
       toast.error(`Failed to load reservations: ${err.message}`);
     }
   };
@@ -233,8 +257,6 @@ export default function OrganizerDashboard() {
       title: event.title,
       description: event.description || "",
       date_and_time: new Date(event.date_and_time).toISOString().slice(0, 16),
-      number_of_available_seats: event.number_of_available_seats.toString(),
-      price: event.price.toString(),
       image: event.image || ""
     });
     setShowEditDialog(true);
@@ -242,36 +264,20 @@ export default function OrganizerDashboard() {
 
   const resetForm = () => {
     setFormData(getInitialFormData());
+    setTicketTypes([{ name: "", price: "", total_seats: "" }]); // resetuj ticketTypes
   };
 
   const handleLogout = async () => {
-    try { 
-      await logoutApi(); 
-    } catch {} finally {
+    try { await logoutApi(); } catch {} finally {
       localStorage.removeItem("token");
       localStorage.removeItem("user");
       navigate("/");
     }
   };
 
-  const isEventInPast = (dateTimeString) => {
-    const eventDate = new Date(dateTimeString);
-    const currentDate = new Date();
-    return eventDate < currentDate;
-  };
-
-  const formatDateTimeForMySQL = (dateTime) => {
-    const date = new Date(dateTime);
-    return date.getFullYear() + '-' +
-      String(date.getMonth() + 1).padStart(2, '0') + '-' +
-      String(date.getDate()).padStart(2, '0') + ' ' +
-      String(date.getHours()).padStart(2, '0') + ':' +
-      String(date.getMinutes()).padStart(2, '0') + ':' +
-      String(date.getSeconds()).padStart(2, '0');
-  };
-
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* HEADER - ISTI */}
       <header className="sticky top-0 z-10 w-full bg-white/80 backdrop-blur border-b">
         <div className="mx-auto max-w-7xl px-4 py-3 flex items-center justify-between">
           <div>
@@ -385,7 +391,17 @@ export default function OrganizerDashboard() {
             {events.map((event) => {
               const { date, time } = formatDateTime(event.date_and_time);
               const isPast = isEventInPast(event.date_and_time);
-              
+              // ⬇️ PRIKAZ CENA: "From X KM" ILI "X - Y KM"
+              let priceDisplay = "Price not available";
+              if (event.ticket_types && event.ticket_types.length > 0) {
+                const prices = event.ticket_types.map(tt => parseFloat(tt.price));
+                const min = Math.min(...prices);
+                const max = Math.max(...prices);
+                priceDisplay = min === max 
+                  ? `${min.toFixed(2)} KM` 
+                  : `From ${min.toFixed(2)} KM`;
+              }
+
               return (
                 <Card key={event.id} className={`${isPast ? 'opacity-75' : ''}`}>
                   <div className="relative">
@@ -395,21 +411,12 @@ export default function OrganizerDashboard() {
                           src={event.image} 
                           alt={event.title} 
                           className="w-full h-full object-cover"
-                          onError={(e) => {
-                            e.target.style.display = 'none';
-                            e.target.nextSibling.style.display = 'flex';
-                          }}
                         />
-                      ) : null}
-                      <div 
-                        className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-400"
-                        style={{display: event.image ? 'none' : 'flex'}}
-                      >
-                        <div className="text-center">
-                          <Calendar className="mx-auto h-12 w-12 mb-2" />
-                          <p className="text-sm">No Image</p>
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-400">
+                          <Calendar className="h-12 w-12" />
                         </div>
-                      </div>
+                      )}
                     </div>
                     {isPast && (
                       <Badge className="absolute top-2 right-2 bg-gray-600">
@@ -433,12 +440,13 @@ export default function OrganizerDashboard() {
                     </div>
                     <div className="flex items-center text-sm text-gray-600">
                       <DollarSign className="mr-2 h-4 w-4" />
-                      ${Number(event.price).toFixed(2)}
+                      {priceDisplay}
                     </div>
-                    <div className="flex items-center text-sm text-gray-600">
-                      <Users className="mr-2 h-4 w-4" />
-                      {event.reserved_tickets}/{event.number_of_available_seats} reserved
-                    </div>
+                    {event.ticket_types && event.ticket_types.length > 0 && (
+                      <div className="text-xs text-gray-500">
+                        {event.ticket_types.length} ticket type{event.ticket_types.length !== 1 ? 's' : ''}
+                      </div>
+                    )}
                     
                     <div className="flex flex-col gap-2 pt-2">
                       <Button 
@@ -482,13 +490,16 @@ export default function OrganizerDashboard() {
           </div>
         )}
 
+        {/* CREATE DIALOG - SA ticketTypes */}
+}
+
         <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
           <DialogContent className="bg-white text-black max-w-2xl">
             <DialogHeader>
               <DialogTitle>Create New Event</DialogTitle>
-              <DialogDescription>Fill in the details to create a new event.</DialogDescription>
+              <DialogDescription>Fill in event details and ticket types.</DialogDescription>
             </DialogHeader>
-            <form onSubmit={handleCreateEvent} className="space-y-4">
+            <form onSubmit={handleCreateEvent} className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
               <div>
                 <label className="block text-sm font-medium mb-1">Event Title *</label>
                 <Input
@@ -510,61 +521,11 @@ export default function OrganizerDashboard() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium mb-1">Date & Time *</label>
-                  <div className="space-y-2">
-                    <Input
-                      type="datetime-local"
-                      value={formData.date_and_time}
-                      onChange={(e) => {
-                        console.log('DateTime input value:', e.target.value);
-                        setFormData({...formData, date_and_time: e.target.value});
-                      }}
-                      min={new Date().toISOString().slice(0, 16)}
-                      step="60"
-                      required
-                      className="text-black"
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        const tomorrow = new Date();
-                        tomorrow.setDate(tomorrow.getDate() + 1);
-                        tomorrow.setHours(18, 0, 0, 0);
-                        const dateTimeString = tomorrow.toISOString().slice(0, 16);
-                        console.log('Setting datetime to:', dateTimeString);
-                        setFormData({...formData, date_and_time: dateTimeString});
-                      }}
-                    >
-                      Set Tomorrow 6 PM
-                    </Button>
-                    <div className="text-xs text-gray-500">
-                      Current value: {formData.date_and_time || 'None'}
-                    </div>
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Available Seats *</label>
                   <Input
-                    type="number"
-                    min="1"
-                    value={formData.number_of_available_seats}
-                    onChange={(e) => setFormData({...formData, number_of_available_seats: e.target.value})}
-                    placeholder="100"
-                    required
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1">Price *</label>
-                  <Input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={formData.price}
-                    onChange={(e) => setFormData({...formData, price: e.target.value})}
-                    placeholder="25.00"
+                    type="datetime-local"
+                    value={formData.date_and_time}
+                    onChange={(e) => setFormData({...formData, date_and_time: e.target.value})}
+                    min={new Date().toISOString().slice(0, 16)}
                     required
                   />
                 </div>
@@ -578,14 +539,81 @@ export default function OrganizerDashboard() {
                   />
                 </div>
               </div>
+
+              {/* ⬇️ NOVI SEKCIJA: TIPOVI ULAZNICA */}
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <label className="block text-sm font-medium">Ticket Types *</label>
+                  <Button type="button" size="sm" variant="outline" onClick={addTicketType} className="!h-7 !px-2">
+                    <Plus className="h-3 w-3 mr-1" /> Add
+                  </Button>
+                </div>
+                <div className="space-y-3 p-3 bg-gray-50 rounded">
+                  {ticketTypes.map((tt, index) => (
+                    <div key={index} className="grid grid-cols-12 gap-2 items-end">
+                      <div className="col-span-4">
+                        <Input
+                          placeholder="Name (e.g. VIP)"
+                          value={tt.name}
+                          onChange={(e) => updateTicketType(index, "name", e.target.value)}
+                          required
+                        />
+                      </div>
+                      <div className="col-span-3">
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          placeholder="Price"
+                          value={tt.price}
+                          onChange={(e) => updateTicketType(index, "price", e.target.value)}
+                          required
+                        />
+                      </div>
+                      <div className="col-span-3">
+                        <Input
+                          type="number"
+                          min="1"
+                          placeholder="Seats"
+                          value={tt.total_seats}
+                          onChange={(e) => updateTicketType(index, "total_seats", e.target.value)}
+                          required
+                        />
+                      </div>
+                      <div className="col-span-2 flex justify-end">
+                        {ticketTypes.length > 1 && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => removeTicketType(index)}
+                            className="text-red-500 hover:bg-red-50 p-1 h-8 w-8"
+                          >
+                            <Minus className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => {
-                  setShowCreateDialog(false);
-                  resetForm();
-                }} className="!bg-gray-100 hover:!bg-gray-200 !text-gray-700 !border-gray-300 cursor-pointer font-medium px-6 py-2">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => {
+                    setShowCreateDialog(false);
+                    resetForm();
+                  }}
+                  className="!bg-gray-100 hover:!bg-gray-200 !text-gray-700 !border-gray-300 cursor-pointer font-medium px-6 py-2"
+                >
                   Cancel
                 </Button>
-                <Button type="submit" className="!bg-blue-600 hover:!bg-blue-700 !text-white cursor-pointer font-semibold shadow-md border-0 px-6 py-2">
+                <Button 
+                  type="submit" 
+                  className="!bg-blue-600 hover:!bg-blue-700 !text-white cursor-pointer font-semibold shadow-md border-0 px-6 py-2"
+                >
                   Create Event
                 </Button>
               </DialogFooter>
@@ -593,11 +621,13 @@ export default function OrganizerDashboard() {
           </DialogContent>
         </Dialog>
 
+        {/* EDIT DIALOG - SAMO OSNOVNI PODACI */}
+} 
         <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
           <DialogContent className="bg-white text-black max-w-2xl">
             <DialogHeader>
               <DialogTitle>Edit Event</DialogTitle>
-              <DialogDescription>Update the event details.</DialogDescription>
+              <DialogDescription>Update basic event details.</DialogDescription>
             </DialogHeader>
             <form onSubmit={handleUpdateEvent} className="space-y-4">
               <div>
@@ -629,31 +659,6 @@ export default function OrganizerDashboard() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Available Seats *</label>
-                  <Input
-                    type="number"
-                    min="1"
-                    value={formData.number_of_available_seats}
-                    onChange={(e) => setFormData({...formData, number_of_available_seats: e.target.value})}
-                    placeholder="100"
-                    required
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1">Price *</label>
-                  <Input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={formData.price}
-                    onChange={(e) => setFormData({...formData, price: e.target.value})}
-                    placeholder="25.00"
-                    required
-                  />
-                </div>
-                <div>
                   <label className="block text-sm font-medium mb-1">Image URL</label>
                   <Input
                     type="url"
@@ -664,13 +669,21 @@ export default function OrganizerDashboard() {
                 </div>
               </div>
               <DialogFooter>
-                <Button className="!bg-gray-100 hover:!bg-gray-200 !text-gray-700 !border-gray-300 cursor-pointer font-medium px-6 py-2" type="button" variant="outline" onClick={() => {
-                  setShowEditDialog(false);
-                  resetForm();
-                }}>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => {
+                    setShowEditDialog(false);
+                    resetForm();
+                  }}
+                  className="!bg-gray-100 hover:!bg-gray-200 !text-gray-700 !border-gray-300 cursor-pointer font-medium px-6 py-2"
+                >
                   Cancel
                 </Button>
-                <Button type="submit" className="!bg-blue-600 hover:!bg-blue-700 !text-white cursor-pointer font-semibold shadow-md border-0 px-6 py-2">
+                <Button 
+                  type="submit" 
+                  className="!bg-blue-600 hover:!bg-blue-700 !text-white cursor-pointer font-semibold shadow-md border-0 px-6 py-2"
+                >
                   Update Event
                 </Button>
               </DialogFooter>
@@ -678,6 +691,8 @@ export default function OrganizerDashboard() {
           </DialogContent>
         </Dialog>
 
+        {/* DIALOGOVI ZA BRISANJE I REZERVACIJE - IZMENA U TABLE */}
+}
         <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
           <AlertDialogContent className="bg-white text-black">
             <AlertDialogHeader>
@@ -712,14 +727,13 @@ export default function OrganizerDashboard() {
                 <div className="text-center py-12">
                   <Users className="mx-auto h-12 w-12 text-gray-400 mb-4" />
                   <p className="text-gray-500 text-lg">No reservations yet</p>
-                  <p className="text-gray-400 text-sm">Students who reserve tickets will appear here</p>
                 </div>
               ) : (
                 <Table>
                   <TableHeader>
                     <TableRow className="border-b border-gray-200">
                       <TableHead className="text-gray-900 font-semibold">Student</TableHead>
-                      <TableHead className="text-gray-900 font-semibold">Email</TableHead>
+                      <TableHead className="text-gray-900 font-semibold">Ticket Type</TableHead>
                       <TableHead className="text-gray-900 font-semibold">Tickets</TableHead>
                       <TableHead className="text-gray-900 font-semibold">Reserved On</TableHead>
                     </TableRow>
@@ -736,7 +750,7 @@ export default function OrganizerDashboard() {
                           </div>
                         </TableCell>
                         <TableCell className="text-gray-900">
-                          {reservation.student_email}
+                          {reservation.ticket_type_name || "N/A"}
                         </TableCell>
                         <TableCell className="text-gray-900 font-medium">
                           {reservation.number_of_tickets}

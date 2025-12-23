@@ -4,6 +4,7 @@ import { pool } from "../db.js";
 
 const router = Router();
 
+// Dashboard statistika
 router.get("/dashboard", requireAdmin, async (req, res, next) => {
   try {
     const [userCounts] = await pool.query(`
@@ -32,20 +33,7 @@ router.get("/dashboard", requireAdmin, async (req, res, next) => {
   }
 });
 
-router.get("/users", requireAdmin, async (req, res, next) => {
-  try {
-    const [rows] = await pool.query(`
-      SELECT 
-        id, username, name, surname, email, role
-      FROM user 
-      ORDER BY id DESC
-    `);
-    res.json(rows);
-  } catch (err) {
-    next(err);
-  }
-});
-
+// Svi događaji (za admina)
 router.get("/events", requireAdmin, async (req, res, next) => {
   try {
     const [rows] = await pool.query(`
@@ -53,8 +41,6 @@ router.get("/events", requireAdmin, async (req, res, next) => {
         e.id,
         e.title,
         e.date_and_time,
-        e.number_of_available_seats,
-        e.price,
         e.image,
         e.description,
         e.user_id,
@@ -65,12 +51,28 @@ router.get("/events", requireAdmin, async (req, res, next) => {
       JOIN \`user\` u ON u.id = e.user_id
       ORDER BY e.date_and_time DESC
     `);
+    // ✅ Nema `price` i `number_of_available_seats` – više ne postoje
     res.json(rows);
   } catch (err) {
     next(err);
   }
 });
 
+// Svi korisnici
+router.get("/users", requireAdmin, async (req, res, next) => {
+  try {
+    const [rows] = await pool.query(`
+      SELECT id, username, name, surname, email, role
+      FROM user 
+      ORDER BY id DESC
+    `);
+    res.json(rows);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Statistika po korisniku
 router.get("/users/:id/stats", requireAdmin, async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -85,11 +87,19 @@ router.get("/users/:id/stats", requireAdmin, async (req, res, next) => {
       return res.status(404).json({ error: "User not found" });
     }
 
+    // Dohvati događaje + broj tipova ulaznica
     const [userEvents] = await pool.query(`
-      SELECT id, title, date_and_time, number_of_available_seats, price
-      FROM event 
-      WHERE user_id = ?
-      ORDER BY date_and_time DESC
+      SELECT 
+        e.id, 
+        e.title, 
+        e.date_and_time,
+        COUNT(tt.id) AS ticket_types_count,
+        SUM(tt.total_seats) AS total_capacity
+      FROM event e
+      LEFT JOIN ticket_type tt ON tt.event_id = e.id
+      WHERE e.user_id = ?
+      GROUP BY e.id
+      ORDER BY e.date_and_time DESC
     `, [id]);
 
     res.json({

@@ -1,8 +1,10 @@
+// EventDetailPage.jsx
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
-import { Calendar, Clock, DollarSign, MapPin, MessageCircle, ArrowLeft, Ticket, Users } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import { Calendar, Clock, DollarSign, MapPin, MessageCircle, ArrowLeft, Ticket, Users, AlertCircle } from "lucide-react";
 import { getEvent } from "../services/events";
 import { createReservation, getUserReservations } from "../services/reservations";
 import { toast } from "react-toastify";
@@ -17,9 +19,7 @@ function formatDT(dtStr) {
   };
 }
 
-function getToken() { 
-  return localStorage.getItem("token"); 
-}
+function getToken() { return localStorage.getItem("token"); }
 
 function decodeJwt(token) { 
   try { 
@@ -34,7 +34,6 @@ function decodeJwt(token) {
 function getCurrentUserRole() {
   const token = getToken();
   if (!token) return null;
-  
   const userStr = localStorage.getItem("user");
   if (userStr) {
     try {
@@ -42,7 +41,6 @@ function getCurrentUserRole() {
       return user.role;
     } catch {}
   }
-  
   return null;
 }
 
@@ -66,6 +64,7 @@ export default function EventDetailPage() {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [reservationLoading, setReservationLoading] = useState(false);
+  const [selectedTicketType, setSelectedTicketType] = useState("");
   const [numberOfTickets, setNumberOfTickets] = useState(1);
   const [userReservations, setUserReservations] = useState([]);
   
@@ -95,6 +94,10 @@ export default function EventDetailPage() {
         if (!alive) return;
         setEvent(eventData);
         setUserReservations(reservationsData);
+        // Automatski izaberi prvi tip ako postoji
+        if (eventData.ticket_types?.length > 0) {
+          setSelectedTicketType(eventData.ticket_types[0].id.toString());
+        }
       } catch (e) {
         if (!alive) return;
         setNotFound(true);
@@ -104,6 +107,11 @@ export default function EventDetailPage() {
     })();
     return () => { alive = false; };
   }, [id, isLoggedIn]);
+
+  const selectedTicket = useMemo(() => {
+    if (!event?.ticket_types || !selectedTicketType) return null;
+    return event.ticket_types.find(tt => tt.id.toString() === selectedTicketType);
+  }, [event, selectedTicketType]);
 
   const handleReservation = async () => {
     if (!isLoggedIn) {
@@ -117,9 +125,19 @@ export default function EventDetailPage() {
       return;
     }
 
+    if (!selectedTicket) {
+      toast.error("Please select a ticket type");
+      return;
+    }
+
+    if (numberOfTickets > selectedTicket.available_seats) {
+      toast.error(`Only ${selectedTicket.available_seats} seats available for this ticket type`);
+      return;
+    }
+
     try {
       setReservationLoading(true);
-      await createReservation(id, numberOfTickets);
+      await createReservation(id, parseInt(selectedTicketType), numberOfTickets);
       toast.success(`Successfully reserved ${numberOfTickets} ticket${numberOfTickets > 1 ? 's' : ''}!`);
       
       const [updatedEvent, updatedReservations] = await Promise.all([
@@ -181,7 +199,7 @@ export default function EventDetailPage() {
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="flex items-center gap-2">
                 <Calendar className="h-5 w-5 text-blue-500" />
                 <span>{date}</span>
@@ -190,16 +208,46 @@ export default function EventDetailPage() {
                 <Clock className="h-5 w-5 text-blue-500" />
                 <span>{time}</span>
               </div>
-              <div className="flex items-center gap-2">
-                <DollarSign className="h-5 w-5 text-green-500" />
-                <span className="text-green-500 font-semibold text-xl">
-                  ${Number(event.price ?? 0).toFixed(2)}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Users className="h-5 w-5 text-purple-500" />
-                <span>{event.available_seats || event.number_of_available_seats} seats available</span>
-              </div>
+            </div>
+
+            {/* NOVA SEKCIJA: TIPOVI ULAZNICA */}
+            <div className="space-y-2">
+              <h3 className="text-lg font-semibold flex items-center gap-2">
+                <Ticket className="h-5 w-5 text-blue-500" />
+                Ticket Types
+              </h3>
+              {event.ticket_types?.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {event.ticket_types.map(tt => (
+                    <div 
+                      key={tt.id} 
+                      className={`p-3 rounded-lg border ${
+                        tt.available_seats > 0 
+                          ? 'bg-gray-700/50 border-gray-600' 
+                          : 'bg-gray-800 border-gray-700 opacity-60'
+                      }`}
+                    >
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h4 className="font-semibold text-white">{tt.name}</h4>
+                          <p className="text-sm text-gray-400 mt-1">
+                            {tt.available_seats > 0 
+                              ? `${tt.available_seats} seat${tt.available_seats !== 1 ? 's' : ''} available` 
+                              : 'Sold out'}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-lg font-bold text-green-500">
+                            {parseFloat(tt.price).toFixed(2)} KM
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-gray-400">No ticket types available</p>
+              )}
             </div>
 
             {isStudent && (
@@ -226,45 +274,88 @@ export default function EventDetailPage() {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    <div className="flex items-center gap-4">
-                      <div className="flex items-center gap-2">
-                        <label htmlFor="tickets" className="text-sm font-medium">
-                          Number of tickets:
-                        </label>
-                        <Input
-                          id="tickets"
-                          type="number"
-                          min="1"
-                          max="10"
-                          value={numberOfTickets}
-                          onChange={(e) => setNumberOfTickets(Math.max(1, parseInt(e.target.value) || 1))}
-                          className="w-20 bg-gray-600 border-gray-500 text-white"
-                        />
+                    {/* IZABERI TIP ULAZNICE */}
+                    {event.ticket_types?.some(tt => tt.available_seats > 0) ? (
+                      <>
+                        <div>
+                          <label className="block text-sm font-medium mb-2 text-white">
+                            Select ticket type:
+                          </label>
+                          <Select 
+                            value={selectedTicketType} 
+                            onValueChange={setSelectedTicketType}
+                          >
+                            <SelectTrigger className="bg-gray-600 border-gray-500 text-white">
+                              <SelectValue placeholder="Choose a ticket type" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-gray-700 border-gray-600">
+                              {event.ticket_types
+                                .filter(tt => tt.available_seats > 0)
+                                .map(tt => (
+                                  <SelectItem 
+                                    key={tt.id} 
+                                    value={tt.id.toString()}
+                                    className="cursor-pointer text-white hover:bg-gray-600"
+                                  >
+                                    {tt.name} - {parseFloat(tt.price).toFixed(2)} KM ({tt.available_seats} left)
+                                  </SelectItem>
+                                ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {selectedTicket && (
+                          <>
+                            <div className="space-y-2">
+							  <div className="flex items-center gap-2">
+								<label htmlFor="tickets" className="text-sm font-medium text-white">
+								  Number of tickets:
+								</label>
+								<Input
+								  id="tickets"
+								  type="number"
+								  min="1"
+								  max={selectedTicket.available_seats}
+								  value={numberOfTickets}
+								  onChange={(e) => setNumberOfTickets(Math.max(1, Math.min(parseInt(e.target.value) || 1, selectedTicket.available_seats)))}
+								  className="w-20 bg-gray-600 border-gray-500 text-white"
+								/>
+							  </div>
+							  <div className="text-sm text-gray-400">
+								Total: <span className="text-green-400 font-semibold">
+								  {(parseFloat(selectedTicket.price) * numberOfTickets).toFixed(2)} KM
+								</span>
+							  </div>
+							</div>
+                            
+                            <Button
+                              onClick={handleReservation}
+                              disabled={reservationLoading || !selectedTicketType}
+                              className="!bg-blue-600 hover:!bg-blue-700 !text-white disabled:opacity-50 flex items-center gap-2 cursor-pointer transition-colors disabled:cursor-not-allowed"
+                            >
+                              {reservationLoading ? (
+                                <>
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                                  Reserving...
+                                </>
+                              ) : (
+                                <>
+                                  <Ticket className="w-4 h-4" />
+                                  Reserve {numberOfTickets} Ticket{numberOfTickets > 1 ? 's' : ''}
+                                </>
+                              )}
+                            </Button>
+                          </>
+                        )}
+                      </>
+                    ) : (
+                      <div className="bg-red-600/20 border border-red-600/30 rounded-lg p-4">
+                        <p className="text-red-400 font-medium flex items-center gap-2">
+                          <AlertCircle className="h-4 w-4" />
+                          All ticket types are sold out
+                        </p>
                       </div>
-                      <div className="text-sm text-gray-400">
-                        Total: <span className="text-green-400 font-semibold">
-                          ${(Number(event.price ?? 0) * numberOfTickets).toFixed(2)}
-                        </span>
-                      </div>
-                    </div>
-                    
-                    <Button
-                      onClick={handleReservation}
-                      disabled={reservationLoading}
-                      className="!bg-blue-600 hover:!bg-blue-700 !text-white disabled:opacity-50 flex items-center gap-2 cursor-pointer transition-colors disabled:cursor-not-allowed"
-                    >
-                      {reservationLoading ? (
-                        <>
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                          Reserving...
-                        </>
-                      ) : (
-                        <>
-                          <Ticket className="w-4 h-4" />
-                          Reserve {numberOfTickets} Ticket{numberOfTickets > 1 ? 's' : ''}
-                        </>
-                      )}
-                    </Button>
+                    )}
                   </div>
                 )}
               </div>
