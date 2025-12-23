@@ -10,7 +10,7 @@ import {
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Button } from "./ui/button";
-import { Mail, Lock, Loader2 } from "lucide-react";
+import { Mail, Lock, Loader2, Eye, EyeOff } from "lucide-react";
 import { cn } from "../lib/utils";
 import { useNavigate } from "react-router-dom";
 import { loginApi } from "../services/auth";
@@ -61,16 +61,16 @@ export default function LoginPage() {
     setErrors({});
 
     try {
-      const {user, token} = await loginApi({
+      const { user, token } = await loginApi({
         email: formData.email,
         password: formData.password,
       });
 
-    localStorage.setItem("token", token);
-    localStorage.setItem("user", JSON.stringify(user));
+      localStorage.setItem("token", token);
+      localStorage.setItem("user", JSON.stringify(user));
 
       toast.success(`Welcome back, ${user.name || user.username}!`);
-      
+
       if (user.role === "Admin") {
         navigate("/admin");
       } else if (user.role === "Organizer") {
@@ -159,7 +159,7 @@ export default function LoginPage() {
                   <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                   <Input
                     id="password"
-                    type={showPassword ? "text" : "password"}
+                    type={showPassword ? "text" : "password"}  
                     placeholder="Enter your password"
                     value={formData.password}
                     onChange={(e) =>
@@ -173,6 +173,21 @@ export default function LoginPage() {
                     disabled={isLoading}
                     required
                   />
+                  {formData.password && (
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((prev) => !prev)}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-white focus:outline-none p-0 m-0 border-none bg-transparent cursor-pointer"
+                      style={{ padding: '0', margin: '0', border: 'none', background: 'transparent' }}
+                      aria-label={showPassword ? "Show password" : "Hide password"}  
+                    >
+                      {showPassword ? (
+                        <Eye className="w-4 h-4" /> 
+                      ) : (
+                        <EyeOff className="w-4 h-4" />  
+                      )}
+                    </button>
+                  )}
                 </div>
                 {errors.password && (
                   <p className="text-xs text-red-400 mt-1">{errors.password}</p>
