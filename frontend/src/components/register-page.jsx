@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./ui/select";
-import { User, Mail, Lock, UserCheck, Loader2 } from "lucide-react";
+import { User, Mail, Lock, UserCheck, Loader2, Eye, EyeOff } from "lucide-react";
 import { cn } from "../lib/utils";
 import { useNavigate } from "react-router-dom";
 import { registerApi } from "../services/auth";
@@ -32,12 +32,14 @@ export default function RegisterPage() {
     email: "",
     username: "",
     password: "",
-    confirmPassword: "", // 🔹 Dodato
+    confirmPassword: "",
     role: "",
   });
 
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const validateEmail = (email) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -73,7 +75,6 @@ export default function RegisterPage() {
       newErrors.password = "Password must be at least 6 characters";
     }
 
-    // 🔹 Validacija potvrde lozinke
     if (!formData.confirmPassword) {
       newErrors.confirmPassword = "Please confirm your password";
     } else if (formData.confirmPassword !== formData.password) {
@@ -258,7 +259,7 @@ export default function RegisterPage() {
                 )}
               </div>
 
-              {/* 🔹 Novo: Password */}
+              {/* Password with eye icon */}
               <div className="space-y-2">
                 <Label htmlFor="password" className="text-sm font-medium text-white">
                   Password
@@ -267,25 +268,41 @@ export default function RegisterPage() {
                   <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                   <Input
                     id="password"
-                    type="password"
+                    type={showPassword ? "text" : "password"}
                     placeholder="Create a password"
                     value={formData.password}
                     onChange={(e) => handleInputChange("password", e.target.value)}
                     className={cn(
-                      "pl-10 transition-all duration-200 !bg-gray-700 !border-gray-600 !text-white placeholder:!text-gray-400 focus:!border-green-500 focus:!ring-green-500",
+                      "pl-10 pr-10 transition-all duration-200 !bg-gray-700 !border-gray-600 !text-white placeholder:!text-gray-400 focus:!border-green-500 focus:!ring-green-500",
                       "[&:-webkit-autofill]:!bg-gray-700 [&:-webkit-autofill]:!text-white [&:-webkit-autofill]:shadow-[0_0_0_1000px_rgb(55,65,81)_inset] [&:-webkit-autofill]:[-webkit-text-fill-color:white]",
                       errors.password && "!border-red-500 focus:!border-red-500 focus:!ring-red-500"
                     )}
                     disabled={isLoading}
                     required
                   />
+                  {formData.password && (
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-white focus:outline-none p-0 m-0 border-none bg-transparent cursor-pointer"
+                      style={{
+                        padding: "0",
+                        margin: "0",
+                        border: "none",
+                        background: "transparent",
+                      }}
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                    >
+                      {showPassword ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                    </button>
+                  )}
                 </div>
                 {errors.password && (
                   <p className="text-xs text-red-400 mt-1">{errors.password}</p>
                 )}
               </div>
 
-              {/* 🔹 Novo: Confirm Password */}
+              {/* Confirm Password with eye icon */}
               <div className="space-y-2">
                 <Label htmlFor="confirmPassword" className="text-sm font-medium text-white">
                   Confirm Password
@@ -294,18 +311,34 @@ export default function RegisterPage() {
                   <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                   <Input
                     id="confirmPassword"
-                    type="password"
+                    type={showConfirmPassword ? "text" : "password"}
                     placeholder="Confirm your password"
                     value={formData.confirmPassword}
                     onChange={(e) => handleInputChange("confirmPassword", e.target.value)}
                     className={cn(
-                      "pl-10 transition-all duration-200 !bg-gray-700 !border-gray-600 !text-white placeholder:!text-gray-400 focus:!border-green-500 focus:!ring-green-500",
+                      "pl-10 pr-10 transition-all duration-200 !bg-gray-700 !border-gray-600 !text-white placeholder:!text-gray-400 focus:!border-green-500 focus:!ring-green-500",
                       "[&:-webkit-autofill]:!bg-gray-700 [&:-webkit-autofill]:!text-white [&:-webkit-autofill]:shadow-[0_0_0_1000px_rgb(55,65,81)_inset] [&:-webkit-autofill]:[-webkit-text-fill-color:white]",
                       errors.confirmPassword && "!border-red-500 focus:!border-red-500 focus:!ring-red-500"
                     )}
                     disabled={isLoading}
                     required
                   />
+                  {formData.confirmPassword && (
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-white focus:outline-none p-0 m-0 border-none bg-transparent cursor-pointer"
+                      style={{
+                        padding: "0",
+                        margin: "0",
+                        border: "none",
+                        background: "transparent",
+                      }}
+                      aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                    >
+                      {showConfirmPassword ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                    </button>
+                  )}
                 </div>
                 {errors.confirmPassword && (
                   <p className="text-xs text-red-400 mt-1">{errors.confirmPassword}</p>
