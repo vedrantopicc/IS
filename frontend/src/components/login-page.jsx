@@ -212,7 +212,7 @@ export default function LoginPage() {
                 <button
                   type="button"
                   onClick={() => navigate("/forgot-password")}
-                  className="!text-blue-400 hover:!text-blue-300 font-medium transition-colors duration-200 !bg-transparent border-none underline p-0 m-0 cursor-pointer"
+                  className="!text-blue-400 hover:!text-blue-300 font-medium transition-colors duration-200 !bg-transparent border-none p-0 m-0 cursor-pointer"
                 >
                   Forgot your password?
                 </button>

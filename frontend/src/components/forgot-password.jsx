@@ -96,7 +96,6 @@ export default function ForgotPassword() {
                     className={cn(
                       "pl-10 transition-all duration-200 !bg-gray-700 !border-gray-600 !text-white placeholder:!text-gray-400",
                       "focus:!border-blue-500 focus:!ring-blue-500 focus:!bg-gray-700",
-                      // 🔥 Sprečava bijelu pozadinu kod Chrome autofilla
                       "[&:-webkit-autofill]:!bg-gray-700 [&:-webkit-autofill]:!text-white [&:-webkit-autofill]:shadow-[0_0_0_1000px_rgb(55,65,81)_inset] [&:-webkit-autofill]:[-webkit-text-fill-color:white]",
                       errors.email && "!border-red-500 focus:!border-red-500 focus:!ring-red-500"
                     )}
