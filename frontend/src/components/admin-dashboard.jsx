@@ -20,44 +20,43 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader,
   AlertDialogTitle, AlertDialogTrigger
 } from "./ui/alert-dialog";
-import { 
-  Users, Calendar, Settings, LogOut, Trash2, Eye, 
-  BarChart3, UserCheck, Clock, Shield, 
-  Pointer
+import {
+  Users, Calendar, Settings, LogOut, Trash2, Eye,
+  BarChart3, UserCheck, Clock, Shield, Undo
 } from "lucide-react";
 import { logoutApi } from "../services/auth";
-import { 
-  getAdminDashboard, getAllUsers, getAllAdminEvents, 
-  deleteUser, deleteEvent, getUserStats 
+import {
+  getAdminDashboard, getAllUsers, getAllAdminEvents,
+  deleteUser, deleteEvent, getUserStats, getDeletedUsers, restoreUser
 } from "../services/admin";
 import { toast } from "react-toastify";
 
-function getToken() { 
-  return localStorage.getItem("token"); 
+function getToken() {
+  return localStorage.getItem("token");
 }
 
-function decodeJwt(token) { 
-  try { 
-    const b = token.split(".")[1]; 
-    const j = atob(b.replace(/-/g, "+").replace(/_/g, "/")); 
-    return JSON.parse(decodeURIComponent(escape(j))); 
-  } catch { 
-    return null; 
-  } 
+function decodeJwt(token) {
+  try {
+    const b = token.split(".")[1];
+    const j = atob(b.replace(/-/g, "+").replace(/_/g, "/"));
+    return JSON.parse(decodeURIComponent(escape(j)));
+  } catch {
+    return null;
+  }
 }
 
-function getDisplayName(p) { 
-  if (!p) return "Admin"; 
-  if (p.name && p.surname) return `${p.name} ${p.surname}`; 
-  return p.name || p.username || p.email || "Admin"; 
+function getDisplayName(p) {
+  if (!p) return "Admin";
+  if (p.name && p.surname) return `${p.name} ${p.surname}`;
+  return p.name || p.username || p.email || "Admin";
 }
 
-function getInitials(name) { 
-  return (name.split(" ").filter(Boolean).slice(0,2).map(s=>s[0]?.toUpperCase()||"").join("")) || "A"; 
+function getInitials(name) {
+  return (name.split(" ").filter(Boolean).slice(0, 2).map(s => s[0]?.toUpperCase() || "").join("")) || "A";
 }
 
 function formatDate(dateString) {
-  return new Date(dateString).toLocaleDateString(undefined, { 
+  return new Date(dateString).toLocaleDateString(undefined, {
     year: "numeric", month: "short", day: "numeric",
     hour: "2-digit", minute: "2-digit"
   });
@@ -66,9 +65,9 @@ function formatDate(dateString) {
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const location = useLocation();
-  const payload = useMemo(() => { 
-    const t = getToken(); 
-    return t ? decodeJwt(t) : null; 
+  const payload = useMemo(() => {
+    const t = getToken();
+    return t ? decodeJwt(t) : null;
   }, []);
   const displayName = useMemo(() => getDisplayName(payload), [payload]);
   const initials = useMemo(() => getInitials(displayName), [displayName]);
@@ -76,11 +75,14 @@ export default function AdminDashboard() {
   const [dashboardData, setDashboardData] = useState(null);
   const [users, setUsers] = useState([]);
   const [events, setEvents] = useState([]);
+  const [deletedUsers, setDeletedUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("dashboard");
   const [error, setError] = useState("");
   const [selectedUser, setSelectedUser] = useState(null);
   const [showUserDetails, setShowUserDetails] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [deletedSearchTerm, setDeletedSearchTerm] = useState("");
 
   useEffect(() => {
     loadDashboardData();
@@ -89,7 +91,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     const urlParams = new URLSearchParams(location.search);
     const tabParam = urlParams.get('tab');
-    if (tabParam && ['dashboard', 'users', 'events'].includes(tabParam)) {
+    if (tabParam && ['dashboard', 'users', 'deleted', 'events'].includes(tabParam)) {
       setActiveTab(tabParam);
     }
   }, [location.search]);
@@ -98,14 +100,17 @@ export default function AdminDashboard() {
     setLoading(true);
     setError("");
     try {
-      const [dashboard, usersData, eventsData] = await Promise.all([
+      const [dashboard, usersData, eventsData, deletedUsersData] = await Promise.all([
         getAdminDashboard(),
         getAllUsers(),
-        getAllAdminEvents()
+        getAllAdminEvents(),
+        getDeletedUsers()
       ]);
       setDashboardData(dashboard);
       setUsers(usersData);
       setEvents(eventsData);
+      setDeletedUsers(deletedUsersData);
+      //setUserCount(userCountData.user_count || 0);
     } catch (err) {
       setError(err.message);
       toast.error("Failed to load admin data: " + err.message);
@@ -119,8 +124,24 @@ export default function AdminDashboard() {
       await deleteUser(userId);
       toast.success(`User ${username} deleted successfully`);
       setUsers(users.filter(user => user.id !== userId));
+      // Osvježi i listu obrisanih
+      const deleted = await getDeletedUsers();
+      setDeletedUsers(deleted);
     } catch (err) {
       toast.error("Failed to delete user: " + err.message);
+    }
+  };
+
+  const handleRestoreUser = async (userId, username) => {
+    try {
+      await restoreUser(userId);
+      toast.success(`User ${username} restored successfully`);
+      // Osvježi obje liste
+      const [active, deleted] = await Promise.all([getAllUsers(), getDeletedUsers()]);
+      setUsers(active);
+      setDeletedUsers(deleted);
+    } catch (err) {
+      toast.error("Failed to restore user: " + err.message);
     }
   };
 
@@ -135,9 +156,9 @@ export default function AdminDashboard() {
   };
 
   const handleLogout = async () => {
-    try { 
-      await logoutApi(); 
-    } catch {} finally {
+    try {
+      await logoutApi();
+    } catch { } finally {
       localStorage.removeItem("token");
       localStorage.removeItem("user");
       navigate("/");
@@ -166,6 +187,7 @@ export default function AdminDashboard() {
     );
   }
 
+  const userCount = users.filter(user => user.role !== 'Admin').length;
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="sticky top-0 z-10 w-full bg-white/80 backdrop-blur border-b">
@@ -184,8 +206,8 @@ export default function AdminDashboard() {
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent 
-              align="end" 
+            <DropdownMenuContent
+              align="end"
               className="w-60 text-gray-900 bg-white shadow-xl border border-gray-200 rounded-md z-[9999] mt-2"
               side="bottom"
               sideOffset={8}
@@ -193,34 +215,34 @@ export default function AdminDashboard() {
               <div className="px-4 py-3 border-b border-gray-100">
                 <p className="text-sm font-medium text-gray-900 truncate">{displayName}</p>
               </div>
-              
+
               <div className="p-1">
-                <DropdownMenuItem 
-                  onClick={() => navigate("/events")} 
+                <DropdownMenuItem
+                  onClick={() => navigate("/events")}
                   className="flex items-center px-3 py-2 text-sm hover:bg-gray-100 cursor-pointer rounded-sm"
                 >
                   <Calendar className="mr-3 h-4 w-4" />
                   <span>View Events</span>
                 </DropdownMenuItem>
               </div>
-              
+
               <div className="h-px bg-gray-100 mx-2"></div>
-              
+
               <div className="p-1">
-                <DropdownMenuItem 
-                  onClick={() => navigate("/settings")} 
+                <DropdownMenuItem
+                  onClick={() => navigate("/settings")}
                   className="flex items-center px-3 py-2 text-sm hover:bg-gray-100 cursor-pointer rounded-sm"
                 >
                   <Settings className="mr-3 h-4 w-4" />
                   <span>Settings</span>
                 </DropdownMenuItem>
               </div>
-              
+
               <div className="h-px bg-gray-100 mx-2"></div>
-              
+
               <div className="p-1">
-                <DropdownMenuItem 
-                  onClick={handleLogout} 
+                <DropdownMenuItem
+                  onClick={handleLogout}
                   className="flex items-center px-3 py-2 text-sm hover:bg-red-50 hover:text-red-700 cursor-pointer rounded-sm"
                 >
                   <LogOut className="mr-3 h-4 w-4" />
@@ -240,27 +262,35 @@ export default function AdminDashboard() {
         )}
 
         <Tabs value={activeTab} onValueChange={handleTabChange}>
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger 
-              value="dashboard" 
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger
+              value="dashboard"
               className="flex items-center gap-2 text-black"
-              style={{cursor: 'pointer'}}
+              style={{ cursor: 'pointer' }}
             >
               <BarChart3 className="w-4 h-4" />
               Dashboard
             </TabsTrigger>
-            <TabsTrigger 
-              value="users" 
+            <TabsTrigger
+              value="users"
               className="flex items-center gap-2 text-black"
-              style={{cursor: 'pointer'}}
+              style={{ cursor: 'pointer' }}
             >
               <Users className="w-4 h-4" />
-              Users ({users.length})
+              Users ({userCount})
             </TabsTrigger>
-            <TabsTrigger 
-              value="events" 
+            <TabsTrigger
+              value="deleted"
               className="flex items-center gap-2 text-black"
-              style={{cursor: 'pointer'}}
+              style={{ cursor: 'pointer' }}
+            >
+              <UserCheck className="w-4 h-4" />
+              Deleted ({deletedUsers.length})
+            </TabsTrigger>
+            <TabsTrigger
+              value="events"
+              className="flex items-center gap-2 text-black"
+              style={{ cursor: 'pointer' }}
             >
               <Calendar className="w-4 h-4" />
               Events ({events.length})
@@ -271,12 +301,12 @@ export default function AdminDashboard() {
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle style={{color: '#000000', fontSize: '14px', fontWeight: 'medium'}}>Total Users</CardTitle>
+                  <CardTitle style={{ color: '#000000', fontSize: '14px', fontWeight: 'medium' }}>Total Users</CardTitle>
                   <Users className="h-4 w-4 text-gray-500" />
                 </CardHeader>
                 <CardContent>
-                  <div style={{color: '#000000', fontSize: '24px', fontWeight: 'bold'}}>{dashboardData?.users?.total_users || 0}</div>
-                  <p style={{color: '#333333', fontSize: '12px'}}>
+                  <div style={{ color: '#000000', fontSize: '24px', fontWeight: 'bold' }}>{dashboardData?.users?.total_users || 0}</div>
+                  <p style={{ color: '#333333', fontSize: '12px' }}>
                     {dashboardData?.users?.total_students || 0} students, {dashboardData?.users?.total_organizers || 0} organizers
                   </p>
                 </CardContent>
@@ -284,12 +314,12 @@ export default function AdminDashboard() {
 
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle style={{color: '#000000', fontSize: '14px', fontWeight: 'medium'}}>Total Events</CardTitle>
+                  <CardTitle style={{ color: '#000000', fontSize: '14px', fontWeight: 'medium' }}>Total Events</CardTitle>
                   <Calendar className="h-4 w-4 text-gray-500" />
                 </CardHeader>
                 <CardContent>
-                  <div style={{color: '#000000', fontSize: '24px', fontWeight: 'bold'}}>{dashboardData?.events?.total_events || 0}</div>
-                  <p style={{color: '#333333', fontSize: '12px'}}>
+                  <div style={{ color: '#000000', fontSize: '24px', fontWeight: 'bold' }}>{dashboardData?.events?.total_events || 0}</div>
+                  <p style={{ color: '#333333', fontSize: '12px' }}>
                     {dashboardData?.events?.upcoming_events || 0} upcoming
                   </p>
                 </CardContent>
@@ -297,21 +327,21 @@ export default function AdminDashboard() {
 
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle style={{color: '#000000', fontSize: '14px', fontWeight: 'medium'}}>Past Events</CardTitle>
+                  <CardTitle style={{ color: '#000000', fontSize: '14px', fontWeight: 'medium' }}>Past Events</CardTitle>
                   <Clock className="h-4 w-4 text-gray-500" />
                 </CardHeader>
                 <CardContent>
-                  <div style={{color: '#000000', fontSize: '24px', fontWeight: 'bold'}}>{dashboardData?.events?.past_events || 0}</div>
+                  <div style={{ color: '#000000', fontSize: '24px', fontWeight: 'bold' }}>{dashboardData?.events?.past_events || 0}</div>
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle style={{color: '#000000', fontSize: '14px', fontWeight: 'medium'}}>Admins</CardTitle>
+                  <CardTitle style={{ color: '#000000', fontSize: '14px', fontWeight: 'medium' }}>Admins</CardTitle>
                   <Shield className="h-4 w-4 text-gray-500" />
                 </CardHeader>
                 <CardContent>
-                  <div style={{color: '#000000', fontSize: '24px', fontWeight: 'bold'}}>{dashboardData?.users?.total_admins || 0}</div>
+                  <div style={{ color: '#000000', fontSize: '24px', fontWeight: 'bold' }}>{dashboardData?.users?.total_admins || 0}</div>
                 </CardContent>
               </Card>
             </div>
@@ -320,95 +350,201 @@ export default function AdminDashboard() {
           <TabsContent value="users" className="mt-6">
             <Card>
               <CardHeader>
-                <CardTitle style={{color: '#000000', fontSize: '18px', fontWeight: 'bold'}}>User Management</CardTitle>
-                <CardDescription style={{color: '#333333', fontSize: '14px'}}>
+                <CardTitle className="text-gray-900">User Management</CardTitle>
+                <CardDescription className="text-gray-600">
                   Manage all users in the system. You can view details and delete users.
                 </CardDescription>
               </CardHeader>
               <CardContent>
+                <div className="mb-4">
+                  <input
+                    type="text"
+                    placeholder="Search users by name, email or username..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  />
+                </div>
+
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead style={{color: '#000000', fontWeight: 'bold'}}>User</TableHead>
-                      <TableHead style={{color: '#000000', fontWeight: 'bold'}}>Email</TableHead>
-                      <TableHead style={{color: '#000000', fontWeight: 'bold'}}>Role</TableHead>
-                      <TableHead style={{color: '#000000', fontWeight: 'bold'}}>ID</TableHead>
-                      <TableHead style={{color: '#000000', fontWeight: 'bold', textAlign: 'right'}}>Actions</TableHead>
+                      <TableHead style={{ color: '#000000', fontWeight: 'bold' }}>User</TableHead>
+                      <TableHead style={{ color: '#000000', fontWeight: 'bold' }}>Email</TableHead>
+                      <TableHead style={{ color: '#000000', fontWeight: 'bold', textAlign: 'left' }}>Role</TableHead>
+                      <TableHead style={{ color: '#000000', fontWeight: 'bold', textAlign: 'right' }}>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {users.map((user) => (
-                      <TableRow key={user.id}>
-                        <TableCell style={{color: '#000000'}}>
-                          <div>
-                            <div style={{color: '#000000', fontWeight: 'medium'}}>{user.name} {user.surname}</div>
-                            <div style={{color: '#666666', fontSize: '14px'}}>@{user.username}</div>
-                          </div>
-                        </TableCell>
-                        <TableCell style={{color: '#000000'}}>{user.email}</TableCell>
-                        <TableCell>
-                          <Badge 
-                            variant={user.role === 'Admin' ? 'destructive' : user.role === 'Organizer' ? 'default' : 'secondary'}
-                            style={{color: '#000000'}}
-                          >
-                            {user.role}
-                          </Badge>
-                        </TableCell>
-                        <TableCell style={{color: '#000000'}}>ID: {user.id}</TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={() => handleViewUser(user)}
-                              style={{
-                                color: '#000000',
-                                borderColor: '#d1d5db',
-                                backgroundColor: '#ffffff',
-                                cursor: 'pointer'
-                              }}
+                    {users
+                      .filter(user => {
+                        const searchLower = searchTerm.toLowerCase();
+                        return (
+                          user.role !== 'Admin' &&
+                          (
+                            user.name.toLowerCase().includes(searchLower) ||
+                            user.surname.toLowerCase().includes(searchLower) ||
+                            user.email.toLowerCase().includes(searchLower) ||
+                            user.username.toLowerCase().includes(searchLower)
+                          )
+                        );
+                      })
+                      .map((user) => (
+                        <TableRow key={user.id}>
+                          <TableCell style={{ color: '#000000' }}>
+                            <div>
+                              <div style={{ color: '#000000', fontWeight: 'medium' }}>{user.name} {user.surname}</div>
+                              <div style={{ color: '#666666', fontSize: '14px' }}>@{user.username}</div>
+                            </div>
+                          </TableCell>
+                          <TableCell style={{ color: '#000000' }}>{user.email}</TableCell>
+                          <TableCell style={{ textAlign: 'left' }}>
+                            <Badge
+                              variant={user.role === 'Admin' ? 'destructive' : user.role === 'Organizer' ? 'default' : 'secondary'}
+                              style={{ color: '#000000' }}
                             >
-                              <Eye className="w-4 h-4" style={{color: '#000000'}} />
-                            </Button>
-                            {user.role !== 'Admin' && (
-                              <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                  <Button 
-                                    variant="outline" 
-                                    size="sm" 
-                                    className="text-red-600 hover:text-red-700"
-                                    style={{
-                                      borderColor: '#d1d5db',
-                                      backgroundColor: '#ffffff',
-                                      cursor: 'pointer'
-                                    }}
-                                  >
-                                    <Trash2 className="w-4 h-4" style={{color: '#dc2626'}} />
-                                  </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle>Delete User</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                      Are you sure you want to delete user "{user.username}"? This action cannot be undone.
-                                    </AlertDialogDescription>
-                                  </AlertDialogHeader>
-                                  <AlertDialogFooter>
-                                    <AlertDialogCancel className="!bg-gray-100 hover:!bg-gray-200 !text-gray-700 !border-gray-300 cursor-pointer font-medium px-6 py-2">Cancel</AlertDialogCancel>
-                                    <AlertDialogAction 
-                                      onClick={() => handleDeleteUser(user.id, user.username)}
-                                      className="!bg-red-600 hover:!bg-red-700 !text-white cursor-pointer font-semibold shadow-md border-0 px-6 py-2"
+                              {user.role}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleViewUser(user)}
+                                style={{
+                                  color: '#000000',
+                                  borderColor: '#d1d5db',
+                                  backgroundColor: '#ffffff',
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                <Eye className="w-4 h-4" style={{ color: '#000000' }} />
+                              </Button>
+                              {user.role !== 'Admin' && (
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="text-red-600 hover:text-red-700"
+                                      style={{
+                                        borderColor: '#d1d5db',
+                                        backgroundColor: '#ffffff',
+                                        cursor: 'pointer'
+                                      }}
                                     >
-                                      Delete
-                                    </AlertDialogAction>
-                                  </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
-                            )}
-                          </div>
+                                      <Trash2 className="w-4 h-4" style={{ color: '#dc2626' }} />
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Delete User</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        Are you sure you want to delete user "{user.username}"? This action cannot be undone.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel className="!bg-gray-100 hover:!bg-gray-200 !text-gray-700 !border-gray-300 cursor-pointer font-medium px-6 py-2">Cancel</AlertDialogCancel>
+                                      <AlertDialogAction
+                                        onClick={() => handleDeleteUser(user.id, user.username)}
+                                        className="!bg-red-600 hover:!bg-red-700 !text-white cursor-pointer font-semibold shadow-md border-0 px-6 py-2"
+                                      >
+                                        Delete
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="deleted" className="mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-gray-900">Deleted Users</CardTitle>
+                <CardDescription className="text-gray-600">
+                  These users are soft-deleted. You can restore them if needed.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="mb-4">
+                  <input
+                    type="text"
+                    placeholder="Search deleted users by name, email or username..."
+                    value={deletedSearchTerm}
+                    onChange={(e) => setDeletedSearchTerm(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  />
+                </div>
+
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-gray-900">User</TableHead>
+                      <TableHead className="text-gray-900">Email</TableHead>
+                      <TableHead className="text-gray-900">Deleted At</TableHead>
+                      <TableHead className="text-right text-gray-900">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {deletedUsers
+                      .filter(user => {
+                        const searchLower = deletedSearchTerm.toLowerCase();
+                        return (
+                          user.name.toLowerCase().includes(searchLower) ||
+                          user.surname.toLowerCase().includes(searchLower) ||
+                          user.email.toLowerCase().includes(searchLower) ||
+                          user.username.toLowerCase().includes(searchLower)
+                        );
+                      })
+                      .length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center text-gray-500">
+                          No deleted users found
                         </TableCell>
                       </TableRow>
-                    ))}
+                    ) : (
+                      deletedUsers
+                        .filter(user => {
+                          const searchLower = deletedSearchTerm.toLowerCase();
+                          return (
+                            user.name.toLowerCase().includes(searchLower) ||
+                            user.surname.toLowerCase().includes(searchLower) ||
+                            user.email.toLowerCase().includes(searchLower) ||
+                            user.username.toLowerCase().includes(searchLower)
+                          );
+                        })
+                        .map((user) => (
+                          <TableRow key={user.id}>
+                            <TableCell className="text-gray-900">
+                              <div className="font-medium">{user.name} {user.surname}</div>
+                              <div className="text-sm text-gray-500">@{user.username}</div>
+                            </TableCell>
+                            <TableCell className="text-gray-900">{user.email}</TableCell>
+                            <TableCell className="text-gray-900">
+                              {new Date(user.deleted_at).toLocaleString()}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleRestoreUser(user.id, user.username)}
+                                className="border-green-500 text-green-600 hover:bg-green-50 hover:text-green-700 cursor-pointer"
+                              >
+                                <Undo className="w-4 h-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                    )}
                   </TableBody>
                 </Table>
               </CardContent>
@@ -430,8 +566,7 @@ export default function AdminDashboard() {
                       <TableHead className="text-gray-900">Event</TableHead>
                       <TableHead className="text-gray-900">Organizer</TableHead>
                       <TableHead className="text-gray-900">Date</TableHead>
-                      <TableHead className="text-gray-900">Price</TableHead>
-                      <TableHead className="text-gray-900">Seats</TableHead>
+                      <TableHead className="text-gray-900">Total Revenue</TableHead>
                       <TableHead className="text-right text-gray-900">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -451,13 +586,14 @@ export default function AdminDashboard() {
                           </div>
                         </TableCell>
                         <TableCell className="text-gray-900">{formatDate(event.date_and_time)}</TableCell>
-                        <TableCell className="text-gray-900">${parseFloat(event.price).toFixed(2)}</TableCell>
-                        <TableCell className="text-gray-900">{event.number_of_available_seats}</TableCell>
+                        <TableCell className="text-gray-900">
+                          €{parseFloat(event.total_revenue).toFixed(2)}
+                        </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
+                            <Button
+                              variant="outline"
+                              size="sm"
                               onClick={() => {
                                 window.history.replaceState({}, document.title, '/admin?tab=events');
                                 navigate(`/events/${event.id}`);
@@ -469,13 +605,13 @@ export default function AdminDashboard() {
                                 cursor: 'pointer'
                               }}
                             >
-                              <Eye className="w-4 h-4" style={{color: '#000000'}} />
+                              <Eye className="w-4 h-4" style={{ color: '#000000' }} />
                             </Button>
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
-                                <Button 
-                                  variant="outline" 
-                                  size="sm" 
+                                <Button
+                                  variant="outline"
+                                  size="sm"
                                   className="text-red-600 hover:text-red-700"
                                   style={{
                                     borderColor: '#d1d5db',
@@ -483,7 +619,7 @@ export default function AdminDashboard() {
                                     cursor: 'pointer'
                                   }}
                                 >
-                                  <Trash2 className="w-4 h-4" style={{color: '#dc2626'}} />
+                                  <Trash2 className="w-4 h-4" style={{ color: '#dc2626' }} />
                                 </Button>
                               </AlertDialogTrigger>
                               <AlertDialogContent>
@@ -495,7 +631,7 @@ export default function AdminDashboard() {
                                 </AlertDialogHeader>
                                 <AlertDialogFooter className="flex gap-2 justify-end">
                                   <AlertDialogCancel className="!bg-gray-100 hover:!bg-gray-200 !text-gray-700 !border-gray-300 cursor-pointer font-medium px-6 py-2 shadow-sm">Cancel</AlertDialogCancel>
-                                  <AlertDialogAction 
+                                  <AlertDialogAction
                                     onClick={() => handleDeleteEvent(event.id, event.title)}
                                     className="!bg-red-600 hover:!bg-red-700 !text-white cursor-pointer font-semibold shadow-md !border-0 px-6 py-2 min-w-[100px]"
                                   >
@@ -518,32 +654,32 @@ export default function AdminDashboard() {
 
       {selectedUser && (
         <AlertDialog open={showUserDetails} onOpenChange={setShowUserDetails}>
-          <AlertDialogContent style={{backgroundColor: '#ffffff', maxWidth: '500px'}}>
+          <AlertDialogContent style={{ backgroundColor: '#ffffff', maxWidth: '500px' }}>
             <AlertDialogHeader>
-              <AlertDialogTitle style={{color: '#000000', fontSize: '18px', fontWeight: 'bold'}}>
+              <AlertDialogTitle style={{ color: '#000000', fontSize: '18px', fontWeight: 'bold' }}>
                 User Details
               </AlertDialogTitle>
             </AlertDialogHeader>
             <div className="space-y-4 py-4">
               <div>
-                <h4 style={{color: '#000000', fontWeight: 'bold', marginBottom: '8px'}}>Personal Information</h4>
+                <h4 style={{ color: '#000000', fontWeight: 'bold', marginBottom: '8px' }}>Personal Information</h4>
                 <div className="space-y-2">
-                  <p style={{color: '#000000'}}><strong>Name:</strong> {selectedUser.name} {selectedUser.surname}</p>
-                  <p style={{color: '#000000'}}><strong>Username:</strong> @{selectedUser.username}</p>
-                  <p style={{color: '#000000'}}><strong>Email:</strong> {selectedUser.email}</p>
-                  <p style={{color: '#000000'}}><strong>Role:</strong> {selectedUser.role}</p>
-                  <p style={{color: '#000000'}}><strong>User ID:</strong> {selectedUser.id}</p>
+                  <p style={{ color: '#000000' }}><strong>Name:</strong> {selectedUser.name} {selectedUser.surname}</p>
+                  <p style={{ color: '#000000' }}><strong>Username:</strong> @{selectedUser.username}</p>
+                  <p style={{ color: '#000000' }}><strong>Email:</strong> {selectedUser.email}</p>
+                  <p style={{ color: '#000000' }}><strong>Role:</strong> {selectedUser.role}</p>
+                  <p style={{ color: '#000000' }}><strong>User ID:</strong> {selectedUser.id}</p>
                 </div>
               </div>
               {selectedUser.bio && (
                 <div>
-                  <h4 style={{color: '#000000', fontWeight: 'bold', marginBottom: '8px'}}>Bio</h4>
-                  <p style={{color: '#666666'}}>{selectedUser.bio}</p>
+                  <h4 style={{ color: '#000000', fontWeight: 'bold', marginBottom: '8px' }}>Bio</h4>
+                  <p style={{ color: '#666666' }}>{selectedUser.bio}</p>
                 </div>
               )}
             </div>
             <AlertDialogFooter>
-              <AlertDialogCancel 
+              <AlertDialogCancel
                 onClick={() => setShowUserDetails(false)}
                 className="!bg-gray-100 hover:!bg-gray-200 !text-gray-700 !border-gray-300 cursor-pointer font-medium px-6 py-2"
               >

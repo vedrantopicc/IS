@@ -6,6 +6,7 @@ function authHeaders() {
   if (token) h.Authorization = `Bearer ${token}`;
   return h;
 }
+
 export async function getAdminDashboard() {
   const res = await fetch(`${BASE}/admin/dashboard`, {
     method: "GET",
@@ -37,7 +38,7 @@ export async function getUserStats(userId) {
 }
 
 export async function deleteUser(userId) {
-  const res = await fetch(`${BASE}/users/${userId}`, {
+  const res = await fetch(`${BASE}/admin/users/${userId}`, {
     method: "DELETE",
     headers: authHeaders(),
   });
@@ -45,6 +46,7 @@ export async function deleteUser(userId) {
   if (!res.ok) throw new Error(data.error || "Failed to delete user");
   return data;
 }
+
 export async function getAllAdminEvents() {
   const res = await fetch(`${BASE}/admin/events`, {
     method: "GET",
@@ -56,11 +58,43 @@ export async function getAllAdminEvents() {
 }
 
 export async function deleteEvent(eventId) {
-  const res = await fetch(`${BASE}/events/${eventId}`, {
+  const res = await fetch(`${BASE}/admin/events/${eventId}`, {
     method: "DELETE",
     headers: authHeaders(),
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || "Failed to delete event");
+  return data;
+}
+
+// ✅ Dohvati obrisane korisnike — sa fetch, bez axios
+export async function getDeletedUsers() {
+  const res = await fetch(`${BASE}/admin/deleted-users`, {
+    method: "GET",
+    headers: authHeaders(),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || "Failed to fetch deleted users");
+  return data;
+}
+
+// ✅ Vrati korisnika — sa fetch
+export async function restoreUser(userId) {
+  const res = await fetch(`${BASE}/admin/users/${userId}/restore`, {
+    method: "POST",
+    headers: authHeaders(),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || "Failed to restore user");
+  return data;
+}
+
+export async function getUserCount() {
+  const response = await fetch(`${BASE}/admin/user-count`, {
+    method: "GET",
+    headers: authHeaders(),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || "Failed to fetch user count");
   return data;
 }

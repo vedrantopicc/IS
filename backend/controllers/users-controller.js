@@ -8,7 +8,7 @@ const JWT_EXPIRES = process.env.JWT_EXPIRES;
 export async function getAllUsers(_req, res, next) {
   try {
     const [rows] = await pool.query(
-        "SELECT id, name, surname, email, username, role FROM user ORDER BY id ASC"
+      "SELECT id, name, surname, email, username, role FROM user WHERE deleted_at IS NULL ORDER BY id ASC"
     );
     res.json(rows); 
   } catch (err) {
@@ -140,20 +140,21 @@ export async function deleteUserById(req, res, next) {
     const { id } = req.params;
 
     const [existingUser] = await pool.query(
-      "SELECT id, username, role FROM `user` WHERE id = ? LIMIT 1",
+      "SELECT id, username, role FROM `user` WHERE id = ? AND deleted_at IS NULL LIMIT 1",
       [id]
     );
 
     if (!existingUser.length) {
-      return res.status(404).json({ error: "User not found" });
+      return res.status(404).json({ error: "User not found or already deleted" });
     }
 
     if (existingUser[0].role === "Admin") {
       return res.status(403).json({ error: "Cannot delete admin users" });
     }
 
+    // Soft delete: postavi deleted_at
     const [result] = await pool.query(
-      "DELETE FROM `user` WHERE id = ?",
+      "UPDATE `user` SET deleted_at = NOW() WHERE id = ?",
       [id]
     );
 
@@ -162,10 +163,58 @@ export async function deleteUserById(req, res, next) {
     }
 
     res.json({ 
-      message: "User deleted successfully", 
+      message: "User deleted successfully (soft delete)", 
       deletedUser: existingUser[0] 
     });
 
+  } catch (err) {
+    next(err);
+  }
+}
+
+// VRATI DEAKTIVIRANOG KORISNIKA
+export async function restoreUserById(req, res, next) {
+  try {
+    const { id } = req.params;
+
+    const [existingUser] = await pool.query(
+      "SELECT id, username, role FROM `user` WHERE id = ? AND deleted_at IS NOT NULL LIMIT 1",
+      [id]
+    );
+
+    if (!existingUser.length) {
+      return res.status(404).json({ error: "User not found or not deleted" });
+    }
+
+    const [result] = await pool.query(
+      "UPDATE `user` SET deleted_at = NULL WHERE id = ?",
+      [id]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: "Failed to restore user" });
+    }
+
+    res.json({ 
+      message: "User restored successfully",
+      restoredUser: existingUser[0]
+    });
+
+  } catch (err) {
+    next(err);
+  }
+}
+
+// DOHVATI OBRISENE (DEAKTIVIRANE) KORISNIKE
+export async function getDeletedUsers(_req, res, next) {
+  try {
+    const [rows] = await pool.query(`
+      SELECT id, name, surname, email, username, role, deleted_at
+      FROM user 
+      WHERE deleted_at IS NOT NULL
+      ORDER BY deleted_at DESC
+    `);
+    res.json(rows);
   } catch (err) {
     next(err);
   }

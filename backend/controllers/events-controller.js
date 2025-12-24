@@ -358,3 +358,31 @@ export async function getEventReservations(req, res, next) {
     next(err);
   }
 }
+
+// ✅ DOGAĐAJI ZA ADMINISTRATORA – sa ukupnom zaradom
+export async function getAdminEvents(req, res, next) {
+  try {
+    const [rows] = await pool.query(`
+      SELECT
+        e.id,
+        e.title,
+        e.date_and_time,
+        e.description,
+        e.image,
+        e.user_id,
+        CONCAT_WS(' ', u.name, u.surname) AS organizer_name,
+        u.username AS organizer_username,
+        COALESCE(SUM(tt.price * r.number_of_tickets), 0) AS total_revenue
+      FROM event e
+      JOIN \`user\` u ON u.id = e.user_id
+      LEFT JOIN ticket_type tt ON tt.event_id = e.id
+      LEFT JOIN reservation r ON r.ticket_type_id = tt.id
+      GROUP BY e.id, e.title, e.date_and_time, e.description, e.image, e.user_id, u.name, u.surname, u.username
+      ORDER BY e.date_and_time DESC
+    `);
+
+    res.json(rows);
+  } catch (err) {
+    next(err);
+  }
+}
