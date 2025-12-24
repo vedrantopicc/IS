@@ -22,7 +22,7 @@ import {
 } from "./ui/alert-dialog";
 import {
   Users, Calendar, Settings, LogOut, Trash2, Eye,
-  BarChart3, UserCheck, Clock, Shield, Undo
+  BarChart3, UserCheck, Clock, Shield, Undo, Info
 } from "lucide-react";
 import { logoutApi } from "../services/auth";
 import {
@@ -419,7 +419,7 @@ export default function AdminDashboard() {
                                   cursor: 'pointer'
                                 }}
                               >
-                                <Eye className="w-4 h-4" style={{ color: '#000000' }} />
+                                <Info className="w-4 h-4" style={{ color: '#000000' }} />
                               </Button>
                               {user.role !== 'Admin' && (
                                 <AlertDialog>
@@ -587,7 +587,7 @@ export default function AdminDashboard() {
                         </TableCell>
                         <TableCell className="text-gray-900">{formatDate(event.date_and_time)}</TableCell>
                         <TableCell className="text-gray-900">
-                          €{parseFloat(event.total_revenue).toFixed(2)}
+                          {parseFloat(event.total_revenue).toFixed(2)} KM
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
@@ -605,7 +605,7 @@ export default function AdminDashboard() {
                                 cursor: 'pointer'
                               }}
                             >
-                              <Eye className="w-4 h-4" style={{ color: '#000000' }} />
+                              <Info className="w-4 h-4" style={{ color: '#000000' }} />
                             </Button>
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
