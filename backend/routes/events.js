@@ -7,7 +7,8 @@ import {
   createEvent,
   updateEvent,
   deleteOrganizerEvent,
-  getEventReservations
+  getEventReservations,
+  getEventSalesProgress // ✅ dodato
 } from "../controllers/events-controller.js";
 import { requireAdmin, requireAuth, requireOrganizer } from "../middleware/auth-middleware.js";
 
@@ -23,5 +24,7 @@ router.post("/organizer/create", requireOrganizer, createEvent);
 router.put("/organizer/:id", requireOrganizer, updateEvent);
 router.delete("/organizer/:id", requireOrganizer, deleteOrganizerEvent);
 router.get("/organizer/:eventId/reservations", requireOrganizer, getEventReservations);
+// ✅ NOVA RUTA:
+router.get("/organizer/:eventId/sales-progress", requireOrganizer, getEventSalesProgress);
 
 export default router;

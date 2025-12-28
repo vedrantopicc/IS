@@ -1,4 +1,4 @@
-// OrganizerDashboard.jsx
+// src/pages/OrganizerDashboard.jsx
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Avatar, AvatarFallback } from "../components/ui/avatar";
@@ -14,12 +14,12 @@ import { Badge } from "../components/ui/badge";
 import { Table, TableHead, TableRow, TableCell, TableHeader, TableBody } from "../components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../components/ui/dialog";
-import { Settings, LogOut, Plus, Edit, Trash2, Users, Calendar, Clock, DollarSign, Eye, Shield, Minus } from "lucide-react";
+import { Settings, LogOut, Plus, Edit, Trash2, Users, Calendar, Clock, MapPin, Eye, Shield, Minus, BarChart3 } from "lucide-react";
 import { logoutApi } from "../services/auth";
-import { getOrganizerEvents, createEvent, updateEvent, deleteEvent, getEventReservations } from "../services/organizer";
+import { getOrganizerEvents, createEvent, updateEvent, deleteEvent, getEventReservations, getEventSalesProgress } from "../services/organizer";
 import { toast } from "react-toastify";
 
-// Helper funkcije (ostaju iste)
+// Helper funkcije
 function getToken() { return localStorage.getItem("token"); }
 function decodeJwt(token) { 
   try { 
@@ -90,13 +90,12 @@ export default function OrganizerDashboard() {
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showReservationsDialog, setShowReservationsDialog] = useState(false);
+  const [showProgressDialog, setShowProgressDialog] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [reservations, setReservations] = useState([]);
+  const [salesProgress, setSalesProgress] = useState(null);
 
-  // ⬇️ NOVI STATE: ticketTypes niz
-  const [ticketTypes, setTicketTypes] = useState([
-    { name: "", price: "", total_seats: "" }
-  ]);
+  const [ticketTypes, setTicketTypes] = useState([{ name: "", price: "", total_seats: "" }]);
 
   const getInitialFormData = () => {
     const tomorrow = new Date();
@@ -105,11 +104,12 @@ export default function OrganizerDashboard() {
     return {
       title: "",
       description: "",
+      location: "",
       date_and_time: tomorrow.toISOString().slice(0, 16),
       image: ""
     };
   };
-  const [formData, setFormData] = useState(getInitialFormData);
+  const [formData, setFormData] = useState(getInitialFormData());
 
   useEffect(() => {
     loadEvents();
@@ -128,12 +128,10 @@ export default function OrganizerDashboard() {
     }
   };
 
-  // ⬇️ DODAVANJE NOVOG TIPA ULAZNICE
   const addTicketType = () => {
     setTicketTypes([...ticketTypes, { name: "", price: "", total_seats: "" }]);
   };
 
-  // ⬇️ BRISANJE TIPA ULAZNICE
   const removeTicketType = (index) => {
     if (ticketTypes.length > 1) {
       const newTypes = ticketTypes.filter((_, i) => i !== index);
@@ -141,14 +139,12 @@ export default function OrganizerDashboard() {
     }
   };
 
-  // ⬇️ UPDATE ODREĐENOG TIPA
   const updateTicketType = (index, field, value) => {
     const newTypes = [...ticketTypes];
     newTypes[index][field] = value;
     setTicketTypes(newTypes);
   };
 
-  // ⬇️ VALIDACIJA TIPova
   const validateTicketTypes = () => {
     for (let tt of ticketTypes) {
       if (!tt.name.trim() || tt.price === "" || tt.total_seats === "" || 
@@ -177,6 +173,7 @@ export default function OrganizerDashboard() {
       const eventData = {
         title: formData.title.trim(),
         description: formData.description.trim(),
+        location: formData.location.trim(),
         date_and_time: formatDateTimeForMySQL(formData.date_and_time),
         image: formData.image.trim() || null,
         ticketTypes: ticketTypes.map(tt => ({
@@ -197,7 +194,6 @@ export default function OrganizerDashboard() {
     }
   };
 
-  // ⬇️ EDIT: SAMO OSNOVNI PODACI (BEZ TIPova)
   const handleUpdateEvent = async (e) => {
     e.preventDefault();
     
@@ -210,9 +206,9 @@ export default function OrganizerDashboard() {
       const eventData = {
         title: formData.title.trim(),
         description: formData.description.trim(),
+        location: formData.location.trim(),
         date_and_time: formatDateTimeForMySQL(formData.date_and_time),
         image: formData.image.trim() || null
-        // ⚠️ Ne šaljemo ticketTypes – backend trenutno ne podržava ažuriranje tipova
       };
 
       await updateEvent(selectedEvent.id, eventData);
@@ -251,11 +247,24 @@ export default function OrganizerDashboard() {
     }
   };
 
+  const handleViewSalesProgress = async (event) => {
+    try {
+      setSelectedEvent(event);
+      const data = await getEventSalesProgress(event.id);
+      setSalesProgress(data);
+      setShowProgressDialog(true);
+    } catch (err) {
+      console.error("Failed to load sales progress:", err);
+      toast.error(`Failed to load sales progress: ${err.message}`);
+    }
+  };
+
   const handleEdit = (event) => {
     setSelectedEvent(event);
     setFormData({
       title: event.title,
       description: event.description || "",
+      location: event.location || "",
       date_and_time: new Date(event.date_and_time).toISOString().slice(0, 16),
       image: event.image || ""
     });
@@ -264,7 +273,7 @@ export default function OrganizerDashboard() {
 
   const resetForm = () => {
     setFormData(getInitialFormData());
-    setTicketTypes([{ name: "", price: "", total_seats: "" }]); // resetuj ticketTypes
+    setTicketTypes([{ name: "", price: "", total_seats: "" }]);
   };
 
   const handleLogout = async () => {
@@ -277,7 +286,6 @@ export default function OrganizerDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* HEADER - ISTI */}
       <header className="sticky top-0 z-10 w-full bg-white/80 backdrop-blur border-b">
         <div className="mx-auto max-w-7xl px-4 py-3 flex items-center justify-between">
           <div>
@@ -391,16 +399,6 @@ export default function OrganizerDashboard() {
             {events.map((event) => {
               const { date, time } = formatDateTime(event.date_and_time);
               const isPast = isEventInPast(event.date_and_time);
-              // ⬇️ PRIKAZ CENA: "From X KM" ILI "X - Y KM"
-              let priceDisplay = "Price not available";
-              if (event.ticket_types && event.ticket_types.length > 0) {
-                const prices = event.ticket_types.map(tt => parseFloat(tt.price));
-                const min = Math.min(...prices);
-                const max = Math.max(...prices);
-                priceDisplay = min === max 
-                  ? `${min.toFixed(2)} KM` 
-                  : `From ${min.toFixed(2)} KM`;
-              }
 
               return (
                 <Card key={event.id} className={`${isPast ? 'opacity-75' : ''}`}>
@@ -431,6 +429,10 @@ export default function OrganizerDashboard() {
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <div className="flex items-center text-sm text-gray-600">
+                      <MapPin className="mr-2 h-4 w-4" />
+                      {event.location || "Location not specified"}
+                    </div>
+                    <div className="flex items-center text-sm text-gray-600">
                       <Calendar className="mr-2 h-4 w-4" />
                       {date}
                     </div>
@@ -438,25 +440,28 @@ export default function OrganizerDashboard() {
                       <Clock className="mr-2 h-4 w-4" />
                       {time}
                     </div>
-                    <div className="flex items-center text-sm text-gray-600">
-                      <DollarSign className="mr-2 h-4 w-4" />
-                      {priceDisplay}
-                    </div>
-                    {event.ticket_types && event.ticket_types.length > 0 && (
-                      <div className="text-xs text-gray-500">
-                        {event.ticket_types.length} ticket type{event.ticket_types.length !== 1 ? 's' : ''}
-                      </div>
-                    )}
-                    
-                    <div className="flex flex-col gap-2 pt-2">
+                    {/* 🚫 CENA I BROJ TIPOVA UKLONJENI */}
+                  </CardContent>
+                  <div className="p-6 pt-0">
+                    <div className="flex flex-col gap-2">
+                      {/* ✅ BEZ IKONE "EYE" */}
                       <Button 
                         size="sm" 
                         variant="outline"
                         onClick={() => handleViewReservations(event)}
-                        className="w-full flex items-center justify-center gap-2 text-gray-700 hover:text-gray-900 border-gray-300 hover:bg-gray-100 cursor-pointer"
+                        className="w-full flex items-center justify-center text-gray-700 hover:text-gray-900 border-gray-300 hover:bg-gray-100 cursor-pointer"
                       >
-                        <Eye className="h-4 w-4" />
                         View Reservations
+                      </Button>
+
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => handleViewSalesProgress(event)}
+                        className="w-full flex items-center justify-center gap-2 text-green-600 hover:text-green-700 border-green-300 hover:bg-green-50 cursor-pointer"
+                      >
+                        <BarChart3 className="h-4 w-4" />
+                        Sales Progress
                       </Button>
                       
                       <div className="flex gap-2">
@@ -483,16 +488,14 @@ export default function OrganizerDashboard() {
                         </Button>
                       </div>
                     </div>
-                  </CardContent>
+                  </div>
                 </Card>
               );
             })}
           </div>
         )}
 
-        {/* CREATE DIALOG - SA ticketTypes */}
-}
-
+        {/* CREATE DIALOG SA LOKACIJOM */}
         <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
           <DialogContent className="bg-white text-black max-w-2xl">
             <DialogHeader>
@@ -507,6 +510,14 @@ export default function OrganizerDashboard() {
                   onChange={(e) => setFormData({...formData, title: e.target.value})}
                   placeholder="Enter event title"
                   required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Location</label>
+                <Input
+                  value={formData.location}
+                  onChange={(e) => setFormData({...formData, location: e.target.value})}
+                  placeholder="Enter event location (e.g. City Hall, Banja Luka)"
                 />
               </div>
               <div>
@@ -540,7 +551,6 @@ export default function OrganizerDashboard() {
                 </div>
               </div>
 
-              {/* ⬇️ NOVI SEKCIJA: TIPOVI ULAZNICA */}
               <div>
                 <div className="flex justify-between items-center mb-2">
                   <label className="block text-sm font-medium">Ticket Types *</label>
@@ -621,8 +631,7 @@ export default function OrganizerDashboard() {
           </DialogContent>
         </Dialog>
 
-        {/* EDIT DIALOG - SAMO OSNOVNI PODACI */}
-} 
+        {/* EDIT DIALOG SA LOKACIJOM */}
         <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
           <DialogContent className="bg-white text-black max-w-2xl">
             <DialogHeader>
@@ -637,6 +646,14 @@ export default function OrganizerDashboard() {
                   onChange={(e) => setFormData({...formData, title: e.target.value})}
                   placeholder="Enter event title"
                   required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Location</label>
+                <Input
+                  value={formData.location}
+                  onChange={(e) => setFormData({...formData, location: e.target.value})}
+                  placeholder="Enter event location"
                 />
               </div>
               <div>
@@ -691,8 +708,7 @@ export default function OrganizerDashboard() {
           </DialogContent>
         </Dialog>
 
-        {/* DIALOGOVI ZA BRISANJE I REZERVACIJE - IZMENA U TABLE */}
-}
+        {/* DELETE DIALOG */}
         <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
           <AlertDialogContent className="bg-white text-black">
             <AlertDialogHeader>
@@ -714,6 +730,7 @@ export default function OrganizerDashboard() {
           </AlertDialogContent>
         </AlertDialog>
 
+        {/* RESERVATIONS DIALOG */}
         <Dialog open={showReservationsDialog} onOpenChange={setShowReservationsDialog}>
           <DialogContent className="bg-white text-black max-w-4xl max-h-[80vh] overflow-y-auto border-2 border-gray-200 shadow-2xl rounded-lg">
             <DialogHeader className="border-b border-gray-100 pb-4">
@@ -773,6 +790,73 @@ export default function OrganizerDashboard() {
                 onClick={() => setShowReservationsDialog(false)} 
                 variant="outline"
                 className="!bg-gray-100 hover:!bg-gray-200 !text-gray-700 !border-gray-300 cursor-pointer font-medium px-6 py-2"
+              >
+                Close
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* ✅ SALES PROGRESS DIALOG - ISRAVQLJEN */}
+        <Dialog open={showProgressDialog} onOpenChange={setShowProgressDialog}>
+          <DialogContent className="bg-white text-black max-w-2xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Sales Progress – {selectedEvent?.title}</DialogTitle>
+              <DialogDescription>Track ticket sales for this event.</DialogDescription>
+            </DialogHeader>
+
+            {salesProgress ? (
+              <div className="space-y-6">
+                {/* Ukupan progres */}
+                <div>
+                  <div className="flex justify-between mb-2">
+                    <span className="font-medium">Total Sold</span>
+                    <span>
+                      {parseInt(salesProgress.total_sold) || 0} / {parseInt(salesProgress.total_seats) || 0} (
+                      {Math.round(((parseInt(salesProgress.total_sold) || 0) / (parseInt(salesProgress.total_seats) || 1)) * 100)}%
+                      )
+                    </span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-4">
+                    <div
+                      className="bg-green-500 h-4 rounded-full"
+                      style={{ width: `${salesProgress.percentage_sold}%` }}
+                    ></div>
+                  </div>
+                </div>
+
+                {/* Po tipu karte */}
+                <div>
+                  <h4 className="font-semibold mb-3">By Ticket Type:</h4>
+                  {salesProgress.ticket_types.map((tt) => (
+                    <div key={tt.id} className="mb-4">
+                      <div className="flex justify-between text-sm mb-1">
+                        <span>{tt.name}</span>
+                        <span>
+                          {parseInt(tt.sold) || 0} / {parseInt(tt.total_seats) || 0} (
+                          {Math.round(((parseInt(tt.sold) || 0) / (parseInt(tt.total_seats) || 1)) * 100)}%
+                          )
+                        </span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2.5">
+                        <div
+                          className="bg-blue-500 h-2.5 rounded-full"
+                          style={{ width: `${tt.percentage}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <p className="text-gray-500">Loading...</p>
+            )}
+
+            <DialogFooter>
+              <Button 
+                onClick={() => setShowProgressDialog(false)} 
+                variant="outline"
+                className="!bg-gray-100 hover:!bg-gray-200 !text-gray-700 !border-gray-300"
               >
                 Close
               </Button>

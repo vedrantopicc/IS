@@ -1,4 +1,4 @@
-// organizer-api.js
+// src/services/organizer-api.js
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
 
 function getAuthHeader() {
@@ -20,12 +20,7 @@ export async function getOrganizerEvents() {
   return response.json();
 }
 
-/**
- * Kreira događaj sa višestrukim tipovima ulaznica
- * @param {Object} eventData - mora sadržati `ticketTypes` niz
- */
 export async function createEvent(eventData) {
-  // Provera: da li postoji ticketTypes niz?
   if (!Array.isArray(eventData.ticketTypes) || eventData.ticketTypes.length === 0) {
     throw new Error("At least one ticket type is required");
   }
@@ -47,10 +42,9 @@ export async function createEvent(eventData) {
   return response.json();
 }
 
+// ✅ Ispravljeno: "organizer" (ne "organiganizer")
 export async function updateEvent(eventId, eventData) {
-  // ⚠️ Ako ažuriraš i ticketTypes, backend trenutno NE podržava to!
-  // Za sada ažuriraš samo osnovne podatke (naslov, opis...)
-  const response = await fetch(`${API_BASE_URL}/events/organiganizer/${eventId}`, {
+  const response = await fetch(`${API_BASE_URL}/events/organizer/${eventId}`, {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
@@ -93,4 +87,19 @@ export async function getEventReservations(eventId) {
   }
 
   return response.json();
+}
+
+
+export async function getEventSalesProgress(eventId) {
+  const response = await fetch(`${API_BASE_URL}/events/organizer/${eventId}/sales-progress`, {
+    method: "GET",
+    headers: getAuthHeader(),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.error || `HTTP ${response.status}: Failed to load sales progress`);
+  }
+
+  return response.json(); // ovo je dovoljno – nema potrebe za dodatnom obradom
 }

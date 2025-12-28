@@ -5,13 +5,13 @@ export async function getEventById(req, res, next) {
   try {
     const { id } = req.params;
 
-    // Osnovni podaci o događaju
     const [eventRows] = await pool.query(
       `SELECT
          e.id,
          e.title,
-         e.date_and_time,
          e.description,
+         e.location,
+         e.date_and_time,
          e.image,
          e.user_id,
          CONCAT_WS(' ', u.name, u.surname) AS organizer_name,
@@ -28,7 +28,6 @@ export async function getEventById(req, res, next) {
 
     const event = eventRows[0];
 
-    // Tipovi ulaznica + rezervisana mesta po tipu
     const [ticketTypes] = await pool.query(
       `SELECT
          tt.id,
@@ -53,7 +52,7 @@ export async function getEventById(req, res, next) {
   }
 }
 
-// ✅ DOHVATI SVE DOGAĐAJE (osnovni podaci + opseg cena)
+// ✅ DOHVATI SVE DOGAĐAJE (za javni pregled)
 export async function getAllEvents(req, res, next) {
   try {
     let { from, to, sort = "desc" } = req.query;
@@ -75,13 +74,13 @@ export async function getAllEvents(req, res, next) {
     const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
     const orderSql = sort?.toLowerCase() === "asc" ? "ASC" : "DESC";
 
-    // Dohvata događaje i agregira cene i dostupna mesta
     const [rows] = await pool.query(
       `SELECT
          e.id,
          e.title,
-         e.date_and_time,
          e.description,
+         e.location,
+         e.date_and_time,
          e.image,
          e.user_id,
          CONCAT_WS(' ', u.name, u.surname) AS organizer_name,
@@ -111,13 +110,12 @@ export async function getAllEvents(req, res, next) {
   }
 }
 
-// ✅ KREIRAJ DOGAĐAJ SA VIŠE TIPOVA ULAZNICA
+// ✅ KREIRAJ DOGAĐAJ SA VIŠE TIPOVA ULAZNICA I LOKACIJOM
 export async function createEvent(req, res, next) {
   try {
     const userId = req.user.id;
-    const { title, description, date_and_time, image, ticketTypes } = req.body;
+    const { title, description, location, date_and_time, image, ticketTypes } = req.body;
 
-    // Validacija
     if (!title || !date_and_time || !Array.isArray(ticketTypes) || ticketTypes.length === 0) {
       return res.status(400).json({ error: "Title, date, and at least one ticket type are required" });
     }
@@ -128,16 +126,14 @@ export async function createEvent(req, res, next) {
       }
     }
 
-    // Kreiraj događaj
     const [eventResult] = await pool.query(
-      `INSERT INTO event (title, description, date_and_time, image, user_id)
-       VALUES (?, ?, ?, ?, ?)`,
-      [title, description, date_and_time, image || null, userId]
+      `INSERT INTO event (title, description, location, date_and_time, image, user_id)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [title, description || null, location || null, date_and_time, image || null, userId]
     );
 
     const eventId = eventResult.insertId;
 
-    // Kreiraj tipove ulaznica
     const ticketTypeValues = ticketTypes.map(tt => [
       eventId,
       tt.name,
@@ -151,13 +147,13 @@ export async function createEvent(req, res, next) {
       [ticketTypeValues]
     );
 
-    // Vrati potpuni događaj
     const [fullEvent] = await pool.query(
       `SELECT
          e.id,
          e.title,
-         e.date_and_time,
          e.description,
+         e.location,
+         e.date_and_time,
          e.image,
          e.user_id,
          CONCAT_WS(' ', u.name, u.surname) AS organizer_name,
@@ -182,12 +178,12 @@ export async function createEvent(req, res, next) {
   }
 }
 
-// ✅ AŽURIRAJ OSNOVNE PODATKE DOGAĐAJA (naslov, datum...)
+// ✅ AŽURIRAJ OSNOVNE PODATKE DOGAĐAJA (UKLJUČUJUĆI LOKACIJU)
 export async function updateEvent(req, res, next) {
   try {
     const { id } = req.params;
     const userId = req.user.id;
-    const { title, description, date_and_time, image } = req.body;
+    const { title, description, location, date_and_time, image } = req.body;
 
     const [existing] = await pool.query(
       "SELECT id FROM event WHERE id = ? AND user_id = ?",
@@ -198,26 +194,24 @@ export async function updateEvent(req, res, next) {
       return res.status(404).json({ error: "Event not found or no permission" });
     }
 
-    const [result] = await pool.query(
+    await pool.query(
       `UPDATE event SET 
-         title = COALESCE(?, title),
-         description = COALESCE(?, description),
-         date_and_time = COALESCE(?, date_and_time),
+         title = ?,
+         description = ?,
+         location = ?,
+         date_and_time = ?,
          image = ?
        WHERE id = ?`,
-      [title, description, date_and_time, image || null, id]
+      [title || null, description || null, location || null, date_and_time || null, image || null, id]
     );
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ error: "Event not found" });
-    }
 
     const [updated] = await pool.query(
       `SELECT
          e.id,
          e.title,
-         e.date_and_time,
          e.description,
+         e.location,
+         e.date_and_time,
          e.image,
          e.user_id,
          CONCAT_WS(' ', u.name, u.surname) AS organizer_name,
@@ -228,7 +222,6 @@ export async function updateEvent(req, res, next) {
       [id]
     );
 
-    // Dohvati i tipove ulaznica
     const [ticketTypes] = await pool.query(
       `SELECT id, name, price, total_seats FROM ticket_type WHERE event_id = ?`,
       [id]
@@ -243,7 +236,7 @@ export async function updateEvent(req, res, next) {
   }
 }
 
-// ✅ BRISANJE DOGAĐAJA (automatski briše i ticket_type i reservation zbog CASCADE)
+// ✅ BRISANJE DOGAĐAJA
 export async function deleteEventById(req, res, next) {
   try {
     const { id } = req.params;
@@ -257,64 +250,74 @@ export async function deleteEventById(req, res, next) {
   }
 }
 
-// ✅ DOGAĐAJI ORGANIZATORA
+// ✅ DOHVATI DOGAĐAJE ORGANIZATORA
 export async function getOrganizerEvents(req, res, next) {
   try {
     const userId = req.user.id;
-    const [rows] = await pool.query(
+
+    if (!userId || userId <= 0 || isNaN(userId)) {
+      return res.status(400).json({ error: "Invalid user ID" });
+    }
+
+    const [events] = await pool.query(
       `SELECT
          e.id,
          e.title,
-         e.date_and_time,
          e.description,
+         e.location,
+         e.date_and_time,
          e.image,
          e.user_id,
          CONCAT_WS(' ', u.name, u.surname) AS organizer_name,
-         u.username AS organizer_username,
-         MIN(tt.price) AS min_price,
-         MAX(tt.price) AS max_price
+         u.username AS organizer_username
        FROM event e
-       JOIN \`user\` u ON u.id = e.user_id
-       JOIN ticket_type tt ON tt.event_id = e.id
+       LEFT JOIN \`user\` u ON u.id = e.user_id
        WHERE e.user_id = ?
-       GROUP BY e.id
        ORDER BY e.date_and_time DESC`,
       [userId]
     );
-    res.json(rows);
+
+    for (const event of events) {
+      if (!event.id) continue;
+      try {
+        const [ticketTypes] = await pool.query(
+          `SELECT id, name, price, total_seats FROM ticket_type WHERE event_id = ?`,
+          [event.id]
+        );
+        event.ticket_types = ticketTypes;
+      } catch (err) {
+        console.warn(`Failed to load ticket types for event ${event.id}:`, err.message);
+        event.ticket_types = [];
+      }
+    }
+
+    res.json(events);
   } catch (err) {
-    next(err);
+    console.error("Database error in getOrganizerEvents:", err);
+    return res.status(500).json({ error: "Failed to load your events" });
   }
 }
 
+// ✅ BRISANJE DOGAĐAJA OD STRANE ORGANIZATORA
 export async function deleteOrganizerEvent(req, res, next) {
   try {
     const { id } = req.params;
     const userId = req.user.id;
 
     const [existingEvent] = await pool.query(
-      "SELECT id, title, user_id FROM `event` WHERE id = ? AND user_id = ? LIMIT 1",
+      "SELECT id FROM `event` WHERE id = ? AND user_id = ? LIMIT 1",
       [id, userId]
     );
 
     if (!existingEvent.length) {
-      return res.status(404).json({ error: "Event not found or you don't have permission to delete it" });
+      return res.status(404).json({ error: "Event not found or you don't have permission" });
     }
 
-    const [result] = await pool.query(
-      "DELETE FROM `event` WHERE id = ? AND user_id = ?",
-      [id, userId]
-    );
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ error: "Event not found" });
-    }
+    await pool.query("DELETE FROM `event` WHERE id = ?", [id]);
 
     res.json({ 
-      message: "Event deleted successfully", 
-      deletedEvent: existingEvent[0] 
+      message: "Event deleted successfully"
     });
-
   } catch (err) {
     next(err);
   }
@@ -359,29 +362,58 @@ export async function getEventReservations(req, res, next) {
   }
 }
 
-// ✅ DOGAĐAJI ZA ADMINISTRATORA – sa ukupnom zaradom
-export async function getAdminEvents(req, res, next) {
+// ✅ PROGRES PRODAJE ZA DOGAĐAJ (ISRAVQLJENO - BROJEVI KAO BROJEVI)
+export async function getEventSalesProgress(req, res, next) {
   try {
-    const [rows] = await pool.query(`
-      SELECT
-        e.id,
-        e.title,
-        e.date_and_time,
-        e.description,
-        e.image,
-        e.user_id,
-        CONCAT_WS(' ', u.name, u.surname) AS organizer_name,
-        u.username AS organizer_username,
-        COALESCE(SUM(tt.price * r.number_of_tickets), 0) AS total_revenue
-      FROM event e
-      JOIN \`user\` u ON u.id = e.user_id
-      LEFT JOIN ticket_type tt ON tt.event_id = e.id
-      LEFT JOIN reservation r ON r.ticket_type_id = tt.id
-      GROUP BY e.id, e.title, e.date_and_time, e.description, e.image, e.user_id, u.name, u.surname, u.username
-      ORDER BY e.date_and_time DESC
-    `);
+    const { eventId } = req.params;
+    const userId = req.user.id;
 
-    res.json(rows);
+    const [eventCheck] = await pool.query(
+      "SELECT id FROM event WHERE id = ? AND user_id = ?",
+      [eventId, userId]
+    );
+    if (!eventCheck.length) {
+      return res.status(403).json({ error: "You don't own this event" });
+    }
+
+    const [ticketTypes] = await pool.query(`
+      SELECT
+        tt.id,
+        tt.name,
+        tt.total_seats,
+        COALESCE(SUM(r.number_of_tickets), 0) AS sold
+      FROM ticket_type tt
+      LEFT JOIN reservation r ON r.ticket_type_id = tt.id
+      WHERE tt.event_id = ?
+      GROUP BY tt.id
+    `, [eventId]);
+
+    const processedTicketTypes = ticketTypes.map(t => ({
+      id: t.id,
+      name: t.name,
+      total_seats: Number(t.total_seats),
+      sold: Number(t.sold)
+    }));
+
+    const totalSeats = processedTicketTypes.reduce((sum, t) => sum + t.total_seats, 0);
+    const totalSold = processedTicketTypes.reduce((sum, t) => sum + t.sold, 0);
+    const percentage = totalSeats > 0 ? Math.min(100, Math.round((totalSold / totalSeats) * 100)) : 0;
+
+    res.json({
+      event_id: Number(eventId),
+      total_seats: totalSeats,
+      total_sold: totalSold,
+      percentage_sold: percentage,
+      ticket_types: processedTicketTypes.map(t => ({
+        id: t.id,
+        name: t.name,
+        total_seats: t.total_seats,
+        sold: t.sold,
+        available: t.total_seats - t.sold,
+        percentage: t.total_seats > 0 ? Math.round((t.sold / t.total_seats) * 100) : 0
+      }))
+    });
+
   } catch (err) {
     next(err);
   }

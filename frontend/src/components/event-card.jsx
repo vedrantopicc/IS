@@ -1,12 +1,13 @@
-// EventCard.jsx
-import { Calendar, Clock } from "lucide-react";
+// src/components/EventCard.jsx
+import { Calendar, Clock, MapPin } from "lucide-react";
 import { Card, CardContent } from "./ui/card";
 
 export default function EventCard({ 
   image, 
   title, 
   date, 
-  time, 
+  time,
+  location, // ✅ Lokacija je prisutna
   onClick,
   className = "",
   isPastEvent = false
@@ -32,21 +33,30 @@ export default function EventCard({
           {title}
         </h3>
 
-        <div className="flex items-center space-x-4 text-gray-600">
+        {/* ✅ Lokacija — samo ako postoji */}
+        {location && (
+          <div className="flex items-center space-x-2 text-gray-600">
+            <MapPin className="w-4 h-4 text-blue-600 flex-shrink-0" />
+            <span className="text-sm font-medium line-clamp-1">{location}</span>
+          </div>
+        )}
+
+        {/* Datum i vreme */}
+        <div className="flex flex-wrap items-center gap-4 text-gray-600">
           <div className="flex items-center space-x-2">
-            <Calendar className="w-4 h-4 text-blue-600" />
+            <Calendar className="w-4 h-4 text-blue-600 flex-shrink-0" />
             <span className="text-sm font-medium">{date}</span>
           </div>
           <div className="flex items-center space-x-2">
-            <Clock className="w-4 h-4 text-blue-600" />
+            <Clock className="w-4 h-4 text-blue-600 flex-shrink-0" />
             <span className="text-sm font-medium">{time}</span>
           </div>
         </div>
 
-        <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+        <div className="pt-2 border-t border-gray-100">
           <button 
             onClick={onClick} 
-            className="px-4 py-2 !bg-blue-600 hover:!bg-blue-700 !text-white text-sm font-medium rounded-lg transition-colors duration-200 cursor-pointer"
+            className="px-4 py-2 !bg-blue-600 hover:!bg-blue-700 !text-white text-sm font-medium rounded-lg transition-colors duration-200 cursor-pointer w-full"
           >
             View Details
           </button>

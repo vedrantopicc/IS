@@ -96,12 +96,12 @@ export const EventsPage = () => {
         });
         if (!alive) return;
 
-        // ⬇️ Uklanjamo obradu cena – ne treba nam za listu
         setRows(
           data.map((r) => ({
             id: r.id,
             title: r.title,
             image: r.image,
+            location: r.location, // ✅ DODATO
             dt: r.date_and_time ? new Date(r.date_and_time) : null,
           }))
         );
@@ -123,6 +123,7 @@ export const EventsPage = () => {
       id: e.id,
       image: e.image,
       title: e.title,
+      location: e.location, // ✅ DODATO
       date: e.dt ? e.dt.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" }) : "",
       time: e.dt ? e.dt.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }) : "",
       isPastEvent: e.dt ? e.dt < currentDate : false,
@@ -317,6 +318,7 @@ export const EventsPage = () => {
                   key={event.id}
                   image={event.image}
                   title={event.title}
+                  location={event.location} // ✅ DODATO
                   date={event.date}
                   time={event.time}
                   isPastEvent={event.isPastEvent}
