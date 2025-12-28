@@ -134,7 +134,7 @@ export async function forgotPassword(req, res) {
 
     const [rows] = await pool.query("SELECT id FROM `user` WHERE email = ?", [email]);
     if (rows.length === 0) {
-      return res.json({ message: "Ako nalog postoji, poslat vam je email za reset." });
+      return res.json({ message: "Poslat vam je email za reset." });
     }
 
     const token = randomBytes(32).toString("hex");
@@ -147,7 +147,7 @@ export async function forgotPassword(req, res) {
 
     await sendPasswordResetEmail(email, token);
 
-    return res.json({ message: "Ako nalog postoji, poslat vam je email za reset." });
+    return res.json({ message: "Poslat vam je email za reset." });
   } catch (e) {
     console.error("Forgot password error:", e);
     return res.status(500).json({ error: "Server error" });
@@ -177,7 +177,7 @@ export async function resetPassword(req, res) {
     await pool.query("UPDATE `user` SET password = ? WHERE id = ?", [hash, rows[0].user_id]);
     await pool.query("DELETE FROM password_reset_tokens WHERE token = ?", [token]);
 
-    return res.json({ message: "Lozinka uspešno promenjena!" });
+    return res.json({ message: "Lozinka uspješno promenjena!" });
   } catch (e) {
     console.error("Reset password error:", e);
     return res.status(500).json({ error: "Server error" });
