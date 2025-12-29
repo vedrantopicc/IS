@@ -33,7 +33,6 @@ export default function RegisterPage() {
     username: "",
     password: "",
     confirmPassword: "",
-    role: "",
   });
 
   const [errors, setErrors] = useState({});
@@ -81,10 +80,6 @@ export default function RegisterPage() {
       newErrors.confirmPassword = "Passwords do not match";
     }
 
-    if (!formData.role) {
-      newErrors.role = "Please select a role";
-    }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -102,7 +97,6 @@ export default function RegisterPage() {
         email: formData.email,
         username: formData.username,
         password: formData.password,
-        role: formData.role,
       });
       
       toast.success("You successfully created an account in StudLife. Please log in now.", {
@@ -342,37 +336,6 @@ export default function RegisterPage() {
                 </div>
                 {errors.confirmPassword && (
                   <p className="text-xs text-red-400 mt-1">{errors.confirmPassword}</p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="role" className="text-sm font-medium text-white">
-                  Role
-                </Label>
-                <Select
-                  value={formData.role}
-                  onValueChange={(value) => handleInputChange("role", value)}
-                  disabled={isLoading}
-                >
-                  <SelectTrigger
-                    className={cn(
-                      "!bg-gray-700 !border-gray-600 !text-white focus:!border-green-500 focus:!ring-green-500 w-full cursor-pointer hover:!bg-gray-600 transition-colors disabled:cursor-not-allowed",
-                      errors.role && "!border-red-500 focus:!border-red-500 focus:!ring-red-500"
-                    )}
-                  >
-                    <SelectValue placeholder="Select your role" />
-                  </SelectTrigger>
-                  <SelectContent className="!bg-gray-700 !border-gray-600">
-                    <SelectItem value="student" className="!text-white hover:!bg-gray-600 cursor-pointer">
-                      Student
-                    </SelectItem>
-                    <SelectItem value="organizer" className="!text-white hover:!bg-gray-600 cursor-pointer">
-                      Organizer
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-                {errors.role && (
-                  <p className="text-xs text-red-400 mt-1">{errors.role}</p>
                 )}
               </div>
 

@@ -205,6 +205,7 @@ export const EventsPage = () => {
                     <span>My Events</span>
                   </DropdownMenuItem>
                 </div>
+                
               )}
 
               <div className="p-1">

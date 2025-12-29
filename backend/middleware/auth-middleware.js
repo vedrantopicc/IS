@@ -16,6 +16,7 @@ export function requireAuth(req, res, next) {
       id: Number(decoded.sub), 
       jti: decoded.jti, 
       role: decoded.role,
+      isOrganizer: decoded.isOrganizer,
       username: decoded.username,
       name: decoded.name,
       surname: decoded.surname,
@@ -44,7 +45,7 @@ export async function requireAdmin(req, res, next) {
       return res.status(401).json({ error: "Invalid or expired token" });
     }
     const [rows] = await pool.query(
-      "SELECT role FROM `user` WHERE id = ? LIMIT 1",
+      "SELECT role, is_organizer FROM `user` WHERE id = ? LIMIT 1",
       [req.user.id]
     );
 
@@ -79,7 +80,7 @@ export async function requireOrganizer(req, res, next) {
     }
     
     const [rows] = await pool.query(
-      "SELECT role FROM `user` WHERE id = ? LIMIT 1",
+      "SELECT role, is_organizer FROM `user` WHERE id = ? LIMIT 1", // ✅ DODATO is_organizer
       [req.user.id]
     );
 
@@ -87,7 +88,8 @@ export async function requireOrganizer(req, res, next) {
       return res.status(401).json({ error: "User not found" });
     }
 
-    if (rows[0].role !== "Organizer") {
+    // ✅ ISPRAVNA LOGIKA
+    if (rows[0].is_organizer !== 1 && rows[0].role !== "Student") {
       return res.status(403).json({ error: "Organizer access required" });
     }
 
@@ -112,6 +114,7 @@ export async function requireSelfOrAdmin(req, res, next) {
         id: Number(decoded.sub), 
         jti: decoded.jti, 
         role: decoded.role,
+        isOrganizer: decoded.is_organizer,
         username: decoded.username,
         name: decoded.name,
         surname: decoded.surname,

@@ -5,14 +5,15 @@ import crypto from "crypto";
 export async function createReservation(req, res, next) {
   try {
     const { eventId } = req.params;
-    const { ticketTypeId, numberOfTickets = 1 } = req.body; // ← ticketTypeId je obavezan
+    const { ticketTypeId, numberOfTickets = 1 } = req.body;
     const userId = req.user.id;
 
     // Proveri da li događaj i tip ulaznice postoje
     const [ticketTypeRows] = await pool.query(
       `SELECT 
          tt.id, tt.price, tt.total_seats, tt.event_id,
-         e.title as event_title
+         e.title as event_title,
+         e.user_id as event_owner_id
        FROM ticket_type tt
        JOIN event e ON e.id = tt.event_id
        WHERE tt.id = ? AND tt.event_id = ?`,
@@ -24,6 +25,11 @@ export async function createReservation(req, res, next) {
     }
 
     const ticketType = ticketTypeRows[0];
+
+    // ✅ ZABRANI REZERVACIJU AKO JE KORISNIK VLASNIK DOGAĐAJA
+    if (ticketType.event_owner_id === userId) {
+      return res.status(403).json({ error: "You cannot reserve tickets for your own event." });
+    }
 
     // Proveri da li korisnik već ima rezervaciju za taj tip ulaznice
     const [existing] = await pool.query(

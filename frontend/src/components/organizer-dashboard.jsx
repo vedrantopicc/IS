@@ -21,22 +21,22 @@ import { toast } from "react-toastify";
 
 // Helper funkcije
 function getToken() { return localStorage.getItem("token"); }
-function decodeJwt(token) { 
-  try { 
-    const b = token.split(".")[1]; 
-    const j = atob(b.replace(/-/g, "+").replace(/_/g, "/")); 
-    return JSON.parse(decodeURIComponent(escape(j))); 
-  } catch { 
-    return null; 
-  } 
+function decodeJwt(token) {
+  try {
+    const b = token.split(".")[1];
+    const j = atob(b.replace(/-/g, "+").replace(/_/g, "/"));
+    return JSON.parse(decodeURIComponent(escape(j)));
+  } catch {
+    return null;
+  }
 }
-function getDisplayName(p) { 
-  if (!p) return "User"; 
-  if (p.name && p.surname) return `${p.name} ${p.surname}`; 
-  return p.name || p.username || p.email || "User"; 
+function getDisplayName(p) {
+  if (!p) return "User";
+  if (p.name && p.surname) return `${p.name} ${p.surname}`;
+  return p.name || p.username || p.email || "User";
 }
-function getInitials(name) { 
-  return (name.split(" ").filter(Boolean).slice(0,2).map(s=>s[0]?.toUpperCase()||"").join("")) || "U"; 
+function getInitials(name) {
+  return (name.split(" ").filter(Boolean).slice(0, 2).map(s => s[0]?.toUpperCase() || "").join("")) || "U";
 }
 
 function getCurrentUserRole() {
@@ -47,7 +47,7 @@ function getCurrentUserRole() {
     try {
       const user = JSON.parse(userStr);
       return user.role;
-    } catch {}
+    } catch { }
   }
   return null;
 }
@@ -147,9 +147,9 @@ export default function OrganizerDashboard() {
 
   const validateTicketTypes = () => {
     for (let tt of ticketTypes) {
-      if (!tt.name.trim() || tt.price === "" || tt.total_seats === "" || 
-          isNaN(parseFloat(tt.price)) || isNaN(parseInt(tt.total_seats)) ||
-          parseFloat(tt.price) < 0 || parseInt(tt.total_seats) <= 0) {
+      if (!tt.name.trim() || tt.price === "" || tt.total_seats === "" ||
+        isNaN(parseFloat(tt.price)) || isNaN(parseInt(tt.total_seats)) ||
+        parseFloat(tt.price) < 0 || parseInt(tt.total_seats) <= 0) {
         return false;
       }
     }
@@ -158,7 +158,7 @@ export default function OrganizerDashboard() {
 
   const handleCreateEvent = async (e) => {
     e.preventDefault();
-    
+
     if (!formData.date_and_time || new Date(formData.date_and_time) <= new Date()) {
       toast.error("Event date must be in the future");
       return;
@@ -196,7 +196,7 @@ export default function OrganizerDashboard() {
 
   const handleUpdateEvent = async (e) => {
     e.preventDefault();
-    
+
     if (!formData.date_and_time || new Date(formData.date_and_time) <= new Date()) {
       toast.error("Event date must be in the future");
       return;
@@ -277,7 +277,7 @@ export default function OrganizerDashboard() {
   };
 
   const handleLogout = async () => {
-    try { await logoutApi(); } catch {} finally {
+    try { await logoutApi(); } catch { } finally {
       localStorage.removeItem("token");
       localStorage.removeItem("user");
       navigate("/");
@@ -305,8 +305,8 @@ export default function OrganizerDashboard() {
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent 
-              align="end" 
+            <DropdownMenuContent
+              align="end"
               className="w-60 text-gray-900 bg-white shadow-xl border border-gray-200 rounded-md z-[9999] mt-2"
               side="bottom"
               sideOffset={8}
@@ -314,12 +314,12 @@ export default function OrganizerDashboard() {
               <div className="px-4 py-3 border-b border-gray-100">
                 <p className="text-sm font-medium text-gray-900 truncate">{displayName}</p>
               </div>
-              
+
               {isAdmin && (
                 <>
                   <div className="p-1">
-                    <DropdownMenuItem 
-                      onClick={() => navigate("/admin")} 
+                    <DropdownMenuItem
+                      onClick={() => navigate("/admin")}
                       className="flex items-center px-3 py-2 text-sm hover:bg-gray-100 cursor-pointer rounded-sm"
                     >
                       <Shield className="mr-3 h-4 w-4" />
@@ -329,34 +329,44 @@ export default function OrganizerDashboard() {
                   <div className="h-px bg-gray-100 mx-2"></div>
                 </>
               )}
-              
+
               <div className="p-1">
-                <DropdownMenuItem 
-                  onClick={() => navigate("/events")} 
+                <DropdownMenuItem
+                  onClick={() => navigate("/events")}
                   className="flex items-center px-3 py-2 text-sm hover:bg-gray-100 cursor-pointer rounded-sm"
                 >
                   <Calendar className="mr-3 h-4 w-4" />
                   <span>View Events</span>
                 </DropdownMenuItem>
               </div>
-              
+
               <div className="h-px bg-gray-100 mx-2"></div>
-              
+
               <div className="p-1">
-                <DropdownMenuItem 
-                  onClick={() => navigate("/settings")} 
+                <DropdownMenuItem
+                  onClick={() => navigate("/student-dashboard")}
+                  className="flex items-center px-3 py-2 text-sm hover:bg-gray-100 cursor-pointer rounded-sm"
+                >
+                  <Users className="mr-3 h-4 w-4" />
+                  <span>Student Dashboard</span>
+                </DropdownMenuItem>
+              </div>
+
+              <div className="p-1">
+                <DropdownMenuItem
+                  onClick={() => navigate("/settings")}
                   className="flex items-center px-3 py-2 text-sm hover:bg-gray-100 cursor-pointer rounded-sm"
                 >
                   <Settings className="mr-3 h-4 w-4" />
                   <span>Settings</span>
                 </DropdownMenuItem>
               </div>
-              
+
               <div className="h-px bg-gray-100 mx-2"></div>
-              
+
               <div className="p-1">
-                <DropdownMenuItem 
-                  onClick={handleLogout} 
+                <DropdownMenuItem
+                  onClick={handleLogout}
                   className="flex items-center px-3 py-2 text-sm hover:bg-red-50 hover:text-red-700 cursor-pointer rounded-sm"
                 >
                   <LogOut className="mr-3 h-4 w-4" />
@@ -371,7 +381,7 @@ export default function OrganizerDashboard() {
       <main className="max-w-7xl mx-auto p-6">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold text-gray-900">My Events</h2>
-          <Button 
+          <Button
             onClick={() => setShowCreateDialog(true)}
             className="!bg-blue-600 hover:!bg-blue-700 !text-white cursor-pointer font-semibold shadow-md border-0 px-6 py-2"
           >
@@ -405,9 +415,9 @@ export default function OrganizerDashboard() {
                   <div className="relative">
                     <div className="w-full h-48 bg-gray-200 rounded-t-lg overflow-hidden">
                       {event.image ? (
-                        <img 
-                          src={event.image} 
-                          alt={event.title} 
+                        <img
+                          src={event.image}
+                          alt={event.title}
                           className="w-full h-full object-cover"
                         />
                       ) : (
@@ -445,8 +455,8 @@ export default function OrganizerDashboard() {
                   <div className="p-6 pt-0">
                     <div className="flex flex-col gap-2">
                       {/* ✅ BEZ IKONE "EYE" */}
-                      <Button 
-                        size="sm" 
+                      <Button
+                        size="sm"
                         variant="outline"
                         onClick={() => handleViewReservations(event)}
                         className="w-full flex items-center justify-center text-gray-700 hover:text-gray-900 border-gray-300 hover:bg-gray-100 cursor-pointer"
@@ -454,8 +464,8 @@ export default function OrganizerDashboard() {
                         View Reservations
                       </Button>
 
-                      <Button 
-                        size="sm" 
+                      <Button
+                        size="sm"
                         variant="outline"
                         onClick={() => handleViewSalesProgress(event)}
                         className="w-full flex items-center justify-center gap-2 text-green-600 hover:text-green-700 border-green-300 hover:bg-green-50 cursor-pointer"
@@ -463,10 +473,10 @@ export default function OrganizerDashboard() {
                         <BarChart3 className="h-4 w-4" />
                         Sales Progress
                       </Button>
-                      
+
                       <div className="flex gap-2">
-                        <Button 
-                          size="sm" 
+                        <Button
+                          size="sm"
                           variant="outline"
                           onClick={() => handleEdit(event)}
                           className="flex-1 flex items-center justify-center gap-2 text-blue-600 hover:text-blue-700 border-blue-300 hover:bg-blue-50 cursor-pointer"
@@ -474,8 +484,8 @@ export default function OrganizerDashboard() {
                           <Edit className="h-4 w-4" />
                           Edit
                         </Button>
-                        <Button 
-                          size="sm" 
+                        <Button
+                          size="sm"
                           variant="outline"
                           onClick={() => {
                             setSelectedEvent(event);
@@ -507,7 +517,7 @@ export default function OrganizerDashboard() {
                 <label className="block text-sm font-medium mb-1">Event Title *</label>
                 <Input
                   value={formData.title}
-                  onChange={(e) => setFormData({...formData, title: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                   placeholder="Enter event title"
                   required
                 />
@@ -516,7 +526,7 @@ export default function OrganizerDashboard() {
                 <label className="block text-sm font-medium mb-1">Location</label>
                 <Input
                   value={formData.location}
-                  onChange={(e) => setFormData({...formData, location: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
                   placeholder="Enter event location (e.g. City Hall, Banja Luka)"
                 />
               </div>
@@ -524,7 +534,7 @@ export default function OrganizerDashboard() {
                 <label className="block text-sm font-medium mb-1">Description</label>
                 <Textarea
                   value={formData.description}
-                  onChange={(e) => setFormData({...formData, description: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   placeholder="Enter event description"
                   rows={3}
                 />
@@ -535,7 +545,7 @@ export default function OrganizerDashboard() {
                   <Input
                     type="datetime-local"
                     value={formData.date_and_time}
-                    onChange={(e) => setFormData({...formData, date_and_time: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, date_and_time: e.target.value })}
                     min={new Date().toISOString().slice(0, 16)}
                     required
                   />
@@ -545,7 +555,7 @@ export default function OrganizerDashboard() {
                   <Input
                     type="url"
                     value={formData.image}
-                    onChange={(e) => setFormData({...formData, image: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, image: e.target.value })}
                     placeholder="https://example.com/image.jpg"
                   />
                 </div>
@@ -609,9 +619,9 @@ export default function OrganizerDashboard() {
               </div>
 
               <DialogFooter>
-                <Button 
-                  type="button" 
-                  variant="outline" 
+                <Button
+                  type="button"
+                  variant="outline"
                   onClick={() => {
                     setShowCreateDialog(false);
                     resetForm();
@@ -620,8 +630,8 @@ export default function OrganizerDashboard() {
                 >
                   Cancel
                 </Button>
-                <Button 
-                  type="submit" 
+                <Button
+                  type="submit"
                   className="!bg-blue-600 hover:!bg-blue-700 !text-white cursor-pointer font-semibold shadow-md border-0 px-6 py-2"
                 >
                   Create Event
@@ -643,7 +653,7 @@ export default function OrganizerDashboard() {
                 <label className="block text-sm font-medium mb-1">Event Title *</label>
                 <Input
                   value={formData.title}
-                  onChange={(e) => setFormData({...formData, title: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                   placeholder="Enter event title"
                   required
                 />
@@ -652,7 +662,7 @@ export default function OrganizerDashboard() {
                 <label className="block text-sm font-medium mb-1">Location</label>
                 <Input
                   value={formData.location}
-                  onChange={(e) => setFormData({...formData, location: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
                   placeholder="Enter event location"
                 />
               </div>
@@ -660,7 +670,7 @@ export default function OrganizerDashboard() {
                 <label className="block text-sm font-medium mb-1">Description</label>
                 <Textarea
                   value={formData.description}
-                  onChange={(e) => setFormData({...formData, description: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   placeholder="Enter event description"
                   rows={3}
                 />
@@ -671,7 +681,7 @@ export default function OrganizerDashboard() {
                   <Input
                     type="datetime-local"
                     value={formData.date_and_time}
-                    onChange={(e) => setFormData({...formData, date_and_time: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, date_and_time: e.target.value })}
                     required
                   />
                 </div>
@@ -680,15 +690,15 @@ export default function OrganizerDashboard() {
                   <Input
                     type="url"
                     value={formData.image}
-                    onChange={(e) => setFormData({...formData, image: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, image: e.target.value })}
                     placeholder="https://example.com/image.jpg"
                   />
                 </div>
               </div>
               <DialogFooter>
-                <Button 
-                  type="button" 
-                  variant="outline" 
+                <Button
+                  type="button"
+                  variant="outline"
                   onClick={() => {
                     setShowEditDialog(false);
                     resetForm();
@@ -697,8 +707,8 @@ export default function OrganizerDashboard() {
                 >
                   Cancel
                 </Button>
-                <Button 
-                  type="submit" 
+                <Button
+                  type="submit"
                   className="!bg-blue-600 hover:!bg-blue-700 !text-white cursor-pointer font-semibold shadow-md border-0 px-6 py-2"
                 >
                   Update Event
@@ -720,7 +730,7 @@ export default function OrganizerDashboard() {
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel className="!bg-gray-100 hover:!bg-gray-200 !text-gray-700 !border-gray-300 cursor-pointer font-medium px-6 py-2">Cancel</AlertDialogCancel>
-              <AlertDialogAction 
+              <AlertDialogAction
                 onClick={handleDeleteEvent}
                 className="!bg-red-600 hover:!bg-red-700 !text-white cursor-pointer font-semibold shadow-md border-0 px-6 py-2"
               >
@@ -786,8 +796,8 @@ export default function OrganizerDashboard() {
               )}
             </div>
             <DialogFooter className="border-t border-gray-100 pt-4">
-              <Button 
-                onClick={() => setShowReservationsDialog(false)} 
+              <Button
+                onClick={() => setShowReservationsDialog(false)}
                 variant="outline"
                 className="!bg-gray-100 hover:!bg-gray-200 !text-gray-700 !border-gray-300 cursor-pointer font-medium px-6 py-2"
               >
@@ -853,8 +863,8 @@ export default function OrganizerDashboard() {
             )}
 
             <DialogFooter>
-              <Button 
-                onClick={() => setShowProgressDialog(false)} 
+              <Button
+                onClick={() => setShowProgressDialog(false)}
                 variant="outline"
                 className="!bg-gray-100 hover:!bg-gray-200 !text-gray-700 !border-gray-300"
               >

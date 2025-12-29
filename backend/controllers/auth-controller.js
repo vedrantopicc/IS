@@ -8,7 +8,8 @@ import { randomBytes } from "crypto";
 
 export async function register(req, res, _next) {
   try {
-    const user = await createUser(req.body ?? {});
+    const { name, surname, email, username, password } = req.body;
+    const user = await createUser({ name, surname, email, username, password, isOrganizer: false });
     res.status(201).json(user);
   } catch (e) {
     res.status(400).json({ error: e.message });
@@ -27,7 +28,7 @@ export async function login(req, res, _next) {
 
     const identifier = email || username;
     const [rows] = await pool.query(
-      "SELECT id, username, name, surname, email, password, role FROM `user` WHERE email = ? OR username = ? LIMIT 1",
+      "SELECT id, username, name, surname, email, password, role, is_organizer FROM `user` WHERE email = ? OR username = ? LIMIT 1",
       [identifier, identifier]
     );
 
@@ -51,7 +52,8 @@ export async function login(req, res, _next) {
       name: user.name,
       surname: user.surname,
       email: user.email,
-      role: user.role,
+      role: user.role, 
+      is_organizer: user.is_organizer, 
     };
 
     const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES });

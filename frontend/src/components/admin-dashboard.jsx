@@ -1,3 +1,4 @@
+// AdminDashboard.jsx
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
@@ -22,7 +23,7 @@ import {
 } from "./ui/alert-dialog";
 import {
   Users, Calendar, Settings, LogOut, Trash2, Eye,
-  BarChart3, UserCheck, Clock, Shield, Undo, Info
+  BarChart3, UserCheck, Clock, Shield, Undo, Info, UserX
 } from "lucide-react";
 import { logoutApi } from "../services/auth";
 import {
@@ -30,6 +31,37 @@ import {
   deleteUser, deleteEvent, getUserStats, getDeletedUsers, restoreUser
 } from "../services/admin";
 import { toast } from "react-toastify";
+
+// === NOVI SERVSI ZA ROLE REQUESTS ===
+async function getRoleRequests() {
+  const token = localStorage.getItem("token");
+  const res = await fetch("http://localhost:3000/admin/role-requests", {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  if (!res.ok) throw new Error("Failed to fetch role requests");
+  return res.json();
+}
+
+async function approveRoleRequest(requestId) {
+  const token = localStorage.getItem("token");
+  const res = await fetch(`http://localhost:3000/admin/role-requests/${requestId}/approve`, {
+    method: "PUT",
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  if (!res.ok) throw new Error("Failed to approve request");
+  return res.json();
+}
+
+async function rejectRoleRequest(requestId) {
+  const token = localStorage.getItem("token");
+  const res = await fetch(`http://localhost:3000/admin/role-requests/${requestId}/reject`, {
+    method: "PUT",
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  if (!res.ok) throw new Error("Failed to reject request");
+  return res.json();
+}
+// ===================================
 
 function getToken() {
   return localStorage.getItem("token");
@@ -76,7 +108,9 @@ export default function AdminDashboard() {
   const [users, setUsers] = useState([]);
   const [events, setEvents] = useState([]);
   const [deletedUsers, setDeletedUsers] = useState([]);
+  const [roleRequests, setRoleRequests] = useState([]); // ✅ NOVO
   const [loading, setLoading] = useState(true);
+  const [loadingRequests, setLoadingRequests] = useState(false); // ✅ NOVO
   const [activeTab, setActiveTab] = useState("dashboard");
   const [error, setError] = useState("");
   const [selectedUser, setSelectedUser] = useState(null);
@@ -91,7 +125,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     const urlParams = new URLSearchParams(location.search);
     const tabParam = urlParams.get('tab');
-    if (tabParam && ['dashboard', 'users', 'deleted', 'events'].includes(tabParam)) {
+    if (tabParam && ['dashboard', 'users', 'deleted', 'role-requests', 'events'].includes(tabParam)) {
       setActiveTab(tabParam);
     }
   }, [location.search]);
@@ -100,17 +134,18 @@ export default function AdminDashboard() {
     setLoading(true);
     setError("");
     try {
-      const [dashboard, usersData, eventsData, deletedUsersData] = await Promise.all([
+      const [dashboard, usersData, eventsData, deletedUsersData, requestsData] = await Promise.all([
         getAdminDashboard(),
         getAllUsers(),
         getAllAdminEvents(),
-        getDeletedUsers()
+        getDeletedUsers(),
+        getRoleRequests() // ✅ NOVO
       ]);
       setDashboardData(dashboard);
       setUsers(usersData);
       setEvents(eventsData);
       setDeletedUsers(deletedUsersData);
-      //setUserCount(userCountData.user_count || 0);
+      setRoleRequests(requestsData); // ✅ NOVO
     } catch (err) {
       setError(err.message);
       toast.error("Failed to load admin data: " + err.message);
@@ -119,12 +154,59 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleRequestOrganizer = async () => {
+    try {
+      setRequesting(true);
+      await sendRoleRequest();
+      
+      toast.success("Request sent! Admin will review it soon.");
+      
+      // ✅ OBAVESTI KORISNIKA
+      toast.info("If approved, please log out and log in again to access organizer features.", {
+        autoClose: 8000,
+        position: "top-center"
+      });
+    } catch (err) {
+      toast.error(err.message || "Failed to send request");
+    } finally {
+      setRequesting(false);
+    }
+  };
+  
+  // ✅ NOVE FUNKCIJE
+  const handleApproveRequest = async (requestId, username) => {
+    try {
+      setLoadingRequests(true);
+      await approveRoleRequest(requestId);
+      toast.success(`Request approved for ${username}`);
+      const requests = await getRoleRequests();
+      setRoleRequests(requests);
+    } catch (err) {
+      toast.error("Failed to approve request: " + err.message);
+    } finally {
+      setLoadingRequests(false);
+    }
+  };
+
+  const handleRejectRequest = async (requestId, username) => {
+    try {
+      setLoadingRequests(true);
+      await rejectRoleRequest(requestId);
+      toast.success(`Request rejected for ${username}`);
+      const requests = await getRoleRequests();
+      setRoleRequests(requests);
+    } catch (err) {
+      toast.error("Failed to reject request: " + err.message);
+    } finally {
+      setLoadingRequests(false);
+    }
+  };
+
   const handleDeleteUser = async (userId, username) => {
     try {
       await deleteUser(userId);
       toast.success(`User ${username} deleted successfully`);
       setUsers(users.filter(user => user.id !== userId));
-      // Osvježi i listu obrisanih
       const deleted = await getDeletedUsers();
       setDeletedUsers(deleted);
     } catch (err) {
@@ -136,7 +218,6 @@ export default function AdminDashboard() {
     try {
       await restoreUser(userId);
       toast.success(`User ${username} restored successfully`);
-      // Osvježi obje liste
       const [active, deleted] = await Promise.all([getAllUsers(), getDeletedUsers()]);
       setUsers(active);
       setDeletedUsers(deleted);
@@ -188,6 +269,7 @@ export default function AdminDashboard() {
   }
 
   const userCount = users.filter(user => user.role !== 'Admin').length;
+
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="sticky top-0 z-10 w-full bg-white/80 backdrop-blur border-b">
@@ -262,41 +344,31 @@ export default function AdminDashboard() {
         )}
 
         <Tabs value={activeTab} onValueChange={handleTabChange}>
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger
-              value="dashboard"
-              className="flex items-center gap-2 text-black"
-              style={{ cursor: 'pointer' }}
-            >
+          {/* ✅ PROMENJENO U 5 KOLONA */}
+          <TabsList className="grid w-full grid-cols-5">
+            <TabsTrigger value="dashboard" className="flex items-center gap-2 text-black">
               <BarChart3 className="w-4 h-4" />
               Dashboard
             </TabsTrigger>
-            <TabsTrigger
-              value="users"
-              className="flex items-center gap-2 text-black"
-              style={{ cursor: 'pointer' }}
-            >
+            <TabsTrigger value="users" className="flex items-center gap-2 text-black">
               <Users className="w-4 h-4" />
               Users ({userCount})
             </TabsTrigger>
-            <TabsTrigger
-              value="deleted"
-              className="flex items-center gap-2 text-black"
-              style={{ cursor: 'pointer' }}
-            >
+            <TabsTrigger value="deleted" className="flex items-center gap-2 text-black">
               <UserCheck className="w-4 h-4" />
               Deleted ({deletedUsers.length})
             </TabsTrigger>
-            <TabsTrigger
-              value="events"
-              className="flex items-center gap-2 text-black"
-              style={{ cursor: 'pointer' }}
-            >
+            <TabsTrigger value="role-requests" className="flex items-center gap-2 text-black">
+              <UserCheck className="w-4 h-4" />
+              Role Requests ({roleRequests.length})
+            </TabsTrigger>
+            <TabsTrigger value="events" className="flex items-center gap-2 text-black">
               <Calendar className="w-4 h-4" />
               Events ({events.length})
             </TabsTrigger>
           </TabsList>
 
+          {/* ... ostale kartice ... */}
           <TabsContent value="dashboard" className="mt-6">
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
               <Card>
@@ -547,6 +619,73 @@ export default function AdminDashboard() {
                     )}
                   </TableBody>
                 </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* ✅ NOVA KARTICA: ROLE REQUESTS */}
+          <TabsContent value="role-requests" className="mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-gray-900">Role Requests</CardTitle>
+                <CardDescription className="text-gray-600">
+                  Review and manage users' requests to become organizers.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {roleRequests.length === 0 ? (
+                  <div className="text-center py-8">
+                    <UserCheck className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                    <p className="text-gray-500">No pending requests</p>
+                  </div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-gray-900">User</TableHead>
+                        <TableHead className="text-gray-900">Email</TableHead>
+                        <TableHead className="text-gray-900">Requested At</TableHead>
+                        <TableHead className="text-right text-gray-900">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {roleRequests.map((req) => (
+                        <TableRow key={req.id}>
+                          <TableCell className="text-gray-900">
+                            <div className="font-medium">{req.name} {req.surname}</div>
+                            <div className="text-sm text-gray-500">@{req.username}</div>
+                          </TableCell>
+                          <TableCell className="text-gray-900">{req.email}</TableCell>
+                          <TableCell className="text-gray-900">
+                            {new Date(req.created_at).toLocaleString()}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleApproveRequest(req.id, req.username)}
+                                disabled={loadingRequests}
+                                className="border-green-500 text-green-600 hover:bg-green-50 hover:text-green-700"
+                              >
+                                <UserCheck className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleRejectRequest(req.id, req.username)}
+                                disabled={loadingRequests}
+                                className="border-red-500 text-red-600 hover:bg-red-50 hover:text-red-700"
+                              >
+                                <UserX className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
               </CardContent>
             </Card>
           </TabsContent>

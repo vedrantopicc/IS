@@ -2,6 +2,7 @@ import { Router } from "express";
 import { requireAdmin } from "../middleware/auth-middleware.js";
 import { pool } from "../db.js";
 import { restoreUserById, getDeletedUsers, deleteUserById } from "../controllers/users-controller.js";
+import { sendOrganizerApprovalEmail, sendOrganizerRejectionEmail } from "../utils/emailService.js";
 
 const router = Router();
 
@@ -135,5 +136,98 @@ router.get("/user-count", requireAdmin, async (req, res, next) => {
 router.get("/deleted-users", requireAdmin, getDeletedUsers);
 router.post("/users/:id/restore", requireAdmin, restoreUserById);
 router.delete("/users/:id", requireAdmin, deleteUserById);
+
+// Dohvati sve pending zahteve
+router.get("/role-requests", requireAdmin, async (req, res, next) => {
+  try {
+    const [rows] = await pool.query(`
+      SELECT 
+        rr.id,
+        rr.user_id,
+        rr.created_at,
+        u.username,
+        u.name,
+        u.surname,
+        u.email
+      FROM role_requests rr
+      JOIN user u ON u.id = rr.user_id
+      WHERE rr.status = 'pending'
+      ORDER BY rr.created_at DESC
+    `);
+    res.json(rows);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Odobri zahtev
+router.put("/role-requests/:id/approve", requireAdmin, async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    // Proveri da li zahtev postoji i da je pending
+    const [requests] = await pool.query(
+      "SELECT user_id FROM role_requests WHERE id = ? AND status = 'pending'",
+      [id]
+    );
+    if (!requests.length) {
+      return res.status(404).json({ error: "Request not found or already processed" });
+    }
+
+    const userId = requests[0].user_id;
+
+    // Postavi is_organizer = true
+    await pool.query("UPDATE user SET is_organizer = 1 WHERE id = ?", [userId]);
+
+    // Označi zahtev kao odobren
+    await pool.query(
+      "UPDATE role_requests SET status = 'approved', reviewed_at = NOW(), reviewed_by = ? WHERE id = ?",
+      [req.user.id, id]
+    );
+
+    const [user] = await pool.query("SELECT email, username FROM user WHERE id = ?", [userId]);
+    if (user[0]) {
+      await sendOrganizerApprovalEmail(user[0].email, user[0].username);
+    }
+
+    res.json({ message: "Request approved. User is now an organizer." });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Odbij zahtev
+router.put("/role-requests/:id/reject", requireAdmin, async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    // ✅ Proveri da li zahtev postoji i da je pending
+    const [requests] = await pool.query(
+      "SELECT user_id FROM role_requests WHERE id = ? AND status = 'pending'",
+      [id]
+    );
+    if (!requests.length) {
+      return res.status(404).json({ error: "Request not found or already processed" });
+    }
+
+    const userId = requests[0].user_id; 
+
+    // Označi zahtev kao odbijen
+    await pool.query(
+      "UPDATE role_requests SET status = 'rejected', reviewed_at = NOW(), reviewed_by = ? WHERE id = ?",
+      [req.user.id, id]
+    );
+
+    // ✅ POŠALJI EMAIL
+    const [user] = await pool.query("SELECT email, username FROM user WHERE id = ?", [userId]);
+    if (user[0]) {
+      await sendOrganizerRejectionEmail(user[0].email, user[0].username);
+    }
+
+    res.json({ message: "Request rejected successfully." });
+  } catch (err) {
+    next(err);
+  }
+});
 
 export default router;

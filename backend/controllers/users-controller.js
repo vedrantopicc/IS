@@ -17,19 +17,9 @@ export async function getAllUsers(_req, res, next) {
 }
 
 const ALLOWED_REGISTER_ROLES = new Set(["Organizer", "Student"]);
-export async function createUser({ name, surname, email, username, password, role }) {
-  if (!name || !surname || !email || !username || !password || !role) {
+export async function createUser({ name, surname, email, username, password, isOrganizer = false }) {
+  if (!name || !surname || !email || !username || !password) {
     throw new Error("Missing required fields");
-  }
-
-  const roleNorm = (role || "").toLowerCase();
-  const roleFinal =
-    roleNorm === "organizer" ? "Organizer" :
-    roleNorm === "student"   ? "Student"   :
-    role;
-
-  if (!ALLOWED_REGISTER_ROLES.has(roleFinal)) {
-    throw new Error("Role must be Organizer or Student");
   }
 
   const [dupe] = await pool.query(
@@ -41,12 +31,12 @@ export async function createUser({ name, surname, email, username, password, rol
   const hash = await bcrypt.hash(password, 10);
 
   const [result] = await pool.query(
-    "INSERT INTO `user` (username, name, surname, email, password, role) VALUES (?, ?, ?, ?, ?, ?)",
-    [username, name, surname, email, hash, roleFinal]
+    "INSERT INTO `user` (username, name, surname, email, password, is_organizer) VALUES (?, ?, ?, ?, ?, ?)",
+    [username, name, surname, email, hash, isOrganizer]
   );
 
   const [rows] = await pool.query(
-    "SELECT id, username, name, surname, email, role FROM `user` WHERE id = ?",
+    "SELECT id, username, name, surname, email, is_organizer FROM `user` WHERE id = ?",
     [result.insertId]
   );
   return rows[0];

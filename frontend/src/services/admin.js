@@ -98,3 +98,36 @@ export async function getUserCount() {
   if (!response.ok) throw new Error(data.error || "Failed to fetch user count");
   return data;
 }
+
+// ✅ ODobri zahtjev za organizatora
+export async function approveRoleRequest(requestId) {
+  const res = await fetch(`${BASE}/admin/role-requests/${requestId}/approve`, {
+    method: "PUT",
+    headers: authHeaders(),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || "Failed to approve request");
+  return data;
+}
+
+// ✅ Odbij zahtjev za organizatora
+export async function rejectRoleRequest(requestId) {
+  const res = await fetch(`${BASE}/admin/role-requests/${requestId}/reject`, {
+    method: "PUT",
+    headers: authHeaders(),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || "Failed to reject request");
+  return data;
+}
+
+// ✅ Dohvati pending zahteve
+export async function getRoleRequests() {
+  const res = await fetch(`${BASE}/admin/role-requests`, {
+    method: "GET",
+    headers: authHeaders(),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || "Failed to fetch role requests");
+  return data;
+}

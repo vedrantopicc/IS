@@ -7,6 +7,7 @@ import reservationsRouter from "./routes/reservations.js";
 import commentsRouter from "./routes/comments.js";
 import cors from "cors";
 import demoRouter from "./routes/demo.js"; // ← novi import
+import roleRequestRoutes from "./routes/role-requests.js";
 
 const app = express();
 app.use(cors({
@@ -24,6 +25,7 @@ app.use("/admin", adminRouter);
 app.use("/reservations", reservationsRouter);
 app.use("/comments", commentsRouter);
 app.use("/demo", demoRouter); // ← novi demo endpoint (samo u developmentu)
+app.use("/role-requests", roleRequestRoutes);
 
 
 app.use((req, res) => {
