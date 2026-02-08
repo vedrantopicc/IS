@@ -1,13 +1,13 @@
 import mysql from 'mysql2/promise';
 
 const dbConfig = {
-    host: 'mysql-a6628b1-studlife-projekt.j.aivencloud.com',
-    port: 18835,
-    user: 'avnadmin',
-    password: 'AVNS_UVWMi4ZC5MVpeszX9P2', // <--- Ovdje zalijepi lozinku sa Aivena
-    database: 'defaultdb',
+    host: process.env.DB_HOST,
+    port: process.env.DB_PORT,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD, // Nikada ne piši lozinku direktno ovdje!
+    database: process.env.DB_NAME,
     ssl: { rejectUnauthorized: false },
-    multipleStatements: true 
+    multipleStatements: true
 };
 
 const sql = `
