@@ -12,12 +12,8 @@ let _pool = null;
 
 export const getPool = () => {
   if (!_pool) {
-    console.log("Creating database pool with config:", {
-      host: process.env.DB_HOST,
-      user: process.env.DB_USER,
-      database: process.env.DB_NAME,
-      port: Number(process.env.DB_PORT || 3306),
-    });
+    // Ovo ispod je samo za tvoju provjeru u konzoli
+    console.log("🚀 Creating database pool for Aiven...");
     
     _pool = mysql.createPool({
       host: process.env.DB_HOST,
@@ -27,6 +23,10 @@ export const getPool = () => {
       port: Number(process.env.DB_PORT || 3306),
       waitForConnections: true,
       connectionLimit: 10,
+      // OVO JE MORALO BITI OVDJE:
+      ssl: {
+        rejectUnauthorized: false 
+      }
     });
   }
   return _pool;
@@ -34,6 +34,11 @@ export const getPool = () => {
 
 export const pool = new Proxy({}, {
   get(target, prop) {
-    return getPool()[prop];
+    const p = getPool();
+    const value = p[prop];
+    if (typeof value === 'function') {
+      return value.bind(p);
+    }
+    return value;
   }
 });
