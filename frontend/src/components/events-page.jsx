@@ -13,6 +13,8 @@ import { Button } from "../components/ui/button";
 import { Settings, LogOut, Calendar as CalendarIcon, Shield, Ticket } from "lucide-react";
 import { logoutApi } from "../services/auth";
 import { getEvents } from "../services/events";
+import { getCategories } from "../services/categories";
+
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "../components/ui/select";
 import { Popover, PopoverTrigger, PopoverContent } from "../components/ui/popover";
 import { Calendar } from "../components/ui/calendar";
@@ -72,16 +74,38 @@ export const EventsPage = () => {
   const isAdmin = userRole === "Admin";
   const isStudent = userRole === "Student";
   const isOrganizer = userRole === "Organizer";
+const [categories, setCategories] = useState([]);
+const [categoryId, setCategoryId] = useState("all"); // "" = sve
+
 
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const [sort, setSort] = useState("desc");
+const [sort, setSort] = useState("desc");
   const [fromDate, setFromDate] = useState(null);
   const [toDate, setToDate] = useState(null);
 
   const fromParam = useMemo(() => toParamDate(fromDate), [fromDate]);
   const toParam = useMemo(() => toParamDate(toDate), [toDate]);
+
+useEffect(() => {
+  let alive = true;
+
+  (async () => {
+    try {
+      const cats = await getCategories();
+      if (!alive) return;
+      setCategories(cats);
+    } catch (e) {
+      console.error(e);
+    }
+  })();
+
+  return () => {
+    alive = false;
+  };
+}, []);
+
 
   useEffect(() => {
     let alive = true;
@@ -90,10 +114,12 @@ export const EventsPage = () => {
     (async () => {
       try {
         const data = await getEvents({
-          from: fromParam,
-          to: toParam,
-          sort,
-        });
+  from: fromParam,
+  to: toParam,
+  sort,
+        category_id: categoryId === "all" ? undefined : categoryId,
+});
+
         if (!alive) return;
 
         setRows(
@@ -115,7 +141,7 @@ export const EventsPage = () => {
     return () => {
       alive = false;
     };
-  }, [sort, fromParam, toParam]);
+  }, [sort, fromParam, toParam, categoryId]);
 
   const cards = useMemo(() => {
     const currentDate = new Date();
@@ -237,24 +263,54 @@ export const EventsPage = () => {
           <h1 className="text-3xl font-bold text-gray-900 mb-2 text-center">
             Upcoming Events
           </h1>
+{(isStudent || isAdmin) && (
+  <div className="mb-8 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
 
-          <div className="mb-8 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-black">Sort by date:</span>
-              <Select value={sort} onValueChange={setSort}>
-                <SelectTrigger className="w-44 bg-white text-black cursor-pointer hover:bg-gray-50 transition-colors">
-                  <SelectValue placeholder="Sort" />
-                </SelectTrigger>
-                <SelectContent className="text-white bg-gray-800 border-gray-800">
-                  <SelectItem value="desc" className="cursor-pointer hover:bg-gray-700">
-                    Newest first
-                  </SelectItem>
-                  <SelectItem value="asc" className="cursor-pointer hover:bg-gray-700">
-                    Oldest first
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+           <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-6">
+
+  {/* CATEGORY */}
+  <div className="flex items-center gap-2">
+    <span className="text-sm text-black">Category:</span>
+
+    <Select value={categoryId} onValueChange={setCategoryId}>
+      <SelectTrigger className="w-52 bg-white text-black cursor-pointer hover:bg-gray-50 transition-colors">
+        <SelectValue placeholder="All categories" />
+      </SelectTrigger>
+      <SelectContent className="text-white bg-gray-800 border-gray-800">
+        <SelectItem value="all" className="cursor-pointer hover:bg-gray-700">
+          ALL
+        </SelectItem>
+
+        {categories.map((c) => (
+          <SelectItem
+            key={c.id}
+            value={String(c.id)}
+            className="cursor-pointer hover:bg-gray-700"
+          >
+            {c.name.toUpperCase()}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  </div>
+
+  {/* SORT */}
+  <div className="flex items-center gap-2">
+    <span className="text-sm text-black">Sort:</span>
+
+    <Select value={sort} onValueChange={setSort}>
+      <SelectTrigger className="w-44 bg-white text-black cursor-pointer hover:bg-gray-50 transition-colors">
+        <SelectValue placeholder="Sort" />
+      </SelectTrigger>
+      <SelectContent className="text-white bg-gray-800 border-gray-800">
+        <SelectItem value="desc">Newest first</SelectItem>
+        <SelectItem value="asc">Oldest first</SelectItem>
+      </SelectContent>
+    </Select>
+  </div>
+
+</div>
+
 
             <div className="flex items-center gap-3 text-black">
               <Popover>
@@ -309,6 +365,7 @@ export const EventsPage = () => {
               </Button>
             </div>
           </div>
+          )}
 
           {loading ? (
             <p className="text-center text-gray-500">Loading events…</p>

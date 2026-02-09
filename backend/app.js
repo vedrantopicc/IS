@@ -8,6 +8,9 @@ import commentsRouter from "./routes/comments.js";
 import cors from "cors";
 import demoRouter from "./routes/demo.js"; // ← novi import
 import roleRequestRoutes from "./routes/role-requests.js";
+import categoriesRouter from "./routes/categories.js";
+
+
 
 const app = express();
 app.use(cors({
@@ -21,6 +24,7 @@ app.use(express.json());
 app.use("/auth", authRouter);
 app.use("/users", usersRouter);
 app.use("/events", eventsRouter);
+app.use("/categories", categoriesRouter);
 app.use("/admin", adminRouter);
 app.use("/reservations", reservationsRouter);
 app.use("/comments", commentsRouter);

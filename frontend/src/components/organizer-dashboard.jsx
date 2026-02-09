@@ -16,6 +16,9 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../components/ui/dialog";
 import { Settings, LogOut, Plus, Edit, Trash2, Users, Calendar, Clock, MapPin, Eye, Shield, Minus, BarChart3 } from "lucide-react";
 import { logoutApi } from "../services/auth";
+import { getCategories } from "../services/categories";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "../components/ui/select";
+
 import { getOrganizerEvents, createEvent, updateEvent, deleteEvent, getEventReservations, getEventSalesProgress } from "../services/organizer";
 import { toast } from "react-toastify";
 
@@ -83,6 +86,7 @@ export default function OrganizerDashboard() {
   const initials = useMemo(() => getInitials(displayName), [displayName]);
   const userRole = useMemo(() => getCurrentUserRole(), []);
   const isAdmin = userRole === "Admin";
+const formatCategoryLabel = (name = "") => name.trim().toUpperCase();
 
   const [loading, setLoading] = useState(true);
   const [events, setEvents] = useState([]);
@@ -96,6 +100,8 @@ export default function OrganizerDashboard() {
   const [salesProgress, setSalesProgress] = useState(null);
 
   const [ticketTypes, setTicketTypes] = useState([{ name: "", price: "", total_seats: "" }]);
+const [categories, setCategories] = useState([]);
+const [categoryId, setCategoryId] = useState("");
 
   const getInitialFormData = () => {
     const tomorrow = new Date();
@@ -114,6 +120,23 @@ export default function OrganizerDashboard() {
   useEffect(() => {
     loadEvents();
   }, []);
+
+useEffect(() => {
+  let alive = true;
+
+  (async () => {
+    try {
+      const cats = await getCategories();
+      if (alive) setCategories(cats);
+    } catch (err) {
+      console.error("Failed to load categories:", err);
+      toast.error("Failed to load categories");
+    }
+  })();
+
+  return () => { alive = false; };
+}, []);
+
 
   const loadEvents = async () => {
     try {
@@ -159,10 +182,27 @@ export default function OrganizerDashboard() {
   const handleCreateEvent = async (e) => {
     e.preventDefault();
 
+console.log("categoryId state =", categoryId);
+
+const cid = Number(categoryId);
+console.log("cid (Number(categoryId)) =", cid);
+
+if (!Number.isInteger(cid) || cid <= 0) {
+  toast.error("Please select a valid category");
+  return;
+}
+
+
+
     if (!formData.date_and_time || new Date(formData.date_and_time) <= new Date()) {
       toast.error("Event date must be in the future");
       return;
     }
+if (!categoryId) {
+  toast.error("Please select a category");
+  return;
+}
+
 
     if (!validateTicketTypes()) {
       toast.error("Please fill all ticket type fields correctly (name, price ≥ 0, seats > 0)");
@@ -176,6 +216,7 @@ export default function OrganizerDashboard() {
         location: formData.location.trim(),
         date_and_time: formatDateTimeForMySQL(formData.date_and_time),
         image: formData.image.trim() || null,
+  category_id: cid,
         ticketTypes: ticketTypes.map(tt => ({
           name: tt.name.trim(),
           price: parseFloat(tt.price),
@@ -201,6 +242,10 @@ export default function OrganizerDashboard() {
       toast.error("Event date must be in the future");
       return;
     }
+if (!categoryId) {
+  toast.error("Please select a category");
+  return;
+}
 
     try {
       const eventData = {
@@ -208,7 +253,9 @@ export default function OrganizerDashboard() {
         description: formData.description.trim(),
         location: formData.location.trim(),
         date_and_time: formatDateTimeForMySQL(formData.date_and_time),
-        image: formData.image.trim() || null
+        image: formData.image.trim() || null,
+	category_id: Number(categoryId),
+
       };
 
       await updateEvent(selectedEvent.id, eventData);
@@ -273,6 +320,8 @@ export default function OrganizerDashboard() {
 
   const resetForm = () => {
     setFormData(getInitialFormData());
+setCategoryId("");
+
     setTicketTypes([{ name: "", price: "", total_seats: "" }]);
   };
 
@@ -530,6 +579,25 @@ export default function OrganizerDashboard() {
                   placeholder="Enter event location (e.g. City Hall, Banja Luka)"
                 />
               </div>
+<div className="mb-4">
+  <label className="block text-sm font-medium mb-1">Category *</label>
+
+  <Select value={categoryId} onValueChange={setCategoryId}>
+    <SelectTrigger className="w-52 bg-white text-black">
+      <SelectValue placeholder="Select category" />
+    </SelectTrigger>
+
+    <SelectContent className="z-[99999] bg-white text-black border">
+      {categories.map((c) => (
+        <SelectItem key={c.id} value={String(c.id)}>
+          {formatCategoryLabel(c.name)}
+        </SelectItem>
+      ))}
+    </SelectContent>
+  </Select>
+</div>
+
+
               <div>
                 <label className="block text-sm font-medium mb-1">Description</label>
                 <Textarea

@@ -6,21 +6,25 @@ export async function getEventById(req, res, next) {
     const { id } = req.params;
 
     const [eventRows] = await pool.query(
-      `SELECT
-         e.id,
-         e.title,
-         e.description,
-         e.location,
-         e.date_and_time,
-         e.image,
-         e.user_id,
-         CONCAT_WS(' ', u.name, u.surname) AS organizer_name,
-         u.username AS organizer_username
-       FROM event e
-       JOIN \`user\` u ON u.id = e.user_id
-       WHERE e.id = ?`,
-      [id]
-    );
+  `SELECT
+     e.id,
+     e.title,
+     e.description,
+     e.location,
+     e.date_and_time,
+     e.image,
+     e.user_id,
+     e.category_id,
+     c.name AS category_name,
+     CONCAT_WS(' ', u.name, u.surname) AS organizer_name,
+     u.username AS organizer_username
+   FROM event e
+   JOIN \`user\` u ON u.id = e.user_id
+   LEFT JOIN category c ON c.id = e.category_id
+   WHERE e.id = ?`,
+  [id]
+);
+
 
     if (!eventRows?.length) {
       return res.status(404).json({ error: "Event not found" });
@@ -55,56 +59,76 @@ export async function getEventById(req, res, next) {
 // ✅ DOHVATI SVE DOGAĐAJE (za javni pregled)
 export async function getAllEvents(req, res, next) {
   try {
-    let { from, to, sort = "desc" } = req.query;
-    from = (from && from.trim()) || undefined;
-    to = (to && to.trim()) || undefined;
+   // --- filteri ---
+let { from, to, sort = "date_desc", category_id } = req.query;
+from = (from && from.trim()) || undefined;
+to = (to && to.trim()) || undefined;
 
-    const where = [];
-    const params = [];
+const where = [];
+const params = [];
 
-    if (from) {
-      where.push("e.date_and_time >= ?");
-      params.push(`${from} 00:00:00`);
-    }
-    if (to) {
-      where.push("e.date_and_time < DATE_ADD(?, INTERVAL 1 DAY)");
-      params.push(to);
-    }
+if (category_id) {
+  where.push("e.category_id = ?");
+  params.push(category_id);
+}
 
-    const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
-    const orderSql = sort?.toLowerCase() === "asc" ? "ASC" : "DESC";
+if (from) {
+  where.push("e.date_and_time >= ?");
+  params.push(`${from} 00:00:00`);
+}
+if (to) {
+  where.push("e.date_and_time < DATE_ADD(?, INTERVAL 1 DAY)");
+  params.push(to);
+}
 
-    const [rows] = await pool.query(
-      `SELECT
-         e.id,
-         e.title,
-         e.description,
-         e.location,
-         e.date_and_time,
-         e.image,
-         e.user_id,
-         CONCAT_WS(' ', u.name, u.surname) AS organizer_name,
-         u.username AS organizer_username,
-         MIN(tt.price) AS min_price,
-         MAX(tt.price) AS max_price,
-         SUM(GREATEST(tt.total_seats - COALESCE(res_sum.reserved, 0), 0)) AS total_available_seats
-       FROM event e
-       JOIN \`user\` u ON u.id = e.user_id
-       JOIN ticket_type tt ON tt.event_id = e.id
-       LEFT JOIN (
-         SELECT 
-           ticket_type_id, 
-           SUM(number_of_tickets) AS reserved
-         FROM reservation
-         GROUP BY ticket_type_id
-       ) res_sum ON res_sum.ticket_type_id = tt.id
-       ${whereSql}
-       GROUP BY e.id
-       ORDER BY e.date_and_time ${orderSql}`,
-      params
-    );
+const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
 
-    res.json(rows);
+// --- sortiranje ---
+const SORT_MAP = {
+  date_asc: "e.date_and_time ASC",
+  date_desc: "e.date_and_time DESC",
+  title_asc: "e.title ASC",
+  title_desc: "e.title DESC",
+  category_asc: "c.name ASC, e.date_and_time DESC",
+  category_desc: "c.name DESC, e.date_and_time DESC",
+};
+
+const orderBy = SORT_MAP[String(sort).toLowerCase()] || SORT_MAP.date_desc;
+
+// --- query ---
+const [rows] = await pool.query(
+  `SELECT
+     e.id,
+     e.title,
+     e.description,
+     e.location,
+     e.date_and_time,
+     e.image,
+     e.user_id,
+     e.category_id,
+     c.name AS category_name,
+     CONCAT_WS(' ', u.name, u.surname) AS organizer_name,
+     u.username AS organizer_username,
+     MIN(tt.price) AS min_price,
+     MAX(tt.price) AS max_price,
+     SUM(GREATEST(tt.total_seats - COALESCE(res_sum.reserved, 0), 0)) AS total_available_seats
+   FROM event e
+   JOIN \`user\` u ON u.id = e.user_id
+   LEFT JOIN category c ON c.id = e.category_id
+   JOIN ticket_type tt ON tt.event_id = e.id
+   LEFT JOIN (
+     SELECT ticket_type_id, SUM(number_of_tickets) AS reserved
+     FROM reservation
+     GROUP BY ticket_type_id
+   ) res_sum ON res_sum.ticket_type_id = tt.id
+   ${whereSql}
+   GROUP BY e.id
+   ORDER BY ${orderBy}`,
+  params
+);
+
+res.json(rows);
+
   } catch (err) {
     next(err);
   }
@@ -114,11 +138,15 @@ export async function getAllEvents(req, res, next) {
 export async function createEvent(req, res, next) {
   try {
     const userId = req.user.id;
-    const { title, description, location, date_and_time, image, ticketTypes } = req.body;
+const { title, description, location, date_and_time, image, ticketTypes, category_id } = req.body;
 
     if (!title || !date_and_time || !Array.isArray(ticketTypes) || ticketTypes.length === 0) {
       return res.status(400).json({ error: "Title, date, and at least one ticket type are required" });
     }
+    if (!category_id) {
+  return res.status(400).json({ error: "Category is required" });
+}
+
 
     for (const tt of ticketTypes) {
       if (!tt.name || tt.price == null || tt.total_seats == null || tt.total_seats <= 0) {
@@ -127,9 +155,10 @@ export async function createEvent(req, res, next) {
     }
 
     const [eventResult] = await pool.query(
-      `INSERT INTO event (title, description, location, date_and_time, image, user_id)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [title, description || null, location || null, date_and_time, image || null, userId]
+     `INSERT INTO event (title, description, location, date_and_time, image, user_id, category_id)
+ VALUES (?, ?, ?, ?, ?, ?, ?)`,
+[title, description || null, location || null, date_and_time, image || null, userId, category_id ]
+
     );
 
     const eventId = eventResult.insertId;

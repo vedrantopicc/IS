@@ -1,4 +1,6 @@
 import mysql from 'mysql2/promise';
+import "dotenv/config";
+
 
 const dbConfig = {
     host: process.env.DB_HOST,
@@ -36,7 +38,7 @@ CREATE TABLE IF NOT EXISTS \`token\` (
   FOREIGN KEY (\`user_id\`) REFERENCES \`user\`(\`id\`) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
--- 3. Password reset
+-- 3. Password reset tokens
 CREATE TABLE IF NOT EXISTS \`password_reset_tokens\` (
   \`id\` INT AUTO_INCREMENT PRIMARY KEY,
   \`user_id\` INT NOT NULL,
@@ -46,7 +48,19 @@ CREATE TABLE IF NOT EXISTS \`password_reset_tokens\` (
   FOREIGN KEY (\`user_id\`) REFERENCES \`user\`(\`id\`) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
--- 4. Event
+-- 4. Category
+CREATE TABLE IF NOT EXISTS \`category\` (
+  \`id\` INT AUTO_INCREMENT PRIMARY KEY,
+  \`name\` VARCHAR(50) NOT NULL UNIQUE
+) ENGINE=InnoDB;
+
+INSERT IGNORE INTO \`category\` (\`name\`) VALUES
+('sportski'),
+('kulturni'),
+('edukativni'),
+('zabavni');
+
+-- 5. Event
 CREATE TABLE IF NOT EXISTS \`event\` (
   \`id\` INT AUTO_INCREMENT PRIMARY KEY,
   \`title\` VARCHAR(255) NOT NULL,
@@ -55,23 +69,25 @@ CREATE TABLE IF NOT EXISTS \`event\` (
   \`date_and_time\` DATETIME NOT NULL,
   \`image\` VARCHAR(500),
   \`user_id\` INT NOT NULL,
+  \`category_id\` INT NULL,
   \`created_at\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   \`updated_at\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  FOREIGN KEY (\`user_id\`) REFERENCES \`user\`(\`id\`) ON DELETE CASCADE
+  FOREIGN KEY (\`user_id\`) REFERENCES \`user\`(\`id\`) ON DELETE CASCADE,
+  FOREIGN KEY (\`category_id\`) REFERENCES \`category\`(\`id\`) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
--- 5. Ticket type
+-- 6. Ticket type
 CREATE TABLE IF NOT EXISTS \`ticket_type\` (
   \`id\` INT AUTO_INCREMENT PRIMARY KEY,
   \`event_id\` INT NOT NULL,
   \`name\` VARCHAR(100) NOT NULL,
-  \`price\` DECIMAL(10, 2) NOT NULL,
+  \`price\` DECIMAL(10,2) NOT NULL,
   \`total_seats\` INT NOT NULL,
   \`created_at\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (\`event_id\`) REFERENCES \`event\`(\`id\`) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
--- 6. Reservation
+-- 7. Reservation
 CREATE TABLE IF NOT EXISTS \`reservation\` (
   \`id\` INT AUTO_INCREMENT PRIMARY KEY,
   \`user_id\` INT NOT NULL,
@@ -85,7 +101,7 @@ CREATE TABLE IF NOT EXISTS \`reservation\` (
   FOREIGN KEY (\`event_id\`) REFERENCES \`event\`(\`id\`) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
--- 7. Comments
+-- 8. Comments
 CREATE TABLE IF NOT EXISTS \`comments\` (
   \`id\` INT AUTO_INCREMENT PRIMARY KEY,
   \`comment_text\` VARCHAR(1000) NOT NULL,
@@ -97,7 +113,7 @@ CREATE TABLE IF NOT EXISTS \`comments\` (
   FOREIGN KEY (\`event_id\`) REFERENCES \`event\`(\`id\`) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
--- 8. Role requests
+-- 9. Role requests
 CREATE TABLE IF NOT EXISTS \`role_requests\` (
   \`id\` INT AUTO_INCREMENT PRIMARY KEY,
   \`user_id\` INT NOT NULL,
@@ -108,13 +124,14 @@ CREATE TABLE IF NOT EXISTS \`role_requests\` (
 ) ENGINE=InnoDB;
 `;
 
+
 async function init() {
     try {
         const connection = await mysql.createConnection(dbConfig);
         console.log("🚀 Povezan na Aiven!");
         
         await connection.query(sql);
-        console.log("✅ Svih 8 tabela je uspješno kreirano!");
+        console.log("✅ Svih 9 tabela je uspješno kreirano!");
         
         await connection.end();
     } catch (err) {
