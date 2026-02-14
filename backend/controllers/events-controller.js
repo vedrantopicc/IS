@@ -60,7 +60,7 @@ export async function getEventById(req, res, next) {
 export async function getAllEvents(req, res, next) {
   try {
    // --- filteri ---
-let { from, to, sort = "date_desc", category_id } = req.query;
+let { from, to, sort = "date_asc", category_id } = req.query;
 from = (from && from.trim()) || undefined;
 to = (to && to.trim()) || undefined;
 
@@ -93,8 +93,10 @@ const SORT_MAP = {
   category_desc: "c.name DESC, e.date_and_time DESC",
 };
 
-const orderBy = SORT_MAP[String(sort).toLowerCase()] || SORT_MAP.date_desc;
+const baseSort = SORT_MAP[String(sort).toLowerCase()] || SORT_MAP.date_asc;
 
+// upcoming prvo (1), past poslije (0)
+const orderBy = `(e.date_and_time >= NOW()) DESC, ${baseSort}, e.id DESC`;
 // --- query ---
 const [rows] = await pool.query(
   `SELECT
@@ -127,12 +129,14 @@ const [rows] = await pool.query(
   params
 );
 
+
 res.json(rows);
 
   } catch (err) {
     next(err);
   }
 }
+
 
 // ✅ KREIRAJ DOGAĐAJ SA VIŠE TIPOVA ULAZNICA I LOKACIJOM
 export async function createEvent(req, res, next) {

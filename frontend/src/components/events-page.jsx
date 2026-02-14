@@ -81,7 +81,9 @@ const [categoryId, setCategoryId] = useState("all"); // "" = sve
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
 
-const [sort, setSort] = useState("desc");
+
+const [sort, setSort] = useState("date_asc"); // default: najbliži datum prvo
+
   const [fromDate, setFromDate] = useState(null);
   const [toDate, setToDate] = useState(null);
 
@@ -298,15 +300,18 @@ useEffect(() => {
   <div className="flex items-center gap-2">
     <span className="text-sm text-black">Sort:</span>
 
-    <Select value={sort} onValueChange={setSort}>
-      <SelectTrigger className="w-44 bg-white text-black cursor-pointer hover:bg-gray-50 transition-colors">
-        <SelectValue placeholder="Sort" />
-      </SelectTrigger>
-      <SelectContent className="text-white bg-gray-800 border-gray-800">
-        <SelectItem value="desc">Newest first</SelectItem>
-        <SelectItem value="asc">Oldest first</SelectItem>
-      </SelectContent>
-    </Select>
+   <Select value={sort} onValueChange={setSort}>
+  <SelectTrigger className="w-44 bg-white text-black cursor-pointer hover:bg-gray-50 transition-colors">
+    <SelectValue placeholder="Sort" />
+  </SelectTrigger>
+
+  <SelectContent className="text-white bg-gray-800 border-gray-800">
+    <SelectItem value="date_asc">Soonest first</SelectItem>
+    <SelectItem value="date_desc">Latest first</SelectItem>
+  </SelectContent>
+</Select>
+
+
   </div>
 
 </div>
