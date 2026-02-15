@@ -9,12 +9,14 @@ function authHeaders() {
 
 function buildQuery(params = {}) {
   const q = new URLSearchParams();
-const { from, to, sort, category_id, search } = params;
+const { from, to, sort, category_id, search, page, limit } = params;
   if (from) q.set("from", from);  
   if (to)   q.set("to", to);      
   if (sort) q.set("sort", sort); 
   if (category_id) q.set("category_id", category_id);
   if (search) q.set("search", search.trim());
+  if (page) q.set("page", page);
+  if (limit) q.set("limit", limit);
 
  
   const s = q.toString();
@@ -27,6 +29,7 @@ export async function getEvents(params = {}) {
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || "Failed to fetch events");
   return data;
+  
 }
 
 export async function getEvent(id) {

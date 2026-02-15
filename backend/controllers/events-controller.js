@@ -60,10 +60,15 @@ export async function getEventById(req, res, next) {
 export async function getAllEvents(req, res, next) {
   try {
    // --- filteri ---
-let { from, to, sort = "date_desc", category_id, search } = req.query;
+let { from, to, sort = "date_desc", category_id, search, page = 1, limit = 9 } = req.query;
+
 search = (search && search.trim()) || undefined;
 from = (from && from.trim()) || undefined;
 to = (to && to.trim()) || undefined;
+
+page = Math.max(1, parseInt(page, 10) || 1);
+limit = Math.min(50, Math.max(1, parseInt(limit, 10) || 9)); // max 50 radi sigurnosti
+const offset = (page - 1) * limit;
 
 const where = [];
 const params = [];
@@ -103,6 +108,27 @@ const baseSort = SORT_MAP[String(sort).toLowerCase()] || SORT_MAP.date_asc;
 
 // upcoming prvo (1), past poslije (0)
 const orderBy = `(e.date_and_time >= NOW()) DESC, ${baseSort}, e.id DESC`;
+
+
+ // --- COUNT (total) ---
+    // Bitno: zbog JOIN ticket_type treba COUNT(DISTINCT e.id)
+    const [countRows] = await pool.query(
+      `
+      SELECT COUNT(DISTINCT e.id) AS total
+      FROM event e
+      JOIN \`user\` u ON u.id = e.user_id
+      LEFT JOIN category c ON c.id = e.category_id
+      JOIN ticket_type tt ON tt.event_id = e.id
+      ${whereSql}
+      `,
+      params
+    );
+
+const total = Number(countRows?.[0]?.total || 0);
+const totalPages = Math.max(1, Math.ceil(total / limit));
+
+
+
 // --- query ---
 const [rows] = await pool.query(
   `SELECT
@@ -131,12 +157,22 @@ const [rows] = await pool.query(
    ) res_sum ON res_sum.ticket_type_id = tt.id
    ${whereSql}
    GROUP BY e.id
-   ORDER BY ${orderBy}`,
-  params
+   ORDER BY ${orderBy}
+     LIMIT ? OFFSET ?`,
+      [...params, limit, offset]
 );
 
 
-res.json(rows);
+res.json({
+  items:rows,
+  meta: {
+        page,
+        limit,
+        total,
+        totalPages,
+      },
+
+});
 
   } catch (err) {
     next(err);

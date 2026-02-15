@@ -2,6 +2,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import EventCard from "./event-card";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+
 import { Avatar, AvatarFallback } from "../components/ui/avatar";
 import {
   DropdownMenu,
@@ -114,6 +116,11 @@ export const EventsPage = () => {
   const fromParam = useMemo(() => toParamDate(fromDate), [fromDate]);
   const toParam = useMemo(() => toParamDate(toDate), [toDate]);
 
+  const [page, setPage] = useState(1);
+  const [limit] = useState(9); // 9 = 3x3 grid, može i 12
+  const [meta, setMeta] = useState({ page: 1, limit: 9, total: 0, totalPages: 1 });
+
+
   useEffect(() => {
     let alive = true;
 
@@ -143,31 +150,45 @@ export const EventsPage = () => {
           to: toParam,
           sort,
           search,
+          page,
+          limit,
           category_id: categoryId === "all" ? undefined : categoryId,
         });
 
         if (!alive) return;
 
+        setMeta(data.meta);
+
         setRows(
-          data.map((r) => ({
-            id: r.id,
-            title: r.title,
-            image: r.image,
-            location: r.location,
-            dt: r.date_and_time ? new Date(r.date_and_time) : null,
-          }))
+  (data.items || []).map((r) => ({
+    id: r.id,
+    title: r.title,
+    image: r.image,
+    location: r.location,
+    dt: r.date_and_time ? new Date(r.date_and_time) : null,
+  }))
         );
       } catch (e) {
         if (alive) console.error(e);
       } finally {
         if (alive) setLoading(false);
       }
+      
     })();
+
 
     return () => {
       alive = false;
     };
-  }, [sort, fromParam, toParam, categoryId, search]);
+  }, [sort, fromParam, toParam, categoryId, search, page]);
+
+
+
+
+  useEffect(() => {
+  setPage(1);
+}, [sort, fromParam, toParam, categoryId, search]);
+
 
   const cards = useMemo(() => {
     const currentDate = new Date();
@@ -207,6 +228,95 @@ export const EventsPage = () => {
       ? null
       : categories.find((c) => String(c.id) === String(categoryId))?.name ?? String(categoryId);
 
+      
+function renderPagination() {
+  const totalPages = meta?.totalPages ?? 1;
+  if (totalPages <= 1) return null;
+
+  const go = (p) => setPage(Math.min(totalPages, Math.max(1, p)));
+
+  const maxMiddle = 5; // koliko brojeva pokazujemo u sredini (2..6 recimo)
+  const pages = [];
+
+  // uvijek pokaži 1 i totalPages, a u sredini "window"
+  const start = Math.max(2, page - Math.floor(maxMiddle / 2));
+  const end = Math.min(totalPages - 1, start + maxMiddle - 1);
+  const startFixed = Math.max(2, end - maxMiddle + 1);
+
+  // helper za dugme
+  const PageBtn = ({ p, active }) => (
+    <button
+      onClick={() => go(p)}
+      className={[
+        "h-10 w-10 rounded-full text-sm font-medium transition",
+        "hover:bg-gray-100 active:scale-[0.98]",
+        active
+          ? "ring-2 ring-gray-900 text-gray-900 bg-white"
+          : "text-gray-700",
+      ].join(" ")}
+      aria-current={active ? "page" : undefined}
+    >
+      {p}
+    </button>
+  );
+
+  const ArrowBtn = ({ dir }) => {
+    const disabled = dir === "left" ? page === 1 : page === totalPages;
+    const Icon = dir === "left" ? ChevronLeft : ChevronRight;
+
+    return (
+      <button
+        onClick={() => go(dir === "left" ? page - 1 : page + 1)}
+        disabled={disabled}
+        className={[
+          "h-10 w-10 rounded-full grid place-items-center transition",
+          disabled
+            ? "text-gray-300 cursor-not-allowed"
+            : "text-gray-800 hover:bg-gray-100",
+        ].join(" ")}
+        aria-label={dir === "left" ? "Previous page" : "Next page"}
+      >
+        <Icon className="h-5 w-5" />
+      </button>
+    );
+  };
+
+  return (
+    <div className="mt-10 flex items-center justify-center gap-2 select-none">
+      <ArrowBtn dir="left" />
+
+      {/* 1 */}
+      <PageBtn p={1} active={page === 1} />
+
+      {/* left dots */}
+      {startFixed > 2 && (
+        <span className="px-1 text-gray-400">…</span>
+      )}
+
+      {/* middle window */}
+      {(() => {
+        for (let p = startFixed; p <= end; p++) {
+          pages.push(<PageBtn key={p} p={p} active={p === page} />);
+        }
+        return pages;
+      })()}
+
+      {/* right dots */}
+      {end < totalPages - 1 && (
+        <span className="px-1 text-gray-400">…</span>
+      )}
+
+      {/* last */}
+      {totalPages > 1 && (
+        <PageBtn p={totalPages} active={page === totalPages} />
+      )}
+
+      <ArrowBtn dir="right" />
+    </div>
+  );
+}
+
+      
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 via-white to-gray-50">
       {/* Subtle background decoration */}
@@ -548,21 +658,27 @@ export const EventsPage = () => {
               No events match your filters.
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {cards.map((event) => (
-                <EventCard
-                  key={event.id}
-                  image={event.image}
-                  title={event.title}
-                  location={event.location}
-                  date={event.date}
-                  time={event.time}
-                  isPastEvent={event.isPastEvent}
-                  onClick={() => navigate(`/events/${event.id}`)}
-                />
-              ))}
-            </div>
-          )}
+            <>
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {cards.map((event) => (
+        <EventCard
+          key={event.id}
+          image={event.image}
+          title={event.title}
+          location={event.location}
+          date={event.date}
+          time={event.time}
+          isPastEvent={event.isPastEvent}
+          onClick={() => navigate(`/events/${event.id}`)}
+        />
+      ))}
+    </div>
+    {renderPagination()}
+
+
+  
+      </>
+    )}
         </div>
       </main>
     </div>
