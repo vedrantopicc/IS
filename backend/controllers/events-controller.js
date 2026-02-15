@@ -60,7 +60,8 @@ export async function getEventById(req, res, next) {
 export async function getAllEvents(req, res, next) {
   try {
    // --- filteri ---
-let { from, to, sort = "date_asc", category_id } = req.query;
+let { from, to, sort = "date_desc", category_id, search } = req.query;
+search = (search && search.trim()) || undefined;
 from = (from && from.trim()) || undefined;
 to = (to && to.trim()) || undefined;
 
@@ -79,6 +80,11 @@ if (from) {
 if (to) {
   where.push("e.date_and_time < DATE_ADD(?, INTERVAL 1 DAY)");
   params.push(to);
+}
+
+if (search) {
+  where.push("e.title LIKE ?");
+  params.push(`%${search}%`);
 }
 
 const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
