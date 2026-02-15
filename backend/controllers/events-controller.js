@@ -258,7 +258,7 @@ export async function updateEvent(req, res, next) {
   try {
     const { id } = req.params;
     const userId = req.user.id;
-    const { title, description, location, date_and_time, image } = req.body;
+    const { title, description, location, date_and_time, image, category_id } = req.body;
 
     const [existing] = await pool.query(
       "SELECT id FROM event WHERE id = ? AND user_id = ?",
@@ -269,15 +269,24 @@ export async function updateEvent(req, res, next) {
       return res.status(404).json({ error: "Event not found or no permission" });
     }
 
-    await pool.query(
+     await pool.query(
       `UPDATE event SET 
          title = ?,
          description = ?,
          location = ?,
          date_and_time = ?,
-         image = ?
+         image = ?,
+         category_id = ?
        WHERE id = ?`,
-      [title || null, description || null, location || null, date_and_time || null, image || null, id]
+      [
+        title || null,
+        description || null,
+        location || null,
+        date_and_time || null,
+        image || null,
+        Number(category_id),
+        id
+      ]
     );
 
     const [updated] = await pool.query(
@@ -289,23 +298,13 @@ export async function updateEvent(req, res, next) {
          e.date_and_time,
          e.image,
          e.user_id,
-         CONCAT_WS(' ', u.name, u.surname) AS organizer_name,
-         u.username AS organizer_username
+         e.category_id
        FROM event e
-       JOIN \`user\` u ON u.id = e.user_id
        WHERE e.id = ?`,
       [id]
     );
 
-    const [ticketTypes] = await pool.query(
-      `SELECT id, name, price, total_seats FROM ticket_type WHERE event_id = ?`,
-      [id]
-    );
-
-    res.json({
-      ...updated[0],
-      ticket_types: ticketTypes
-    });
+    res.json(updated[0]);
   } catch (err) {
     next(err);
   }
@@ -343,6 +342,8 @@ export async function getOrganizerEvents(req, res, next) {
          e.date_and_time,
          e.image,
          e.user_id,
+        e.category_id, 
+
          CONCAT_WS(' ', u.name, u.surname) AS organizer_name,
          u.username AS organizer_username
        FROM event e

@@ -315,6 +315,8 @@ if (!categoryId) {
       date_and_time: new Date(event.date_and_time).toISOString().slice(0, 16),
       image: event.image || ""
     });
+     setCategoryId(String(event.category_id || ""));
+
     setShowEditDialog(true);
   };
 
@@ -734,6 +736,24 @@ setCategoryId("");
                   placeholder="Enter event location"
                 />
               </div>
+              <div className="mb-4">
+  <label className="block text-sm font-medium mb-1">Category *</label>
+
+  <Select value={categoryId} onValueChange={setCategoryId}>
+    <SelectTrigger className="w-52 bg-white text-black">
+      <SelectValue placeholder="Select category" />
+    </SelectTrigger>
+
+    <SelectContent className="z-[99999] bg-white text-black border">
+      {categories.map((c) => (
+        <SelectItem key={c.id} value={String(c.id)}>
+          {formatCategoryLabel(c.name)}
+        </SelectItem>
+      ))}
+    </SelectContent>
+  </Select>
+</div>
+
               <div>
                 <label className="block text-sm font-medium mb-1">Description</label>
                 <Textarea
