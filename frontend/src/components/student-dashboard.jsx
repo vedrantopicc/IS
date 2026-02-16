@@ -77,24 +77,35 @@ export default function StudentDashboard() {
     loadStudentData();
   }, []);
 
+
+
   const loadStudentData = async () => {
     try {
       setLoading(true);
       setError("");
 
-      const [reservationsData, eventsData] = await Promise.all([
-        getUserReservations(),
-        getEvents({ sort: "asc" })
-      ]);
+    const [reservationsData, eventsResp] = await Promise.all([
+    getUserReservations(),
+    getEvents({ sort: "date_asc", page: 1, limit: 30})
+    ]);
 
-      const currentDate = new Date();
-      const upcomingEvents = eventsData.filter(event => {
-        const eventDate = new Date(event.date_and_time);
-        return eventDate > currentDate;
-      });
+// backend sada vraća { data, meta }
+  const eventsData = Array.isArray(eventsResp)
+    ? eventsResp
+    : (eventsResp?.items ?? []);
 
-      setReservations(reservationsData);
-      setAvailableEvents(upcomingEvents);
+  const currentDate = new Date();
+
+  const upcomingEvents = eventsData.filter(event => {
+    const eventDate = new Date(event.date_and_time);
+    return eventDate > currentDate;
+    });
+
+  setReservations(reservationsData);
+  setAvailableEvents(upcomingEvents);
+
+
+
     } catch (err) {
       console.error("Failed to load student data:", err);
       setError(err.message || "Failed to load data");
