@@ -204,25 +204,25 @@ export default function Comments({ eventId }) {
     <div className="space-y-4">
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-white">
+          <CardTitle className="flex items-center gap-2 text-gray-900">
             <MessageCircle className="h-5 w-5 text-blue-500" />
             Comments ({comments.length})
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           {isStudent && (
-            <div className="space-y-3 border-b border-gray-600 pb-4">
+            < div className="space-y-3 border-b border-gray-200 pb-4">
               <Textarea
                 value={newComment}
                 onChange={(e) => setNewComment(e.target.value)}
                 placeholder="Share your thoughts about this event..."
-                className="bg-gray-600 border-gray-500 text-white placeholder:text-gray-400 resize-none"
+                className="bg-gray-50 border-gray-300 text-gray-900 placeholder:text-gray-400 resize-none focus-visible:ring-2 focus-visible:ring-blue-500"
                 rows={3}
                 maxLength={1000}
                 disabled={submitting}
               />
               <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-400">
+                <span className="text-sm text-gray-500">
                   {newComment.length}/1000 characters
                 </span>
                 <Button
@@ -239,12 +239,12 @@ export default function Comments({ eventId }) {
           {loading ? (
             <div className="text-center py-4">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-              <p className="text-gray-400">Loading comments...</p>
+              <p className="text-gray-500">Loading comments...</p>
             </div>
           ) : comments.length === 0 ? (
             <div className="text-center py-8">
-              <MessageCircle className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-              <p className="text-gray-400">No comments yet. Be the first to share your thoughts!</p>
+              <MessageCircle className="w-12 h-12 text-gray-500  mx-auto mb-3" />
+              <p className="text-gray-500 ">No comments yet. Be the first to share your thoughts!</p>
             </div>
           ) : (
             <div className="space-y-4">
@@ -256,17 +256,17 @@ export default function Comments({ eventId }) {
                   : comment.username;
 
                 return (
-                  <div key={comment.id} className="bg-gray-700 rounded-lg p-4 space-y-3">
+                  <div key={comment.id} className="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-3 hover:bg-gray-100 transition">
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-3">
                         <Avatar className="h-8 w-8">
-                          <AvatarFallback className="bg-gray-600 text-white text-sm">
+                          <AvatarFallback className="bg-blue-100 text-blue-700 text-sm font-semibold">
                             {getInitials(comment.name, comment.surname, comment.username)}
                           </AvatarFallback>
                         </Avatar>
                         <div>
-                          <p className="font-medium text-white">{displayName}</p>
-                          <p className="text-sm text-gray-400">
+                        <p className="font-medium text-gray-900">{displayName}</p>
+                          <p className="text-sm text-gray-500">
                             {formatDate(comment.created_at)}
                             {comment.updated_at !== comment.created_at && (
                               <span className="ml-1">(edited)</span>
@@ -281,7 +281,7 @@ export default function Comments({ eventId }) {
                             variant="ghost"
                             size="sm"
                             onClick={() => startEdit(comment)}
-                            className="text-gray-400 hover:text-white hover:bg-gray-600 cursor-pointer transition-colors"
+                            className="text-gray-600 hover:text-white hover:bg-gray-900 cursor-pointer transition-colors"
                           >
                             <Edit2 className="w-4 h-4" />
                           </Button>
@@ -289,7 +289,7 @@ export default function Comments({ eventId }) {
                             variant="ghost"
                             size="sm"
                             onClick={() => handleDeleteComment(comment.id)}
-                            className="text-red-400 hover:text-red-300 hover:bg-red-900/20 cursor-pointer transition-colors"
+                            className="text-red-400 hover:text-red-500 hover:bg-red-100/20 cursor-pointer transition-colors"
                             disabled={submitting}
                           >
                             <Trash2 className="w-4 h-4" />
@@ -303,13 +303,13 @@ export default function Comments({ eventId }) {
                         <Textarea
                           value={editText}
                           onChange={(e) => setEditText(e.target.value)}
-                          className="bg-gray-600 border-gray-500 text-white placeholder:text-gray-400 resize-none"
+                          className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 resize-none focus-visible:ring-2 focus-visible:ring-blue-500"
                           rows={3}
                           maxLength={1000}
                           disabled={submitting}
                         />
                         <div className="flex items-center justify-between">
-                          <span className="text-sm text-gray-400">
+                          <span className="text-sm text-gray-500">    
                             {editText.length}/1000 characters
                           </span>
                           <div className="flex items-center gap-2">
@@ -317,7 +317,7 @@ export default function Comments({ eventId }) {
                               variant="ghost"
                               size="sm"
                               onClick={cancelEdit}
-                              className="text-gray-400 hover:text-white hover:bg-gray-600 cursor-pointer transition-colors"
+                              className="text-gray-600 hover:text-gray-900 hover:bg-gray-900 cursor-pointer transition-colors"
                               disabled={submitting}
                             >
                               <X className="w-4 h-4" />
@@ -337,7 +337,7 @@ export default function Comments({ eventId }) {
                         </div>
                       </div>
                     ) : (
-                      <p className="text-gray-300 leading-relaxed whitespace-pre-wrap">
+                      <p className="text-gray-800 leading-relaxed whitespace-pre-wrap">
                         {comment.comment_text}
                       </p>
                     )}
