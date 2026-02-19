@@ -29,6 +29,16 @@ import { getUserReservations, deleteReservation } from "../services/reservations
 import { getEvents } from "../services/events";
 import { sendRoleRequest } from "../services/roleRequest";
 import { toast } from "react-toastify";
+import { Bell } from "lucide-react";
+import { CheckCheck } from "lucide-react";
+
+
+import {
+  getNotifications,
+  markNotificationRead,
+  markAllNotificationsRead
+} from "../services/notifications";
+
 
 // Helper funkcije
 function getToken() { return localStorage.getItem("token"); }
@@ -73,9 +83,75 @@ export default function StudentDashboard() {
   const activeTab = searchParams.get("tab") || "events";
   const setActiveTab = (tab) => setSearchParams({ tab });
 
+  
+
+  const [notifications, setNotifications] = useState([]);
+const [unreadNotif, setUnreadNotif] = useState(0);
+
+const [notifOpen, setNotifOpen] = useState(false);
+
+
+
+
   useEffect(() => {
     loadStudentData();
   }, []);
+
+
+const loadNotifications = async () => {
+  try {
+    const data = await getNotifications();
+    setNotifications((data.items || []).map(n => ({ ...n, is_read: Number(n.is_read) })));
+    setUnreadNotif(Number(data?.meta?.unread || 0));
+  } catch (e) {
+    console.error(e);
+  }
+};
+
+
+const handleMarkAllRead = async () => {
+  try {
+    await markAllNotificationsRead();
+
+    // odmah promijeni UI (ne čekaj polling)
+    setUnreadNotif(0);
+    setNotifications((prev) => prev.map((n) => ({ ...n, is_read: 1 })));
+
+    // opcionalno: sync sa serverom
+    // await loadNotifications();
+  } catch (e) {
+    console.error(e);
+  }
+};
+
+
+const handleOpenNotification = async (n) => {
+  try {
+    if (!n.is_read) {
+      await markNotificationRead(n.id);
+      setUnreadNotif((prev) => Math.max(0, prev - 1));
+      setNotifications((prev) =>
+        prev.map(x => x.id === n.id ? { ...x, is_read: 1 } : x)
+      );
+    }
+    if (n.event_id) navigate(`/events/${n.event_id}?returnTo=dashboard&tab=events`);
+    setNotifOpen(false);
+  } catch (e) {
+    console.error(e);
+  }
+};
+
+
+
+useEffect(() => {
+  loadNotifications(); // odmah
+
+  const t = setInterval(() => {
+    loadNotifications();
+  }, 15000); // 15 sekundi
+
+  return () => clearInterval(t);
+}, []);
 
 
 
@@ -189,16 +265,89 @@ export default function StudentDashboard() {
             Welcome, <span className="font-semibold text-gray-900">{displayName}</span>
           </h2>
 
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-10 w-10 rounded-full p-0 relative z-50 cursor-pointer hover:bg-gray-100 transition-colors">
-                <Avatar className="h-9 w-9">
-                  <AvatarFallback className="bg-gray-900 text-white text-sm font-medium">
-                    {initials}
-                  </AvatarFallback>
-                </Avatar>
-              </Button>
-            </DropdownMenuTrigger>
+         <div className="flex items-center gap-2">
+
+  {/* 🔔 Bell notification */}
+ <DropdownMenu open={notifOpen} onOpenChange={setNotifOpen}>
+  <DropdownMenuTrigger asChild>
+    <Button
+      variant="ghost"
+      className="relative h-10 w-10 rounded-full p-0 hover:bg-gray-100 transition-colors"
+    >
+      <Bell className="h-5 w-5 text-gray-700" />
+      {unreadNotif > 0 && (
+        <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px]
+                         rounded-full bg-red-600 text-white text-[11px]
+                         font-bold flex items-center justify-center px-1">
+          {unreadNotif > 99 ? "99+" : unreadNotif}
+        </span>
+      )}
+    </Button>
+  </DropdownMenuTrigger>
+
+  <DropdownMenuContent
+    align="end"
+    className="w-96 text-gray-900 bg-white shadow-xl border border-gray-200 rounded-md z-[9999] mt-2"
+    side="bottom"
+    sideOffset={8}
+  >
+  <div className="px-3 py-2 flex items-center justify-between gap-2 border-b border-gray-100">
+  <span className="text-sm font-semibold">Notifications</span>
+</div>
+
+<DropdownMenuItem
+  onSelect={(e) => {
+    e.preventDefault(); // sprijeci auto-close i “pojeden” klik
+    handleMarkAllRead();
+  }}
+  disabled={unreadNotif === 0}
+  className="cursor-pointer justify-center text-sm"
+>
+  Mark all read
+</DropdownMenuItem>
+
+
+
+    <div className="max-h-80 overflow-auto">
+      {notifications.length === 0 ? (
+        <div className="p-4 text-sm text-gray-500">No notifications yet.</div>
+      ) : (
+        notifications.map((n) => (
+          <DropdownMenuItem
+            key={n.id}
+            onClick={() => handleOpenNotification(n)}
+            className={`cursor-pointer flex flex-col items-start gap-1 px-3 py-2 ${
+              n.is_read ? "opacity-75" : "bg-blue-50"
+            }`}
+          >
+            <div className="w-full flex items-center justify-between">
+              <span className="text-sm font-medium">{n.title}</span>
+              {!n.is_read && <span className="text-[10px] text-blue-700 font-semibold">NEW</span>}
+            </div>
+            <div className="text-xs text-gray-600 line-clamp-2">{n.message}</div>
+            <div className="text-[11px] text-gray-400">{formatDateTime(n.created_at)}</div>
+          </DropdownMenuItem>
+        ))
+      )}
+    </div>
+  </DropdownMenuContent>
+</DropdownMenu>
+
+
+
+  {/* 👤 Avatar dropdown */}
+  <DropdownMenu>
+    <DropdownMenuTrigger asChild>
+      <Button variant="ghost" className="h-10 w-10 rounded-full p-0 relative z-50 cursor-pointer hover:bg-gray-100 transition-colors">
+        <Avatar className="h-9 w-9">
+          <AvatarFallback className="bg-gray-900 text-white text-sm font-medium">
+            {initials}
+          </AvatarFallback>
+        </Avatar>
+      </Button>
+    </DropdownMenuTrigger>
+
+            
             <DropdownMenuContent
               align="end"
               className="w-60 text-gray-900 bg-white shadow-xl border border-gray-200 rounded-md z-[9999] mt-2"
@@ -259,6 +408,7 @@ export default function StudentDashboard() {
               </div>
             </DropdownMenuContent>
           </DropdownMenu>
+          </div>
         </div>
       </header>
 

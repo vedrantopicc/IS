@@ -222,6 +222,29 @@ const { title, description, location, date_and_time, image, ticketTypes, categor
       [ticketTypeValues]
     );
 
+// 1) uzmi sve studente
+const [students] = await pool.query(
+  `SELECT id FROM \`user\` WHERE role = 'Student'`
+);
+
+// 2) bulk insert notifikacija
+if (students.length) {
+  const values = students.map((s) => [
+    s.id,
+    "New event created",
+    `A new event "${title}" was created.`,
+    eventId,
+    0
+  ]);
+
+  await pool.query(
+    `INSERT INTO notification (user_id, title, message, event_id, is_read)
+     VALUES ?`,
+    [values]
+  );
+}
+
+
     const [fullEvent] = await pool.query(
       `SELECT
          e.id,

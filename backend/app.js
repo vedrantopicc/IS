@@ -9,13 +9,16 @@ import cors from "cors";
 import demoRouter from "./routes/demo.js"; // ← novi import
 import roleRequestRoutes from "./routes/role-requests.js";
 import categoriesRouter from "./routes/categories.js";
+import notificationsRouter from "./routes/notifications.js";
+
+
 
 
 
 const app = express();
 app.use(cors({
   origin: /^http:\/\/localhost:\d+$/,
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  methods: ["GET", "POST", "PUT", "DELETE","PATCH",  "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"]
 }));
 
@@ -30,6 +33,8 @@ app.use("/reservations", reservationsRouter);
 app.use("/comments", commentsRouter);
 app.use("/demo", demoRouter); // ← novi demo endpoint (samo u developmentu)
 app.use("/role-requests", roleRequestRoutes);
+app.use("/notifications", notificationsRouter);
+
 
 
 app.use((req, res) => {
