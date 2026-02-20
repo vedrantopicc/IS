@@ -14,7 +14,7 @@ import { Badge } from "../components/ui/badge";
 import { Table, TableHead, TableRow, TableCell, TableHeader, TableBody } from "../components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../components/ui/dialog";
-import { Settings, LogOut, Plus, Edit, Trash2, Users, Calendar, Clock, MapPin, Eye, Shield, Minus, BarChart3 } from "lucide-react";
+import { Settings, LogOut, Plus, Edit, Trash2, Users, Calendar, Clock, MapPin, Eye, Shield, Minus, BarChart3, Star } from "lucide-react";
 import { logoutApi } from "../services/auth";
 import { getCategories } from "../services/categories";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "../components/ui/select";
@@ -86,7 +86,7 @@ export default function OrganizerDashboard() {
   const initials = useMemo(() => getInitials(displayName), [displayName]);
   const userRole = useMemo(() => getCurrentUserRole(), []);
   const isAdmin = userRole === "Admin";
-const formatCategoryLabel = (name = "") => name.trim().toUpperCase();
+  const formatCategoryLabel = (name = "") => name.trim().toUpperCase();
 
   const [loading, setLoading] = useState(true);
   const [events, setEvents] = useState([]);
@@ -100,8 +100,8 @@ const formatCategoryLabel = (name = "") => name.trim().toUpperCase();
   const [salesProgress, setSalesProgress] = useState(null);
 
   const [ticketTypes, setTicketTypes] = useState([{ name: "", price: "", total_seats: "" }]);
-const [categories, setCategories] = useState([]);
-const [categoryId, setCategoryId] = useState("");
+  const [categories, setCategories] = useState([]);
+  const [categoryId, setCategoryId] = useState("");
 
   const getInitialFormData = () => {
     const tomorrow = new Date();
@@ -121,27 +121,29 @@ const [categoryId, setCategoryId] = useState("");
     loadEvents();
   }, []);
 
-useEffect(() => {
-  let alive = true;
+  useEffect(() => {
+    let alive = true;
 
-  (async () => {
-    try {
-      const cats = await getCategories();
-      if (alive) setCategories(cats);
-    } catch (err) {
-      console.error("Failed to load categories:", err);
-      toast.error("Failed to load categories");
-    }
-  })();
+    (async () => {
+      try {
+        const cats = await getCategories();
+        if (alive) setCategories(cats);
+      } catch (err) {
+        console.error("Failed to load categories:", err);
+        toast.error("Failed to load categories");
+      }
+    })();
 
-  return () => { alive = false; };
-}, []);
+    return () => { alive = false; };
+  }, []);
 
 
   const loadEvents = async () => {
     try {
       setLoading(true);
       const data = await getOrganizerEvents();
+      console.log("📊 Organizer events data:", data);
+      console.log("📊 First event averageRating:", data[0]?.averageRating);
       setEvents(data);
     } catch (err) {
       console.error("Failed to load events:", err);
@@ -182,15 +184,15 @@ useEffect(() => {
   const handleCreateEvent = async (e) => {
     e.preventDefault();
 
-console.log("categoryId state =", categoryId);
+    console.log("categoryId state =", categoryId);
 
-const cid = Number(categoryId);
-console.log("cid (Number(categoryId)) =", cid);
+    const cid = Number(categoryId);
+    console.log("cid (Number(categoryId)) =", cid);
 
-if (!Number.isInteger(cid) || cid <= 0) {
-  toast.error("Please select a valid category");
-  return;
-}
+    if (!Number.isInteger(cid) || cid <= 0) {
+      toast.error("Please select a valid category");
+      return;
+    }
 
 
 
@@ -198,10 +200,10 @@ if (!Number.isInteger(cid) || cid <= 0) {
       toast.error("Event date must be in the future");
       return;
     }
-if (!categoryId) {
-  toast.error("Please select a category");
-  return;
-}
+    if (!categoryId) {
+      toast.error("Please select a category");
+      return;
+    }
 
 
     if (!validateTicketTypes()) {
@@ -216,7 +218,7 @@ if (!categoryId) {
         location: formData.location.trim(),
         date_and_time: formatDateTimeForMySQL(formData.date_and_time),
         image: formData.image.trim() || null,
-  category_id: cid,
+        category_id: cid,
         ticketTypes: ticketTypes.map(tt => ({
           name: tt.name.trim(),
           price: parseFloat(tt.price),
@@ -242,10 +244,10 @@ if (!categoryId) {
       toast.error("Event date must be in the future");
       return;
     }
-if (!categoryId) {
-  toast.error("Please select a category");
-  return;
-}
+    if (!categoryId) {
+      toast.error("Please select a category");
+      return;
+    }
 
     try {
       const eventData = {
@@ -254,7 +256,7 @@ if (!categoryId) {
         location: formData.location.trim(),
         date_and_time: formatDateTimeForMySQL(formData.date_and_time),
         image: formData.image.trim() || null,
-	category_id: Number(categoryId),
+        category_id: Number(categoryId),
 
       };
 
@@ -315,14 +317,14 @@ if (!categoryId) {
       date_and_time: new Date(event.date_and_time).toISOString().slice(0, 16),
       image: event.image || ""
     });
-     setCategoryId(String(event.category_id || ""));
+    setCategoryId(String(event.category_id || ""));
 
     setShowEditDialog(true);
   };
 
   const resetForm = () => {
     setFormData(getInitialFormData());
-setCategoryId("");
+    setCategoryId("");
 
     setTicketTypes([{ name: "", price: "", total_seats: "" }]);
   };
@@ -493,19 +495,29 @@ setCategoryId("");
                       <MapPin className="mr-2 h-4 w-4" />
                       {event.location || "Location not specified"}
                     </div>
-                    <div className="flex items-center text-sm text-gray-600">
-                      <Calendar className="mr-2 h-4 w-4" />
-                      {date}
+
+                    {/* ✅ DATUM, VREME I OCJENA - sve u istom redu */}
+                    <div className="flex flex-wrap items-center gap-4 text-gray-600">
+                      <div className="flex items-center space-x-2">
+                        <Calendar className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                        <span className="text-sm font-medium">{date}</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Clock className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                        <span className="text-sm font-medium">{time}</span>
+                      </div>
+
+                      {/* ✅ PRIKAZ PROSJEČNE OCJENE - odmah pored sata */}
+                      {event.averageRating && parseFloat(event.averageRating) > 0 && (
+                        <div className="flex items-center space-x-1">
+                          <Star className="w-4 h-4 fill-yellow-400 text-yellow-400 flex-shrink-0" />
+                          <span className="text-sm font-bold text-gray-900">{parseFloat(event.averageRating).toFixed(1)}</span>
+                        </div>
+                      )}
                     </div>
-                    <div className="flex items-center text-sm text-gray-600">
-                      <Clock className="mr-2 h-4 w-4" />
-                      {time}
-                    </div>
-                    {/* 🚫 CENA I BROJ TIPOVA UKLONJENI */}
                   </CardContent>
                   <div className="p-6 pt-0">
                     <div className="flex flex-col gap-2">
-                      {/* ✅ BEZ IKONE "EYE" */}
                       <Button
                         size="sm"
                         variant="outline"
@@ -581,23 +593,23 @@ setCategoryId("");
                   placeholder="Enter event location (e.g. City Hall, Banja Luka)"
                 />
               </div>
-<div className="mb-4">
-  <label className="block text-sm font-medium mb-1">Category *</label>
+              <div className="mb-4">
+                <label className="block text-sm font-medium mb-1">Category *</label>
 
-  <Select value={categoryId} onValueChange={setCategoryId}>
-    <SelectTrigger className="w-52 bg-white text-black">
-      <SelectValue placeholder="Select category" />
-    </SelectTrigger>
+                <Select value={categoryId} onValueChange={setCategoryId}>
+                  <SelectTrigger className="w-52 bg-white text-black">
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
 
-    <SelectContent className="z-[99999] bg-white text-black border">
-      {categories.map((c) => (
-        <SelectItem key={c.id} value={String(c.id)}>
-          {formatCategoryLabel(c.name)}
-        </SelectItem>
-      ))}
-    </SelectContent>
-  </Select>
-</div>
+                  <SelectContent className="z-[99999] bg-white text-black border">
+                    {categories.map((c) => (
+                      <SelectItem key={c.id} value={String(c.id)}>
+                        {formatCategoryLabel(c.name)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
 
               <div>
@@ -737,22 +749,22 @@ setCategoryId("");
                 />
               </div>
               <div className="mb-4">
-  <label className="block text-sm font-medium mb-1">Category *</label>
+                <label className="block text-sm font-medium mb-1">Category *</label>
 
-  <Select value={categoryId} onValueChange={setCategoryId}>
-    <SelectTrigger className="w-52 bg-white text-black">
-      <SelectValue placeholder="Select category" />
-    </SelectTrigger>
+                <Select value={categoryId} onValueChange={setCategoryId}>
+                  <SelectTrigger className="w-52 bg-white text-black">
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
 
-    <SelectContent className="z-[99999] bg-white text-black border">
-      {categories.map((c) => (
-        <SelectItem key={c.id} value={String(c.id)}>
-          {formatCategoryLabel(c.name)}
-        </SelectItem>
-      ))}
-    </SelectContent>
-  </Select>
-</div>
+                  <SelectContent className="z-[99999] bg-white text-black border">
+                    {categories.map((c) => (
+                      <SelectItem key={c.id} value={String(c.id)}>
+                        {formatCategoryLabel(c.name)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
               <div>
                 <label className="block text-sm font-medium mb-1">Description</label>

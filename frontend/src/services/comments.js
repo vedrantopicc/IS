@@ -17,17 +17,17 @@ export const getEventComments = async (eventId) => {
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(errorData.message || "Failed to fetch comments");
+      throw new Error(errorData.message || "Failed to fetch reviews");
     }
 
     return await response.json();
   } catch (error) {
-    console.error("Error fetching comments:", error);
+    console.error("Error fetching reviews:", error);
     throw error;
   }
 };
 
-export const createComment = async (eventId, commentText) => {
+export const createComment = async (eventId, commentText, rating) => {
   try {
     const response = await fetch(`${API_BASE_URL}/comments/event/${eventId}`, {
       method: "POST",
@@ -35,22 +35,25 @@ export const createComment = async (eventId, commentText) => {
         "Content-Type": "application/json",
         ...getAuthHeader(),
       },
-      body: JSON.stringify({ comment_text: commentText }),
+      body: JSON.stringify({ 
+        comment_text: commentText,
+        rating: rating 
+      }),
     });
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(errorData.message || "Failed to create comment");
+      throw new Error(errorData.message || "Failed to create review");
     }
 
     return await response.json();
   } catch (error) {
-    console.error("Error creating comment:", error);
+    console.error("Error creating review:", error);
     throw error;
   }
 };
 
-export const updateComment = async (commentId, commentText) => {
+export const updateComment = async (commentId, commentText, rating) => {
   try {
     const response = await fetch(`${API_BASE_URL}/comments/${commentId}`, {
       method: "PUT",
@@ -58,17 +61,20 @@ export const updateComment = async (commentId, commentText) => {
         "Content-Type": "application/json",
         ...getAuthHeader(),
       },
-      body: JSON.stringify({ comment_text: commentText }),
+      body: JSON.stringify({ 
+        comment_text: commentText,
+        rating: rating 
+      }),
     });
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(errorData.message || "Failed to update comment");
+      throw new Error(errorData.message || "Failed to update review");
     }
 
     return await response.json();
   } catch (error) {
-    console.error("Error updating comment:", error);
+    console.error("Error updating review:", error);
     throw error;
   }
 };
@@ -85,12 +91,12 @@ export const deleteComment = async (commentId) => {
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(errorData.message || "Failed to delete comment");
+      throw new Error(errorData.message || "Failed to delete review");
     }
 
     return await response.json();
   } catch (error) {
-    console.error("Error deleting comment:", error);
+    console.error("Error deleting review:", error);
     throw error;
   }
 };

@@ -1,4 +1,3 @@
-// EventsPage.jsx
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import EventCard from "./event-card";
@@ -107,7 +106,7 @@ export const EventsPage = () => {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const [sort, setSort] = useState("date_asc"); // default: soonest first
+  const [sort, setSort] = useState("date_asc");
   const [search, setSearch] = useState("");
 
   const [fromDate, setFromDate] = useState(null);
@@ -117,7 +116,7 @@ export const EventsPage = () => {
   const toParam = useMemo(() => toParamDate(toDate), [toDate]);
 
   const [page, setPage] = useState(1);
-  const [limit] = useState(9); // 9 = 3x3 grid, može i 12
+  const [limit] = useState(9);
   const [meta, setMeta] = useState({ page: 1, limit: 9, total: 0, totalPages: 1 });
 
 
@@ -160,14 +159,19 @@ export const EventsPage = () => {
         setMeta(data.meta);
 
         setRows(
-  (data.items || []).map((r) => ({
-    id: r.id,
-    title: r.title,
-    image: r.image,
-    location: r.location,
-    dt: r.date_and_time ? new Date(r.date_and_time) : null,
-  }))
+          (data.items || []).map((r) => ({
+            id: r.id,
+            title: r.title,
+            image: r.image,
+            location: r.location,
+            dt: r.date_and_time ? new Date(r.date_and_time) : null,
+            averageRating: r.averageRating || null,
+          }))
         );
+        
+        // ✅ DEBUG - dodaj ovo
+        console.log("📊 API Response:", data.items);
+        console.log("📊 First event averageRating:", data.items[0]?.averageRating);
       } catch (e) {
         if (alive) console.error(e);
       } finally {
@@ -208,6 +212,7 @@ export const EventsPage = () => {
         ? e.dt.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })
         : "",
       isPastEvent: e.dt ? e.dt < currentDate : false,
+      averageRating: e.averageRating,  // ✅ DODATO
     }));
   }, [rows]);
 
@@ -235,15 +240,13 @@ function renderPagination() {
 
   const go = (p) => setPage(Math.min(totalPages, Math.max(1, p)));
 
-  const maxMiddle = 5; // koliko brojeva pokazujemo u sredini (2..6 recimo)
+  const maxMiddle = 5;
   const pages = [];
 
-  // uvijek pokaži 1 i totalPages, a u sredini "window"
   const start = Math.max(2, page - Math.floor(maxMiddle / 2));
   const end = Math.min(totalPages - 1, start + maxMiddle - 1);
   const startFixed = Math.max(2, end - maxMiddle + 1);
 
-  // helper za dugme
   const PageBtn = ({ p, active }) => (
     <button
       onClick={() => go(p)}
@@ -285,15 +288,12 @@ function renderPagination() {
     <div className="mt-10 flex items-center justify-center gap-2 select-none">
       <ArrowBtn dir="left" />
 
-      {/* 1 */}
       <PageBtn p={1} active={page === 1} />
 
-      {/* left dots */}
       {startFixed > 2 && (
         <span className="px-1 text-gray-400">…</span>
       )}
 
-      {/* middle window */}
       {(() => {
         for (let p = startFixed; p <= end; p++) {
           pages.push(<PageBtn key={p} p={p} active={p === page} />);
@@ -301,12 +301,10 @@ function renderPagination() {
         return pages;
       })()}
 
-      {/* right dots */}
       {end < totalPages - 1 && (
         <span className="px-1 text-gray-400">…</span>
       )}
 
-      {/* last */}
       {totalPages > 1 && (
         <PageBtn p={totalPages} active={page === totalPages} />
       )}
@@ -319,7 +317,6 @@ function renderPagination() {
       
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 via-white to-gray-50">
-      {/* Subtle background decoration */}
       <div className="pointer-events-none fixed inset-0 -z-10">
         <div className="absolute -top-24 left-1/2 h-72 w-[42rem] -translate-x-1/2 rounded-full bg-blue-200/25 blur-3xl" />
         <div className="absolute -bottom-24 left-1/3 h-72 w-[42rem] -translate-x-1/2 rounded-full bg-purple-200/20 blur-3xl" />
@@ -419,7 +416,6 @@ function renderPagination() {
 
       <main className="px-4 py-6">
         <div className="mx-auto max-w-6xl">
-        {/* Hero (premium compact) */}
              
 <div className="mb-4">
   <div className="rounded-3xl border border-gray-200 bg-white/70 backdrop-blur shadow-sm overflow-hidden">
@@ -435,7 +431,7 @@ function renderPagination() {
             Upcoming Events
           </h1>
           <p className="text-sm text-gray-600">
-            Discover what’s next.
+            Discover what's next.
           </p>
         </div>
 
@@ -459,15 +455,12 @@ function renderPagination() {
 
 
 
-          {/* Filters */}
           {(isStudent || isAdmin) && (
           <div className="mb-5 rounded-2xl border border-gray-200 bg-white/80 backdrop-blur shadow-sm">
             <div className="p-3 md:p-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
 
 
-                {/* Left */}
                 <div className="flex flex-col gap-4 md:flex-row md:items-end md:flex-wrap">
-                  {/* CATEGORY */}
                   <div className="flex flex-col gap-1">
                     <span className="text-xs font-semibold tracking-wide text-gray-600">
                       Category
@@ -494,7 +487,6 @@ function renderPagination() {
                     </Select>
                   </div>
 
-                  {/* SORT (segmented) */}
                   <div className="flex flex-col gap-1">
                     <span className="text-xs font-semibold tracking-wide text-gray-600">Sort</span>
                     <div className="inline-flex h-10 rounded-md border border-gray-200 bg-gray-50 p-1 shadow-sm">
@@ -526,7 +518,6 @@ function renderPagination() {
                     </div>
                   </div>
 
-                  {/* SEARCH */}
                   <div className="flex flex-col gap-1 w-full md:w-64">
                     <span className="text-xs font-semibold tracking-wide text-gray-600">Search</span>
                     <div className="relative">
@@ -556,7 +547,6 @@ function renderPagination() {
                   </div>
                 </div>
 
-                {/* Right */}
                 <div className="flex flex-col sm:flex-row sm:items-center gap-3 text-gray-900">
                   <Popover>
                     <PopoverTrigger asChild>
@@ -614,7 +604,6 @@ function renderPagination() {
                 </div>
               </div>
 
-              {/* Active filter chips */}
               <div className="px-4 md:px-5 pb-4 md:pb-5">
                 <div className="flex flex-wrap items-center gap-2 text-xs">
                   {selectedCategoryLabel && (
@@ -637,7 +626,7 @@ function renderPagination() {
 
                   {search?.trim() && (
                     <span className="rounded-full border border-gray-200 bg-white px-3 py-1 text-gray-700">
-                      Search: <span className="font-medium text-gray-900">“{search.trim()}”</span>
+                      Search: <span className="font-medium text-gray-900">"{search.trim()}"</span>
                     </span>
                   )}
                 </div>
@@ -645,7 +634,6 @@ function renderPagination() {
             </div>
           )}
 
-          {/* Content */}
           {loading ? (
             <div className="flex items-center justify-center py-20">
               <div className="flex items-center gap-3 text-gray-600">
@@ -668,6 +656,7 @@ function renderPagination() {
           location={event.location}
           date={event.date}
           time={event.time}
+          rating={event.averageRating}
           isPastEvent={event.isPastEvent}
           onClick={() => navigate(`/events/${event.id}`)}
         />

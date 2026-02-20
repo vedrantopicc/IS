@@ -1,5 +1,4 @@
-// src/components/EventCard.jsx
-import { Calendar, Clock, MapPin } from "lucide-react";
+import { Calendar, Clock, MapPin, Star } from "lucide-react";
 import { Card, CardContent } from "./ui/card";
 
 export default function EventCard({ 
@@ -7,7 +6,8 @@ export default function EventCard({
   title, 
   date, 
   time,
-  location, // ✅ Lokacija je prisutna
+  location,
+  rating,
   onClick,
   className = "",
   isPastEvent = false
@@ -33,7 +33,6 @@ export default function EventCard({
           {title}
         </h3>
 
-        {/* ✅ Lokacija — samo ako postoji */}
         {location && (
           <div className="flex items-center space-x-2 text-gray-600">
             <MapPin className="w-4 h-4 text-blue-600 flex-shrink-0" />
@@ -41,7 +40,6 @@ export default function EventCard({
           </div>
         )}
 
-        {/* Datum i vreme */}
         <div className="flex flex-wrap items-center gap-4 text-gray-600">
           <div className="flex items-center space-x-2">
             <Calendar className="w-4 h-4 text-blue-600 flex-shrink-0" />
@@ -51,6 +49,13 @@ export default function EventCard({
             <Clock className="w-4 h-4 text-blue-600 flex-shrink-0" />
             <span className="text-sm font-medium">{time}</span>
           </div>
+          {/* ✅ PRIKAZ PROSJEČNE OCJENE - pored sata */}
+          {rating && parseFloat(rating) > 0 && (
+            <div className="flex items-center space-x-1">
+              <Star className="w-4 h-4 fill-yellow-400 text-yellow-400 flex-shrink-0" />
+              <span className="text-sm font-bold text-gray-900">{parseFloat(rating).toFixed(1)}</span>
+            </div>
+          )}
         </div>
 
         <div className="pt-2 border-t border-gray-100">

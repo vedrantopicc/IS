@@ -145,7 +145,12 @@ const [rows] = await pool.query(
      u.username AS organizer_username,
      MIN(tt.price) AS min_price,
      MAX(tt.price) AS max_price,
-     SUM(GREATEST(tt.total_seats - COALESCE(res_sum.reserved, 0), 0)) AS total_available_seats
+     SUM(GREATEST(tt.total_seats - COALESCE(res_sum.reserved, 0), 0)) AS total_available_seats,
+     (
+       SELECT ROUND(AVG(cmt.rating), 1)
+       FROM comments cmt
+       WHERE cmt.event_id = e.id
+     ) AS averageRating
    FROM event e
    JOIN \`user\` u ON u.id = e.user_id
    LEFT JOIN category c ON c.id = e.category_id
@@ -158,8 +163,8 @@ const [rows] = await pool.query(
    ${whereSql}
    GROUP BY e.id
    ORDER BY ${orderBy}
-     LIMIT ? OFFSET ?`,
-      [...params, limit, offset]
+   LIMIT ? OFFSET ?`,
+  [...params, limit, offset]
 );
 
 
@@ -365,10 +370,14 @@ export async function getOrganizerEvents(req, res, next) {
          e.date_and_time,
          e.image,
          e.user_id,
-        e.category_id, 
-
+         e.category_id,
          CONCAT_WS(' ', u.name, u.surname) AS organizer_name,
-         u.username AS organizer_username
+         u.username AS organizer_username,
+         (
+           SELECT ROUND(AVG(cmt.rating), 1)
+           FROM comments cmt
+           WHERE cmt.event_id = e.id
+         ) AS averageRating
        FROM event e
        LEFT JOIN \`user\` u ON u.id = e.user_id
        WHERE e.user_id = ?
