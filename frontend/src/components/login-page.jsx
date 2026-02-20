@@ -249,11 +249,6 @@ className="text-blue-700 hover:text-blue-800 font-semibold underline bg-transpar
           </p>
         </CardFooter>
       </Card>
-
-      {/* tiny footer text */}
-      <p className="mt-4 text-center text-xs text-gray-400">
-        Tip: Use your student username or email to sign in.
-      </p>
     </div>
   </div>
 );

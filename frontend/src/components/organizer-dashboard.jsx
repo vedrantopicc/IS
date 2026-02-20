@@ -9,7 +9,7 @@ import {
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Textarea } from "../components/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import { Card, CardContent } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
 import { Table, TableHead, TableRow, TableCell, TableHeader, TableBody } from "../components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../components/ui/alert-dialog";
@@ -18,7 +18,6 @@ import { Settings, LogOut, Plus, Edit, Trash2, Users, Calendar, Clock, MapPin, E
 import { logoutApi } from "../services/auth";
 import { getCategories } from "../services/categories";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "../components/ui/select";
-
 import { getOrganizerEvents, createEvent, updateEvent, deleteEvent, getEventReservations, getEventSalesProgress } from "../services/organizer";
 import { toast } from "react-toastify";
 
@@ -112,7 +111,8 @@ export default function OrganizerDashboard() {
       description: "",
       location: "",
       date_and_time: tomorrow.toISOString().slice(0, 16),
-      image: ""
+      image: "",
+      status: "DRAFT"
     };
   };
   const [formData, setFormData] = useState(getInitialFormData());
@@ -181,30 +181,18 @@ export default function OrganizerDashboard() {
     return true;
   };
 
-  const handleCreateEvent = async (e) => {
-    e.preventDefault();
-
-    console.log("categoryId state =", categoryId);
-
+  const handleCreateEvent = async (status = "DRAFT") => {
     const cid = Number(categoryId);
-    console.log("cid (Number(categoryId)) =", cid);
-
+    
     if (!Number.isInteger(cid) || cid <= 0) {
       toast.error("Please select a valid category");
       return;
     }
 
-
-
     if (!formData.date_and_time || new Date(formData.date_and_time) <= new Date()) {
       toast.error("Event date must be in the future");
       return;
     }
-    if (!categoryId) {
-      toast.error("Please select a category");
-      return;
-    }
-
 
     if (!validateTicketTypes()) {
       toast.error("Please fill all ticket type fields correctly (name, price ≥ 0, seats > 0)");
@@ -219,6 +207,7 @@ export default function OrganizerDashboard() {
         date_and_time: formatDateTimeForMySQL(formData.date_and_time),
         image: formData.image.trim() || null,
         category_id: cid,
+        status: status,
         ticketTypes: ticketTypes.map(tt => ({
           name: tt.name.trim(),
           price: parseFloat(tt.price),
@@ -227,7 +216,7 @@ export default function OrganizerDashboard() {
       };
 
       await createEvent(eventData);
-      toast.success("Event created successfully");
+      toast.success(status === "DRAFT" ? "Event saved as draft" : "Event created successfully");
       setShowCreateDialog(false);
       resetForm();
       loadEvents();
@@ -237,9 +226,9 @@ export default function OrganizerDashboard() {
     }
   };
 
-  const handleUpdateEvent = async (e) => {
-    e.preventDefault();
-
+  const handleUpdateEvent = async (status = null) => {
+    const cid = Number(categoryId);
+    
     if (!formData.date_and_time || new Date(formData.date_and_time) <= new Date()) {
       toast.error("Event date must be in the future");
       return;
@@ -256,12 +245,12 @@ export default function OrganizerDashboard() {
         location: formData.location.trim(),
         date_and_time: formatDateTimeForMySQL(formData.date_and_time),
         image: formData.image.trim() || null,
-        category_id: Number(categoryId),
-
+        category_id: cid,
+        ...(status && { status })
       };
 
       await updateEvent(selectedEvent.id, eventData);
-      toast.success("Event updated successfully");
+      toast.success(status === "DRAFT" ? "Event saved as draft" : "Event updated successfully");
       setShowEditDialog(false);
       resetForm();
       loadEvents();
@@ -315,7 +304,8 @@ export default function OrganizerDashboard() {
       description: event.description || "",
       location: event.location || "",
       date_and_time: new Date(event.date_and_time).toISOString().slice(0, 16),
-      image: event.image || ""
+      image: event.image || "",
+      status: event.status || "DRAFT"
     });
     setCategoryId(String(event.category_id || ""));
 
@@ -325,7 +315,6 @@ export default function OrganizerDashboard() {
   const resetForm = () => {
     setFormData(getInitialFormData());
     setCategoryId("");
-
     setTicketTypes([{ name: "", price: "", total_seats: "" }]);
   };
 
@@ -464,39 +453,48 @@ export default function OrganizerDashboard() {
               const isPast = isEventInPast(event.date_and_time);
 
               return (
-                <Card key={event.id} className={`${isPast ? 'opacity-75' : ''}`}>
-                  <div className="relative">
-                    <div className="w-full h-48 bg-gray-200 rounded-t-lg overflow-hidden">
-                      {event.image ? (
-                        <img
-                          src={event.image}
-                          alt={event.title}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-400">
-                          <Calendar className="h-12 w-12" />
-                        </div>
-                      )}
-                    </div>
+                <Card key={event.id} className={`overflow-hidden bg-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02] ${isPast ? 'opacity-75' : ''} relative`}>
+                  {/* ✅ STATUS BADGE */}
+                  {event.status === "DRAFT" && (
+                    <Badge className="absolute top-2 left-2 bg-yellow-500 text-white z-10">
+                      Draft
+                    </Badge>
+                  )}
+                  
+                  {/* ✅ IMAGE SECTION */}
+                  <div className="relative h-48 overflow-hidden">
+                    {event.image ? (
+                      <img
+                        src={event.image}
+                        alt={event.title}
+                        className="w-full h-full object-cover transition-transform duration-300 hover:scale-110"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-400">
+                        <Calendar className="h-12 w-12" />
+                      </div>
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
                     {isPast && (
-                      <Badge className="absolute top-2 right-2 bg-gray-600">
+                      <Badge className="absolute top-2 right-2 bg-gray-600/90 text-white">
                         Past Event
                       </Badge>
                     )}
                   </div>
-                  <CardHeader>
-                    <CardTitle className="text-lg font-bold text-gray-900 line-clamp-2">
+
+                  {/* ✅ CONTENT SECTION */}
+                  <CardContent className="p-6 space-y-4">
+                    <h3 className="text-xl font-bold text-gray-900 line-clamp-2 leading-tight">
                       {event.title}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="flex items-center text-sm text-gray-600">
-                      <MapPin className="mr-2 h-4 w-4" />
-                      {event.location || "Location not specified"}
+                    </h3>
+
+                    {/* Location */}
+                    <div className="flex items-center space-x-2 text-gray-600">
+                      <MapPin className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                      <span className="text-sm font-medium line-clamp-1">{event.location || "Location not specified"}</span>
                     </div>
 
-                    {/* ✅ DATUM, VREME I OCJENA - sve u istom redu */}
+                    {/* Date, Time & Rating */}
                     <div className="flex flex-wrap items-center gap-4 text-gray-600">
                       <div className="flex items-center space-x-2">
                         <Calendar className="w-4 h-4 text-blue-600 flex-shrink-0" />
@@ -506,8 +504,6 @@ export default function OrganizerDashboard() {
                         <Clock className="w-4 h-4 text-blue-600 flex-shrink-0" />
                         <span className="text-sm font-medium">{time}</span>
                       </div>
-
-                      {/* ✅ PRIKAZ PROSJEČNE OCJENE - odmah pored sata */}
                       {event.averageRating && parseFloat(event.averageRating) > 0 && (
                         <div className="flex items-center space-x-1">
                           <Star className="w-4 h-4 fill-yellow-400 text-yellow-400 flex-shrink-0" />
@@ -515,15 +511,16 @@ export default function OrganizerDashboard() {
                         </div>
                       )}
                     </div>
-                  </CardContent>
-                  <div className="p-6 pt-0">
-                    <div className="flex flex-col gap-2">
+
+                    {/* ✅ ACTION BUTTONS */}
+                    <div className="pt-2 border-t border-gray-100 space-y-2">
                       <Button
                         size="sm"
                         variant="outline"
                         onClick={() => handleViewReservations(event)}
-                        className="w-full flex items-center justify-center text-gray-700 hover:text-gray-900 border-gray-300 hover:bg-gray-100 cursor-pointer"
+                        className="w-full text-gray-700 hover:text-gray-900 border-gray-300 hover:bg-gray-100 cursor-pointer"
                       >
+                        <Users className="mr-2 h-4 w-4" />
                         View Reservations
                       </Button>
 
@@ -531,20 +528,20 @@ export default function OrganizerDashboard() {
                         size="sm"
                         variant="outline"
                         onClick={() => handleViewSalesProgress(event)}
-                        className="w-full flex items-center justify-center gap-2 text-green-600 hover:text-green-700 border-green-300 hover:bg-green-50 cursor-pointer"
+                        className="w-full text-green-600 hover:text-green-700 border-green-300 hover:bg-green-50 cursor-pointer"
                       >
-                        <BarChart3 className="h-4 w-4" />
+                        <BarChart3 className="mr-2 h-4 w-4" />
                         Sales Progress
                       </Button>
 
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 pt-2">
                         <Button
                           size="sm"
                           variant="outline"
                           onClick={() => handleEdit(event)}
-                          className="flex-1 flex items-center justify-center gap-2 text-blue-600 hover:text-blue-700 border-blue-300 hover:bg-blue-50 cursor-pointer"
+                          className="flex-1 text-blue-600 hover:text-blue-700 border-blue-300 hover:bg-blue-50 cursor-pointer"
                         >
-                          <Edit className="h-4 w-4" />
+                          <Edit className="mr-2 h-4 w-4" />
                           Edit
                         </Button>
                         <Button
@@ -554,28 +551,28 @@ export default function OrganizerDashboard() {
                             setSelectedEvent(event);
                             setShowDeleteDialog(true);
                           }}
-                          className="flex-1 text-red-600 hover:text-red-700 hover:bg-red-50 flex items-center justify-center gap-2 border-red-300 cursor-pointer"
+                          className="flex-1 text-red-600 hover:text-red-700 hover:bg-red-50 cursor-pointer"
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Trash2 className="mr-2 h-4 w-4" />
                           Delete
                         </Button>
                       </div>
                     </div>
-                  </div>
+                  </CardContent>
                 </Card>
               );
             })}
           </div>
         )}
 
-        {/* CREATE DIALOG SA LOKACIJOM */}
+        {/* CREATE DIALOG */}
         <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
           <DialogContent className="bg-white text-black max-w-2xl">
             <DialogHeader>
               <DialogTitle>Create New Event</DialogTitle>
               <DialogDescription>Fill in event details and ticket types.</DialogDescription>
             </DialogHeader>
-            <form onSubmit={handleCreateEvent} className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
+            <form className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
               <div>
                 <label className="block text-sm font-medium mb-1">Event Title *</label>
                 <Input
@@ -595,12 +592,10 @@ export default function OrganizerDashboard() {
               </div>
               <div className="mb-4">
                 <label className="block text-sm font-medium mb-1">Category *</label>
-
                 <Select value={categoryId} onValueChange={setCategoryId}>
                   <SelectTrigger className="w-52 bg-white text-black">
                     <SelectValue placeholder="Select category" />
                   </SelectTrigger>
-
                   <SelectContent className="z-[99999] bg-white text-black border">
                     {categories.map((c) => (
                       <SelectItem key={c.id} value={String(c.id)}>
@@ -610,8 +605,6 @@ export default function OrganizerDashboard() {
                   </SelectContent>
                 </Select>
               </div>
-
-
               <div>
                 <label className="block text-sm font-medium mb-1">Description</label>
                 <Textarea
@@ -642,7 +635,6 @@ export default function OrganizerDashboard() {
                   />
                 </div>
               </div>
-
               <div>
                 <div className="flex justify-between items-center mb-2">
                   <label className="block text-sm font-medium">Ticket Types *</label>
@@ -699,38 +691,44 @@ export default function OrganizerDashboard() {
                   ))}
                 </div>
               </div>
-
-              <DialogFooter>
+              <DialogFooter className="flex flex-col sm:flex-row gap-2">
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => {
-                    setShowCreateDialog(false);
-                    resetForm();
-                  }}
+                  onClick={() => setShowCreateDialog(false)}
                   className="!bg-gray-100 hover:!bg-gray-200 !text-gray-700 !border-gray-300 cursor-pointer font-medium px-6 py-2"
                 >
                   Cancel
                 </Button>
-                <Button
-                  type="submit"
-                  className="!bg-blue-600 hover:!bg-blue-700 !text-white cursor-pointer font-semibold shadow-md border-0 px-6 py-2"
-                >
-                  Create Event
-                </Button>
+                <div className="flex gap-2 flex-1 justify-end">
+                  <Button
+                    type="button"
+                    onClick={() => handleCreateEvent("DRAFT")}
+                    className="!bg-yellow-500 hover:!bg-yellow-600 !text-white cursor-pointer font-semibold shadow-md px-6 py-2"
+                  >
+                    Save as Draft
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={() => handleCreateEvent("PUBLISHED")}
+                    className="!bg-blue-600 hover:!bg-blue-700 !text-white cursor-pointer font-semibold shadow-md px-6 py-2"
+                  >
+                    Publish
+                  </Button>
+                </div>
               </DialogFooter>
             </form>
           </DialogContent>
         </Dialog>
 
-        {/* EDIT DIALOG SA LOKACIJOM */}
+        {/* EDIT DIALOG */}
         <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
           <DialogContent className="bg-white text-black max-w-2xl">
             <DialogHeader>
               <DialogTitle>Edit Event</DialogTitle>
               <DialogDescription>Update basic event details.</DialogDescription>
             </DialogHeader>
-            <form onSubmit={handleUpdateEvent} className="space-y-4">
+            <form className="space-y-4">
               <div>
                 <label className="block text-sm font-medium mb-1">Event Title *</label>
                 <Input
@@ -750,12 +748,10 @@ export default function OrganizerDashboard() {
               </div>
               <div className="mb-4">
                 <label className="block text-sm font-medium mb-1">Category *</label>
-
                 <Select value={categoryId} onValueChange={setCategoryId}>
                   <SelectTrigger className="w-52 bg-white text-black">
                     <SelectValue placeholder="Select category" />
                   </SelectTrigger>
-
                   <SelectContent className="z-[99999] bg-white text-black border">
                     {categories.map((c) => (
                       <SelectItem key={c.id} value={String(c.id)}>
@@ -765,7 +761,6 @@ export default function OrganizerDashboard() {
                   </SelectContent>
                 </Select>
               </div>
-
               <div>
                 <label className="block text-sm font-medium mb-1">Description</label>
                 <Textarea
@@ -795,7 +790,7 @@ export default function OrganizerDashboard() {
                   />
                 </div>
               </div>
-              <DialogFooter>
+              <DialogFooter className="flex flex-col sm:flex-row gap-2">
                 <Button
                   type="button"
                   variant="outline"
@@ -807,12 +802,24 @@ export default function OrganizerDashboard() {
                 >
                   Cancel
                 </Button>
-                <Button
-                  type="submit"
-                  className="!bg-blue-600 hover:!bg-blue-700 !text-white cursor-pointer font-semibold shadow-md border-0 px-6 py-2"
-                >
-                  Update Event
-                </Button>
+                <div className="flex gap-2 flex-1 justify-end">
+                  {formData.status === "DRAFT" && (
+                    <Button
+                      type="button"
+                      onClick={() => handleUpdateEvent("DRAFT")}
+                      className="!bg-yellow-500 hover:!bg-yellow-600 !text-white cursor-pointer font-semibold shadow-md px-6 py-2"
+                    >
+                      Save as Draft
+                    </Button>
+                  )}
+                  <Button
+                    type="button"
+                    onClick={() => handleUpdateEvent("PUBLISHED")}
+                    className="!bg-green-600 hover:!bg-green-700 !text-white cursor-pointer font-semibold shadow-md px-6 py-2"
+                  >
+                    {formData.status === "DRAFT" ? "Publish" : "Save Changes"}
+                  </Button>
+                </div>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -907,17 +914,15 @@ export default function OrganizerDashboard() {
           </DialogContent>
         </Dialog>
 
-        {/* ✅ SALES PROGRESS DIALOG - ISRAVQLJEN */}
+        {/* SALES PROGRESS DIALOG */}
         <Dialog open={showProgressDialog} onOpenChange={setShowProgressDialog}>
           <DialogContent className="bg-white text-black max-w-2xl max-h-[80vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Sales Progress – {selectedEvent?.title}</DialogTitle>
               <DialogDescription>Track ticket sales for this event.</DialogDescription>
             </DialogHeader>
-
             {salesProgress ? (
               <div className="space-y-6">
-                {/* Ukupan progres */}
                 <div>
                   <div className="flex justify-between mb-2">
                     <span className="font-medium">Total Sold</span>
@@ -934,8 +939,6 @@ export default function OrganizerDashboard() {
                     ></div>
                   </div>
                 </div>
-
-                {/* Po tipu karte */}
                 <div>
                   <h4 className="font-semibold mb-3">By Ticket Type:</h4>
                   {salesProgress.ticket_types.map((tt) => (
@@ -961,7 +964,6 @@ export default function OrganizerDashboard() {
             ) : (
               <p className="text-gray-500">Loading...</p>
             )}
-
             <DialogFooter>
               <Button
                 onClick={() => setShowProgressDialog(false)}

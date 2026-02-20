@@ -251,177 +251,165 @@ const handleEditComment = async (commentId) => {
 
   return (
     <div className="space-y-4">
-      <Card>
-        <CardContent className="space-y-4">
-          {isStudent && !userReview && (
-            <div className="space-y-3 border-b border-gray-200 pb-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">
-                  Rating *
-                </label>
-                <StarRating
-                  rating={newRating}
-                  onRatingChange={setNewRating}
-                  size="lg"
-                />
-              </div>
-              <Textarea
-                value={newComment}
-                onChange={(e) => setNewComment(e.target.value)}
-                placeholder="Share your experience at this event..."
-                className="bg-gray-50 border-gray-300 text-gray-900 placeholder:text-gray-400 resize-none focus-visible:ring-2 focus-visible:ring-blue-500"
-                rows={3}
-                maxLength={1000}
-                disabled={submitting}
-              />
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-500">
-                  {newComment.length}/1000 characters
-                </span>
-                <Button
-                  onClick={handleAddComment}
-                  disabled={submitting || newRating === 0}
-                  className="!bg-blue-600 hover:!bg-blue-700 !text-white cursor-pointer transition-colors disabled:cursor-not-allowed"
-                >
-                  {submitting ? "Adding..." : "Submit Review"}
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/*isStudent && userReview && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <p className="text-sm text-blue-800">
-                You have already reviewed this event. You can edit or delete your review below.
-              </p>
-            </div>
-          )*/}
-
-          {loading ? (
-            <div className="text-center py-4">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-              <p className="text-gray-500">Loading reviews...</p>
-            </div>
-          ) : comments.length === 0 ? (
-            <div className="text-center py-8">
-              <MessageCircle className="w-12 h-12 text-gray-500 mx-auto mb-3" />
-              <p className="text-gray-500">No reviews yet. Be the first to share your experience!</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {comments.map((comment) => {
-                const isOwner = currentUserId && comment.user_id === parseInt(currentUserId);
-                const isEditing = editingComment === comment.id;
-                const displayName = comment.name && comment.surname 
-                  ? `${comment.name} ${comment.surname}` 
-                  : comment.username;
-
-                return (
-                  <div key={comment.id} className="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-3 hover:bg-gray-100 transition">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-3">
-                        <Avatar className="h-8 w-8">
-                          <AvatarFallback className="bg-blue-100 text-blue-700 text-sm font-semibold">
-                            {getInitials(comment.name, comment.surname, comment.username)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <p className="font-medium text-gray-900">{displayName}</p>
-                          <div className="flex items-center gap-2">
-                            <StarRating rating={comment.rating} readOnly size="sm" />
-                            <span className="text-sm text-gray-500">
-                              {formatDate(comment.created_at)}
-                              {comment.updated_at !== comment.created_at && (
-                                <span className="ml-1">(edited)</span>
-                              )}
-                            </span>
-                          </div>
-                        </div>
+      {/* Forma za dodavanje recenzije */}
+      {isStudent && !userReview && (
+        <div className="space-y-3 border-b border-gray-200 pb-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700">
+              Rating *
+            </label>
+            <StarRating
+              rating={newRating}
+              onRatingChange={setNewRating}
+              size="lg"
+            />
+          </div>
+          <Textarea
+            value={newComment}
+            onChange={(e) => setNewComment(e.target.value)}
+            placeholder="Share your experience at this event..."
+            className="bg-gray-50 border-gray-300 text-gray-900 placeholder:text-gray-400 resize-none focus-visible:ring-2 focus-visible:ring-blue-500"
+            rows={3}
+            maxLength={1000}
+            disabled={submitting}
+          />
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-gray-500">
+              {newComment.length}/1000 characters
+            </span>
+            <Button
+              onClick={handleAddComment}
+              disabled={submitting || newRating === 0}
+              className="!bg-blue-600 hover:!bg-blue-700 !text-white cursor-pointer transition-colors disabled:cursor-not-allowed"
+            >
+              {submitting ? "Adding..." : "Submit Review"}
+            </Button>
+          </div>
+        </div>
+      )}
+  
+      {/* Lista komentara - ISTI STIL KAO TICKET TYPES */}
+      {loading ? (
+        <div className="text-center py-4">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+          <p className="text-gray-500">Loading reviews...</p>
+        </div>
+      ) : comments.length === 0 ? (
+        <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-center text-gray-600">
+          No reviews yet. Be the first to share your experience!
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {comments.map((comment) => {
+            const isOwner = currentUserId && comment.user_id === parseInt(currentUserId);
+            const isEditing = editingComment === comment.id;
+            const displayName = comment.name && comment.surname 
+              ? `${comment.name} ${comment.surname}` 
+              : comment.username;
+  
+            return (
+              <div 
+                key={comment.id} 
+                className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 hover:bg-gray-100 transition"
+              >
+                {/* Header: avatar + ime + ocena + vreme */}
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Avatar className="h-8 w-8 flex-shrink-0">
+                      <AvatarFallback className="bg-blue-100 text-blue-700 text-sm font-semibold">
+                        {getInitials(comment.name, comment.surname, comment.username)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0">
+                      <p className="font-semibold text-gray-900 truncate">{displayName}</p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <StarRating rating={comment.rating} readOnly size="sm" />
+                        <span className="text-sm text-gray-500">
+                          {formatDate(comment.created_at)}
+                          {comment.updated_at !== comment.created_at && (
+                            <span className="ml-1">(edited)</span>
+                          )}
+                        </span>
                       </div>
-                      
-                      {isStudent && isOwner && !isEditing && (
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => startEdit(comment)}
-                            className="text-gray-600 hover:text-white hover:bg-gray-900 cursor-pointer transition-colors"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDeleteComment(comment.id)}
-                            className="text-red-400 hover:text-red-500 hover:bg-red-100/20 cursor-pointer transition-colors"
-                            disabled={submitting}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      )}
                     </div>
-                    
-                    {isEditing ? (
-                      <div className="space-y-3">
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium text-gray-700">
-                            Your Rating *
-                          </label>
-                          <StarRating
-                            rating={editRating}
-                            onRatingChange={setEditRating}
-                            size="lg"
-                          />
-                        </div>
-                        <Textarea
-                          value={editText}
-                          onChange={(e) => setEditText(e.target.value)}
-                          className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 resize-none focus-visible:ring-2 focus-visible:ring-blue-500"
-                          rows={3}
-                          maxLength={1000}
-                          disabled={submitting}
-                        />
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-gray-500">    
-                            {editText.length}/1000 characters
-                          </span>
-                          <div className="flex items-center gap-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={cancelEdit}
-                              className="text-gray-600 hover:text-gray-900 hover:bg-gray-900 cursor-pointer transition-colors"
-                              disabled={submitting}
-                            >
-                              <X className="w-4 h-4" />
-                              Cancel
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleEditComment(comment.id)}
-                              disabled={submitting || editRating === 0}
-                              className="text-blue-600 hover:text-blue-800 hover:bg-blue-100 cursor-pointer disabled:cursor-not-allowed"
-                            >
-                              <Save className="w-4 h-4 mr-1" />
-                              {submitting ? "Saving..." : "Save"}
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      <p className="text-gray-800 leading-relaxed whitespace-pre-wrap">
-                        {comment.comment_text}
-                      </p>
-                    )}
                   </div>
-                );
-              })}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                  
+                  {/* Edit/Delete dugmići */}
+                  {isStudent && isOwner && !isEditing && (
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => startEdit(comment)}
+                        className="h-8 w-8 p-0 text-gray-600 hover:text-blue-600 hover:bg-blue-50 cursor-pointer"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDeleteComment(comment.id)}
+                        className="h-8 w-8 p-0 text-red-500 hover:text-red-600 hover:bg-red-50 cursor-pointer"
+                        disabled={submitting}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
+  
+                {/* Tekst komentara ili edit forma */}
+                {isEditing ? (
+                  <div className="mt-3 space-y-3">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">
+                        Your Rating *
+                      </label>
+                      <StarRating
+                        rating={editRating}
+                        onRatingChange={setEditRating}
+                        size="lg"
+                      />
+                    </div>
+                    <Textarea
+                      value={editText}
+                      onChange={(e) => setEditText(e.target.value)}
+                      className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 resize-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                      rows={3}
+                      maxLength={1000}
+                      disabled={submitting}
+                    />
+                    <div className="flex items-center justify-end gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={cancelEdit}
+                        className="text-gray-600 hover:text-gray-900 cursor-pointer"
+                        disabled={submitting}
+                      >
+                        <X className="w-4 h-4 mr-1" /> Cancel
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleEditComment(comment.id)}
+                        disabled={submitting || editRating === 0}
+                        className="text-blue-600 hover:text-blue-800 cursor-pointer disabled:cursor-not-allowed"
+                      >
+                        <Save className="w-4 h-4 mr-1" /> Save
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="mt-2 text-gray-800 leading-relaxed whitespace-pre-wrap">
+                    {comment.comment_text}
+                  </p>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

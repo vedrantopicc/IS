@@ -72,7 +72,7 @@ function getCurrentUserRole() {
     try {
       const user = JSON.parse(userStr);
       return user.role;
-    } catch {}
+    } catch { }
   }
 
   return null;
@@ -168,7 +168,7 @@ export const EventsPage = () => {
             averageRating: r.averageRating || null,
           }))
         );
-        
+
         // ✅ DEBUG - dodaj ovo
         console.log("📊 API Response:", data.items);
         console.log("📊 First event averageRating:", data.items[0]?.averageRating);
@@ -177,7 +177,7 @@ export const EventsPage = () => {
       } finally {
         if (alive) setLoading(false);
       }
-      
+
     })();
 
 
@@ -190,8 +190,8 @@ export const EventsPage = () => {
 
 
   useEffect(() => {
-  setPage(1);
-}, [sort, fromParam, toParam, categoryId, search]);
+    setPage(1);
+  }, [sort, fromParam, toParam, categoryId, search]);
 
 
   const cards = useMemo(() => {
@@ -203,10 +203,10 @@ export const EventsPage = () => {
       location: e.location,
       date: e.dt
         ? e.dt.toLocaleDateString(undefined, {
-            year: "numeric",
-            month: "long",
-            day: "numeric",
-          })
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        })
         : "",
       time: e.dt
         ? e.dt.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })
@@ -233,88 +233,88 @@ export const EventsPage = () => {
       ? null
       : categories.find((c) => String(c.id) === String(categoryId))?.name ?? String(categoryId);
 
-      
-function renderPagination() {
-  const totalPages = meta?.totalPages ?? 1;
-  if (totalPages <= 1) return null;
 
-  const go = (p) => setPage(Math.min(totalPages, Math.max(1, p)));
+  function renderPagination() {
+    const totalPages = meta?.totalPages ?? 1;
+    if (totalPages <= 1) return null;
 
-  const maxMiddle = 5;
-  const pages = [];
+    const go = (p) => setPage(Math.min(totalPages, Math.max(1, p)));
 
-  const start = Math.max(2, page - Math.floor(maxMiddle / 2));
-  const end = Math.min(totalPages - 1, start + maxMiddle - 1);
-  const startFixed = Math.max(2, end - maxMiddle + 1);
+    const maxMiddle = 5;
+    const pages = [];
 
-  const PageBtn = ({ p, active }) => (
-    <button
-      onClick={() => go(p)}
-      className={[
-        "h-10 w-10 rounded-full text-sm font-medium transition",
-        "hover:bg-gray-100 active:scale-[0.98]",
-        active
-          ? "ring-2 ring-gray-900 text-gray-900 bg-white"
-          : "text-gray-700",
-      ].join(" ")}
-      aria-current={active ? "page" : undefined}
-    >
-      {p}
-    </button>
-  );
+    const start = Math.max(2, page - Math.floor(maxMiddle / 2));
+    const end = Math.min(totalPages - 1, start + maxMiddle - 1);
+    const startFixed = Math.max(2, end - maxMiddle + 1);
 
-  const ArrowBtn = ({ dir }) => {
-    const disabled = dir === "left" ? page === 1 : page === totalPages;
-    const Icon = dir === "left" ? ChevronLeft : ChevronRight;
-
-    return (
+    const PageBtn = ({ p, active }) => (
       <button
-        onClick={() => go(dir === "left" ? page - 1 : page + 1)}
-        disabled={disabled}
+        onClick={() => go(p)}
         className={[
-          "h-10 w-10 rounded-full grid place-items-center transition",
-          disabled
-            ? "text-gray-300 cursor-not-allowed"
-            : "text-gray-800 hover:bg-gray-100",
+          "h-10 w-10 rounded-full text-sm font-medium transition",
+          "hover:bg-gray-100 active:scale-[0.98]",
+          active
+            ? "ring-2 ring-gray-900 text-gray-900 bg-white"
+            : "text-gray-700",
         ].join(" ")}
-        aria-label={dir === "left" ? "Previous page" : "Next page"}
+        aria-current={active ? "page" : undefined}
       >
-        <Icon className="h-5 w-5" />
+        {p}
       </button>
     );
-  };
 
-  return (
-    <div className="mt-10 flex items-center justify-center gap-2 select-none">
-      <ArrowBtn dir="left" />
+    const ArrowBtn = ({ dir }) => {
+      const disabled = dir === "left" ? page === 1 : page === totalPages;
+      const Icon = dir === "left" ? ChevronLeft : ChevronRight;
 
-      <PageBtn p={1} active={page === 1} />
+      return (
+        <button
+          onClick={() => go(dir === "left" ? page - 1 : page + 1)}
+          disabled={disabled}
+          className={[
+            "h-10 w-10 rounded-full grid place-items-center transition",
+            disabled
+              ? "text-gray-300 cursor-not-allowed"
+              : "text-gray-800 hover:bg-gray-100",
+          ].join(" ")}
+          aria-label={dir === "left" ? "Previous page" : "Next page"}
+        >
+          <Icon className="h-5 w-5" />
+        </button>
+      );
+    };
 
-      {startFixed > 2 && (
-        <span className="px-1 text-gray-400">…</span>
-      )}
+    return (
+      <div className="mt-10 flex items-center justify-center gap-2 select-none">
+        <ArrowBtn dir="left" />
 
-      {(() => {
-        for (let p = startFixed; p <= end; p++) {
-          pages.push(<PageBtn key={p} p={p} active={p === page} />);
-        }
-        return pages;
-      })()}
+        <PageBtn p={1} active={page === 1} />
 
-      {end < totalPages - 1 && (
-        <span className="px-1 text-gray-400">…</span>
-      )}
+        {startFixed > 2 && (
+          <span className="px-1 text-gray-400">…</span>
+        )}
 
-      {totalPages > 1 && (
-        <PageBtn p={totalPages} active={page === totalPages} />
-      )}
+        {(() => {
+          for (let p = startFixed; p <= end; p++) {
+            pages.push(<PageBtn key={p} p={p} active={p === page} />);
+          }
+          return pages;
+        })()}
 
-      <ArrowBtn dir="right" />
-    </div>
-  );
-}
+        {end < totalPages - 1 && (
+          <span className="px-1 text-gray-400">…</span>
+        )}
 
-      
+        {totalPages > 1 && (
+          <PageBtn p={totalPages} active={page === totalPages} />
+        )}
+
+        <ArrowBtn dir="right" />
+      </div>
+    );
+  }
+
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 via-white to-gray-50">
       <div className="pointer-events-none fixed inset-0 -z-10">
@@ -328,7 +328,7 @@ function renderPagination() {
             <h2 className="text-sm text-gray-600">
               Welcome, <span className="font-semibold text-gray-900">{displayName}</span>
             </h2>
-          
+
           </div>
 
           <DropdownMenu>
@@ -416,27 +416,27 @@ function renderPagination() {
 
       <main className="px-4 py-6">
         <div className="mx-auto max-w-6xl">
-             
-<div className="mb-4">
-  <div className="rounded-3xl border border-gray-200 bg-white/70 backdrop-blur shadow-sm overflow-hidden">
-    <div className="relative px-5 py-4 md:px-6 md:py-5">
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -top-16 -right-16 h-56 w-56 rounded-full bg-blue-500/10 blur-3xl" />
-        <div className="absolute -bottom-16 -left-16 h-56 w-56 rounded-full bg-purple-500/10 blur-3xl" />
-      </div>
 
-      <div className="relative flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-gray-900">
-            Upcoming Events
-          </h1>
-          <p className="text-sm text-gray-600">
+          <div className="mb-4">
+            <div className="rounded-3xl border border-gray-200 bg-white/70 backdrop-blue shadow-none overflow-hidden">
+              <div className="relative px-5 py-4 md:px-6 md:py-5">
+                <div className="pointer-events-none absolute inset-0">
+                  <div className="absolute -top-16 -right-16 h-56 w-56 rounded-full bg-blue-500/10 blur-3xl" />
+                  <div className="absolute -bottom-16 -left-16 h-56 w-56 rounded-full bg-purple-500/10 blur-3xl" />
+                </div>
+
+                <div className="relative flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-gray-900">
+                      Upcoming Events
+                    </h1>
+                    {/*<p className="text-sm text-gray-600">
             Discover what's next.
-          </p>
-        </div>
+              </p>*/}
+                  </div>
 
-   
-        <div className="hidden sm:flex items-center gap-2 text-xs text-gray-600">
+
+                  {/*<div className="hidden sm:flex items-center gap-2 text-xs text-gray-600">
           <span className="rounded-full border border-gray-200 bg-white px-3 py-1">
             {cards.length} results
           </span>
@@ -447,17 +447,17 @@ function renderPagination() {
               {sort === "date_asc" ? "Soonest" : "Latest"}
             </span>
           </span>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
+        </div>*/}
+                </div>
+              </div>
+            </div>
+          </div>
 
 
 
           {(isStudent || isAdmin) && (
-          <div className="mb-5 rounded-2xl border border-gray-200 bg-white/80 backdrop-blur shadow-sm">
-            <div className="p-3 md:p-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+            <div className="mb-5 rounded-2xl border border-gray-200 bg-white/80 backdrop-blur shadow-sm">
+              <div className="p-3 md:p-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
 
 
                 <div className="flex flex-col gap-4 md:flex-row md:items-end md:flex-wrap">
@@ -489,15 +489,15 @@ function renderPagination() {
 
                   <div className="flex flex-col gap-1">
                     <span className="text-xs font-semibold tracking-wide text-gray-600">Sort</span>
-                    <div className="inline-flex h-10 rounded-md border border-gray-200 bg-gray-50 p-1 shadow-sm">
+                    <div className="inline-flex h-10 items-center gap-1 border border-gray-200 rounded-md bg-white px-1">
                       <button
                         type="button"
                         onClick={() => setSort("date_asc")}
                         className={[
-                          "px-3 text-sm rounded-[8px] transition",
+                          "px-4 text-sm font-medium rounded-md transition-colors",
                           sort === "date_asc"
-                            ? "bg-white shadow-sm text-gray-900"
-                            : "text-gray-600 hover:text-gray-900",
+                            ? "text-blue-600 bg-blue-50"
+                            : "text-gray-600 hover:text-gray-900 hover:bg-gray-100",
                         ].join(" ")}
                       >
                         Soonest
@@ -507,10 +507,10 @@ function renderPagination() {
                         type="button"
                         onClick={() => setSort("date_desc")}
                         className={[
-                          "px-3 text-sm rounded-[8px] transition",
+                          "px-4 text-sm font-medium rounded-md transition-colors",
                           sort === "date_desc"
-                            ? "bg-white shadow-sm text-gray-900"
-                            : "text-gray-600 hover:text-gray-900",
+                            ? "text-blue-600 bg-blue-50"
+                            : "text-gray-600 hover:text-gray-900 hover:bg-gray-100",
                         ].join(" ")}
                       >
                         Latest
@@ -542,7 +542,7 @@ function renderPagination() {
                                    shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400"
                       />
 
-                    
+
                     </div>
                   </div>
                 </div>
@@ -647,27 +647,27 @@ function renderPagination() {
             </div>
           ) : (
             <>
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {cards.map((event) => (
-        <EventCard
-          key={event.id}
-          image={event.image}
-          title={event.title}
-          location={event.location}
-          date={event.date}
-          time={event.time}
-          rating={event.averageRating}
-          isPastEvent={event.isPastEvent}
-          onClick={() => navigate(`/events/${event.id}`)}
-        />
-      ))}
-    </div>
-    {renderPagination()}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {cards.map((event) => (
+                  <EventCard
+                    key={event.id}
+                    image={event.image}
+                    title={event.title}
+                    location={event.location}
+                    date={event.date}
+                    time={event.time}
+                    rating={event.averageRating}
+                    isPastEvent={event.isPastEvent}
+                    onClick={() => navigate(`/events/${event.id}`)}
+                  />
+                ))}
+              </div>
+              {renderPagination()}
 
 
-  
-      </>
-    )}
+
+            </>
+          )}
         </div>
       </main>
     </div>

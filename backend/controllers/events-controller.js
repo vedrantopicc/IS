@@ -15,13 +15,14 @@ export async function getEventById(req, res, next) {
      e.image,
      e.user_id,
      e.category_id,
+     e.status,
      c.name AS category_name,
      CONCAT_WS(' ', u.name, u.surname) AS organizer_name,
      u.username AS organizer_username
    FROM event e
    JOIN \`user\` u ON u.id = e.user_id
    LEFT JOIN category c ON c.id = e.category_id
-   WHERE e.id = ?`,
+   WHERE e.id = ? AND e.deleted_at IS NULL AND e.status = 'PUBLISHED'`,
   [id]
 );
 
@@ -72,6 +73,10 @@ const offset = (page - 1) * limit;
 
 const where = [];
 const params = [];
+
+// ✅ DODATO: filtriraj samo objavljene i neobrisane evente
+where.push("e.deleted_at IS NULL");
+where.push("e.status = 'PUBLISHED'");
 
 if (category_id) {
   where.push("e.category_id = ?");
@@ -140,6 +145,7 @@ const [rows] = await pool.query(
      e.image,
      e.user_id,
      e.category_id,
+     e.status,
      c.name AS category_name,
      CONCAT_WS(' ', u.name, u.surname) AS organizer_name,
      u.username AS organizer_username,
@@ -185,19 +191,19 @@ res.json({
 }
 
 
-// ✅ KREIRAJ DOGAĐAJ SA VIŠE TIPOVA ULAZNICA I LOKACIJOM
+// ✅ KREIRAJ DOGAĐAJ SA VIŠE TIPOVIMA ULAZNICA I LOKACIJOM
 export async function createEvent(req, res, next) {
   try {
     const userId = req.user.id;
-const { title, description, location, date_and_time, image, ticketTypes, category_id } = req.body;
+    // ✅ DODATO: status u destructuring
+    const { title, description, location, date_and_time, image, ticketTypes, category_id, status } = req.body;
 
     if (!title || !date_and_time || !Array.isArray(ticketTypes) || ticketTypes.length === 0) {
       return res.status(400).json({ error: "Title, date, and at least one ticket type are required" });
     }
     if (!category_id) {
-  return res.status(400).json({ error: "Category is required" });
-}
-
+      return res.status(400).json({ error: "Category is required" });
+    }
 
     for (const tt of ticketTypes) {
       if (!tt.name || tt.price == null || tt.total_seats == null || tt.total_seats <= 0) {
@@ -205,11 +211,14 @@ const { title, description, location, date_and_time, image, ticketTypes, categor
       }
     }
 
-    const [eventResult] = await pool.query(
-     `INSERT INTO event (title, description, location, date_and_time, image, user_id, category_id)
- VALUES (?, ?, ?, ?, ?, ?, ?)`,
-[title, description || null, location || null, date_and_time, image || null, userId, category_id ]
+    // ✅ Koristi prosleđeni status ili default 'DRAFT'
+    const eventStatus = status || 'DRAFT';
 
+    const [eventResult] = await pool.query(
+     `INSERT INTO event (title, description, location, date_and_time, image, user_id, category_id, status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      // ✅ DODATO: eventStatus na kraj params niza
+      [title, description || null, location || null, date_and_time, image || null, userId, category_id, eventStatus]
     );
 
     const eventId = eventResult.insertId;
@@ -227,28 +236,29 @@ const { title, description, location, date_and_time, image, ticketTypes, categor
       [ticketTypeValues]
     );
 
-// 1) uzmi sve studente
-const [students] = await pool.query(
-  `SELECT id FROM \`user\` WHERE role = 'Student'`
-);
+    // ✅ Šalji notifikacije SAMO ako je event objavljen
+    if (eventStatus === 'PUBLISHED') {
+      const [students] = await pool.query(
+        `SELECT id FROM \`user\` WHERE role = 'Student'`
+      );
 
-// 2) bulk insert notifikacija
-if (students.length) {
-  const values = students.map((s) => [
-    s.id,
-    "New event created",
-    `A new event "${title}" was created.`,
-    eventId,
-    0
-  ]);
+      if (students.length) {
+        const values = students.map((s) => [
+          s.id,
+          "New event published",
+          `A new event "${title}" has been published!`,
+          eventId,
+          0
+        ]);
 
-  await pool.query(
-    `INSERT INTO notification (user_id, title, message, event_id, is_read)
-     VALUES ?`,
-    [values]
-  );
-}
-
+        await pool.query(
+          `INSERT INTO notification (user_id, title, message, event_id, is_read)
+           VALUES ?`,
+          [values]
+        );
+        console.log(`📩 Notifications sent for event ${eventId}`);
+      }
+    }
 
     const [fullEvent] = await pool.query(
       `SELECT
@@ -259,6 +269,7 @@ if (students.length) {
          e.date_and_time,
          e.image,
          e.user_id,
+         e.status,
          CONCAT_WS(' ', u.name, u.surname) AS organizer_name,
          u.username AS organizer_username
        FROM event e
@@ -281,15 +292,16 @@ if (students.length) {
   }
 }
 
-// ✅ AŽURIRAJ OSNOVNE PODATKE DOGAĐAJA (UKLJUČUJUĆI LOKACIJU)
+// ✅ AŽURIRAJ OSNOVNE PODATKE DOGAĐAJA (UKLJUČUJUĆI LOKACIJU I STATUS)
 export async function updateEvent(req, res, next) {
   try {
     const { id } = req.params;
     const userId = req.user.id;
-    const { title, description, location, date_and_time, image, category_id } = req.body;
+    const { title, description, location, date_and_time, image, category_id, status } = req.body;
 
+    // ✅ 1. Proveri trenutni (STARI) status eventa PRE ažuriranja
     const [existing] = await pool.query(
-      "SELECT id FROM event WHERE id = ? AND user_id = ?",
+      "SELECT id, status, title FROM event WHERE id = ? AND user_id = ?",
       [id, userId]
     );
 
@@ -297,14 +309,19 @@ export async function updateEvent(req, res, next) {
       return res.status(404).json({ error: "Event not found or no permission" });
     }
 
-     await pool.query(
+    const oldStatus = existing[0].status;
+    const eventTitle = existing[0].title;
+    
+    // ✅ 2. Ažuriraj event
+    await pool.query(
       `UPDATE event SET 
          title = ?,
          description = ?,
          location = ?,
          date_and_time = ?,
          image = ?,
-         category_id = ?
+         category_id = ?,
+         status = COALESCE(?, status)
        WHERE id = ?`,
       [
         title || null,
@@ -313,9 +330,36 @@ export async function updateEvent(req, res, next) {
         date_and_time || null,
         image || null,
         Number(category_id),
+        status,
         id
       ]
     );
+
+    // ✅ 3. Šalji notifikacije SAMO ako je status promenjen iz DRAFT u PUBLISHED
+    const newStatus = status || oldStatus; // ako nije prosleđen, ostaje stari
+    if (newStatus === 'PUBLISHED' && oldStatus === 'DRAFT') {
+      const [students] = await pool.query(
+        `SELECT id FROM \`user\` WHERE role = 'Student'`
+      );
+
+      if (students.length) {
+        const values = students.map((s) => [
+          s.id,
+          "New event",
+          `The event "${eventTitle}" has just been published! Check it out.`,
+          id,
+          0
+        ]);
+
+        await pool.query(
+          `INSERT INTO notification (user_id, title, message, event_id, is_read)
+           VALUES ?`,
+          [values]
+        );
+        
+        console.log(`📩 Notifications sent for event ${id} (DRAFT → PUBLISHED)`);
+      }
+    }
 
     const [updated] = await pool.query(
       `SELECT
@@ -326,7 +370,8 @@ export async function updateEvent(req, res, next) {
          e.date_and_time,
          e.image,
          e.user_id,
-         e.category_id
+         e.category_id,
+         e.status
        FROM event e
        WHERE e.id = ?`,
       [id]
@@ -338,21 +383,7 @@ export async function updateEvent(req, res, next) {
   }
 }
 
-// ✅ BRISANJE DOGAĐAJA
-export async function deleteEventById(req, res, next) {
-  try {
-    const { id } = req.params;
-    const [result] = await pool.query("DELETE FROM event WHERE id = ?", [id]);
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ error: "Event not found" });
-    }
-    res.json({ message: "Event deleted successfully" });
-  } catch (err) {
-    next(err);
-  }
-}
-
-// ✅ DOHVATI DOGAĐAJE ORGANIZATORA
+// ✅ DOHVATI DOGAĐAJE ORGANIZATORA (samo neobrisani)
 export async function getOrganizerEvents(req, res, next) {
   try {
     const userId = req.user.id;
@@ -361,6 +392,7 @@ export async function getOrganizerEvents(req, res, next) {
       return res.status(400).json({ error: "Invalid user ID" });
     }
 
+    // ✅ DODATO: e.deleted_at IS NULL
     const [events] = await pool.query(
       `SELECT
          e.id,
@@ -371,6 +403,7 @@ export async function getOrganizerEvents(req, res, next) {
          e.image,
          e.user_id,
          e.category_id,
+         e.status,
          CONCAT_WS(' ', u.name, u.surname) AS organizer_name,
          u.username AS organizer_username,
          (
@@ -380,7 +413,7 @@ export async function getOrganizerEvents(req, res, next) {
          ) AS averageRating
        FROM event e
        LEFT JOIN \`user\` u ON u.id = e.user_id
-       WHERE e.user_id = ?
+       WHERE e.user_id = ? AND e.deleted_at IS NULL
        ORDER BY e.date_and_time DESC`,
       [userId]
     );
@@ -406,7 +439,7 @@ export async function getOrganizerEvents(req, res, next) {
   }
 }
 
-// ✅ BRISANJE DOGAĐAJA OD STRANE ORGANIZATORA
+// ✅ SOFT DELETE - BRISANJE DOGAĐAJA OD STRANE ORGANIZATORA
 export async function deleteOrganizerEvent(req, res, next) {
   try {
     const { id } = req.params;
@@ -421,7 +454,8 @@ export async function deleteOrganizerEvent(req, res, next) {
       return res.status(404).json({ error: "Event not found or you don't have permission" });
     }
 
-    await pool.query("DELETE FROM `event` WHERE id = ?", [id]);
+    // ✅ PROMENJENO: UPDATE umesto DELETE
+    await pool.query("UPDATE `event` SET deleted_at = NOW() WHERE id = ?", [id]);
 
     res.json({ 
       message: "Event deleted successfully"
@@ -438,7 +472,7 @@ export async function getEventReservations(req, res, next) {
     const userId = req.user.id;
 
     const [eventCheck] = await pool.query(
-      "SELECT id FROM event WHERE id = ? AND user_id = ?",
+      "SELECT id FROM event WHERE id = ? AND user_id = ? AND deleted_at IS NULL",
       [eventId, userId]
     );
 
@@ -477,7 +511,7 @@ export async function getEventSalesProgress(req, res, next) {
     const userId = req.user.id;
 
     const [eventCheck] = await pool.query(
-      "SELECT id FROM event WHERE id = ? AND user_id = ?",
+      "SELECT id FROM event WHERE id = ? AND user_id = ? AND deleted_at IS NULL",
       [eventId, userId]
     );
     if (!eventCheck.length) {
@@ -523,6 +557,28 @@ export async function getEventSalesProgress(req, res, next) {
     });
 
   } catch (err) {
+    next(err);
+  }
+}
+// ✅ SOFT DELETE - BRISANJE DOGAĐAJA OD STRANE ADMINA
+export async function deleteEventById(req, res, next) {
+  try {
+    const { id } = req.params;
+    
+    // ✅ Soft delete: samo postavi deleted_at
+    const [result] = await pool.query(
+      "UPDATE event SET deleted_at = NOW() WHERE id = ?", 
+      [id]
+    );
+    
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: "Event not found" });
+    }
+    
+    console.log(`Admin deleted event ${id}`);
+    res.json({ message: "Event deleted successfully" });
+  } catch (err) {
+    console.error("Error in deleteEventById:", err);
     next(err);
   }
 }
