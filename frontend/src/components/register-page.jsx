@@ -126,248 +126,245 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="inset-0 flex items-center justify-center bg-gray-50 p-4 overflow-auto">
-      <div className="w-full max-w-md mx-auto">
-        <Card className="shadow-xl border border-gray-700 !bg-gray-800 !text-white">
-          <CardHeader className="space-y-2 text-center pb-6">
-            <div className="mx-auto w-12 h-12 bg-gradient-to-r from-green-600 to-emerald-600 rounded-xl flex items-center justify-center mb-2">
-              <UserCheck className="w-6 h-6 text-white" />
-            </div>
-            <CardTitle className="text-2xl font-bold tracking-tight !text-white">
-              Create Account
-            </CardTitle>
-            <CardDescription className="!text-gray-400">
-              Fill in your details to create a new account
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {errors.general && (
-              <div className="p-3 text-sm text-red-400 bg-red-900/20 border border-red-800 rounded-md">
-                {errors.general}
-              </div>
-            )}
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name" className="text-sm font-medium text-white">
-                    Name
-                  </Label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                    <Input
-                      id="name"
-                      type="text"
-                      placeholder="First name"
-                      value={formData.name}
-                      onChange={(e) => handleInputChange("name", e.target.value)}
-                      className={cn(
-                        "pl-10 transition-all duration-200 !bg-gray-700 !border-gray-600 !text-white placeholder:!text-gray-400 focus:!border-green-500 focus:!ring-green-500",
-                        "[&:-webkit-autofill]:!bg-gray-700 [&:-webkit-autofill]:!text-white [&:-webkit-autofill]:shadow-[0_0_0_1000px_rgb(55,65,81)_inset] [&:-webkit-autofill]:[-webkit-text-fill-color:white]",
-                        errors.name && "!border-red-500 focus:!border-red-500 focus:!ring-red-500"
-                      )}
-                      disabled={isLoading}
-                      required
-                    />
-                  </div>
-                  {errors.name && (
-                    <p className="text-xs text-red-400 mt-1">{errors.name}</p>
-                  )}
-                </div>
+  <div className="min-h-screen flex items-center justify-center px-4 py-6 bg-gradient-to-br from-white via-blue-50 to-indigo-100">
 
-                <div className="space-y-2">
-                  <Label htmlFor="surname" className="text-sm font-medium text-white">
-                    Surname
-                  </Label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                    <Input
-                      id="surname"
-                      type="text"
-                      placeholder="Last name"
-                      value={formData.surname}
-                      onChange={(e) => handleInputChange("surname", e.target.value)}
-                      className={cn(
-                        "pl-10 transition-all duration-200 !bg-gray-700 !border-gray-600 !text-white placeholder:!text-gray-400 focus:!border-green-500 focus:!ring-green-500",
-                        "[&:-webkit-autofill]:!bg-gray-700 [&:-webkit-autofill]:!text-white [&:-webkit-autofill]:shadow-[0_0_0_1000px_rgb(55,65,81)_inset] [&:-webkit-autofill]:[-webkit-text-fill-color:white]",
-                        errors.surname && "!border-red-500 focus:!border-red-500 focus:!ring-red-500"
-                      )}
-                      disabled={isLoading}
-                      required
-                    />
-                  </div>
-                  {errors.surname && (
-                    <p className="text-xs text-red-400 mt-1">{errors.surname}</p>
-                  )}
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="email" className="text-sm font-medium text-white">
-                  Email address
-                </Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="Enter your email"
-                    value={formData.email}
-                    onChange={(e) => handleInputChange("email", e.target.value)}
-                    className={cn(
-                      "pl-10 transition-all duration-200 !bg-gray-700 !border-gray-600 !text-white placeholder:!text-gray-400 focus:!border-green-500 focus:!ring-green-500",
-                      "[&:-webkit-autofill]:!bg-gray-700 [&:-webkit-autofill]:!text-white [&:-webkit-autofill]:shadow-[0_0_0_1000px_rgb(55,65,81)_inset] [&:-webkit-autofill]:[-webkit-text-fill-color:white]",
-                      errors.email && "!border-red-500 focus:!border-red-500 focus:!ring-red-500"
-                    )}
-                    disabled={isLoading}
-                    required
-                  />
-                </div>
-                {errors.email && (
-                  <p className="text-xs text-red-400 mt-1">{errors.email}</p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="username" className="text-sm font-medium text-white">
-                  Username
-                </Label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <Input
-                    id="username"
-                    type="text"
-                    placeholder="Choose a username"
-                    value={formData.username}
-                    onChange={(e) => handleInputChange("username", e.target.value)}
-                    className={cn(
-                      "pl-10 transition-all duration-200 !bg-gray-700 !border-gray-600 !text-white placeholder:!text-gray-400 focus:!border-green-500 focus:!ring-green-500",
-                      "[&:-webkit-autofill]:!bg-gray-700 [&:-webkit-autofill]:!text-white [&:-webkit-autofill]:shadow-[0_0_0_1000px_rgb(55,65,81)_inset] [&:-webkit-autofill]:[-webkit-text-fill-color:white]",
-                      errors.username && "!border-red-500 focus:!border-red-500 focus:!ring-red-500"
-                    )}
-                    disabled={isLoading}
-                    required
-                  />
-                </div>
-                {errors.username && (
-                  <p className="text-xs text-red-400 mt-1">{errors.username}</p>
-                )}
-              </div>
-
-              {/* Password with eye icon */}
-              <div className="space-y-2">
-                <Label htmlFor="password" className="text-sm font-medium text-white">
-                  Password
-                </Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="Create a password"
-                    value={formData.password}
-                    onChange={(e) => handleInputChange("password", e.target.value)}
-                    className={cn(
-                      "pl-10 pr-10 transition-all duration-200 !bg-gray-700 !border-gray-600 !text-white placeholder:!text-gray-400 focus:!border-green-500 focus:!ring-green-500",
-                      "[&:-webkit-autofill]:!bg-gray-700 [&:-webkit-autofill]:!text-white [&:-webkit-autofill]:shadow-[0_0_0_1000px_rgb(55,65,81)_inset] [&:-webkit-autofill]:[-webkit-text-fill-color:white]",
-                      errors.password && "!border-red-500 focus:!border-red-500 focus:!ring-red-500"
-                    )}
-                    disabled={isLoading}
-                    required
-                  />
-                  {formData.password && (
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-white focus:outline-none p-0 m-0 border-none bg-transparent cursor-pointer"
-                      style={{
-                        padding: "0",
-                        margin: "0",
-                        border: "none",
-                        background: "transparent",
-                      }}
-                      aria-label={showPassword ? "Hide password" : "Show password"}
-                    >
-                      {showPassword ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                    </button>
-                  )}
-                </div>
-                {errors.password && (
-                  <p className="text-xs text-red-400 mt-1">{errors.password}</p>
-                )}
-              </div>
-
-              {/* Confirm Password with eye icon */}
-              <div className="space-y-2">
-                <Label htmlFor="confirmPassword" className="text-sm font-medium text-white">
-                  Confirm Password
-                </Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <Input
-                    id="confirmPassword"
-                    type={showConfirmPassword ? "text" : "password"}
-                    placeholder="Confirm your password"
-                    value={formData.confirmPassword}
-                    onChange={(e) => handleInputChange("confirmPassword", e.target.value)}
-                    className={cn(
-                      "pl-10 pr-10 transition-all duration-200 !bg-gray-700 !border-gray-600 !text-white placeholder:!text-gray-400 focus:!border-green-500 focus:!ring-green-500",
-                      "[&:-webkit-autofill]:!bg-gray-700 [&:-webkit-autofill]:!text-white [&:-webkit-autofill]:shadow-[0_0_0_1000px_rgb(55,65,81)_inset] [&:-webkit-autofill]:[-webkit-text-fill-color:white]",
-                      errors.confirmPassword && "!border-red-500 focus:!border-red-500 focus:!ring-red-500"
-                    )}
-                    disabled={isLoading}
-                    required
-                  />
-                  {formData.confirmPassword && (
-                    <button
-                      type="button"
-                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-white focus:outline-none p-0 m-0 border-none bg-transparent cursor-pointer"
-                      style={{
-                        padding: "0",
-                        margin: "0",
-                        border: "none",
-                        background: "transparent",
-                      }}
-                      aria-label={showConfirmPassword ? "Hide password" : "Show password"}
-                    >
-                      {showConfirmPassword ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                    </button>
-                  )}
-                </div>
-                {errors.confirmPassword && (
-                  <p className="text-xs text-red-400 mt-1">{errors.confirmPassword}</p>
-                )}
-              </div>
-
-              <Button
-                type="submit"
-                className="w-full !bg-green-600 hover:!bg-green-700 !text-white font-medium py-2.5 transition-all duration-200 border-none cursor-pointer disabled:cursor-not-allowed"
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Creating account...
-                  </>
-                ) : (
-                  "Create Account"
-                )}
-              </Button>
-            </form>
-          </CardContent>
-          <CardFooter className="pt-6">
-            <p className="text-center text-sm !text-gray-400 w-full">
-              Already have an account?{" "}
-              <button
-                onClick={() => navigate("/")}
-                className="!text-green-400 hover:!text-green-300 font-medium transition-colors duration-200 !bg-transparent border-none underline p-0 m-0 cursor-pointer"
-              >
-                Sign in
-              </button>
-            </p>
-          </CardFooter>
-        </Card>
-      </div>
+    {/* soft blobs */}
+    <div className="pointer-events-none fixed inset-0 -z-10">
+      <div className="absolute top-20 left-20 w-60 h-60 bg-blue-300/20 rounded-full blur-3xl" />
+      <div className="absolute bottom-20 right-20 w-60 h-60 bg-indigo-300/20 rounded-full blur-3xl" />
     </div>
-  );
+
+    <div className="w-full max-w-[480px]">
+      <Card className="rounded-2xl border border-gray-200 bg-white shadow-xl">
+
+        {/* Header */}
+        <CardHeader className="text-center pt-6 pb-4 space-y-1">
+          <div className="mx-auto mb-2 w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center">
+            <UserCheck className="w-5 h-5 text-white" />
+          </div>
+
+            <CardTitle className="text-[28px] font-bold tracking-tight text-gray-900">
+            Create Account
+          </CardTitle>
+
+          <CardDescription className="text-gray-600 text-sm">
+            Join your campus events platform
+          </CardDescription>
+        </CardHeader>
+
+        {/* Content */}
+        <CardContent className="px-6 pb-3 space-y-3">
+
+          {errors.general && (
+            <div className="p-2 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg">
+              {errors.general}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-3">
+
+            {/* Name + Surname */}
+            <div className="grid grid-cols-2 gap-2">
+
+              <div className="space-y-1">
+                <Label className="text-sm font-medium text-gray-800">
+                  Name
+                </Label>
+
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+
+                  <Input
+                    placeholder="First name"
+                    value={formData.name}
+                    onChange={(e) => handleInputChange("name", e.target.value)}
+                    className={cn(
+                      "h-10 rounded-lg pl-10 bg-white border border-gray-200 text-gray-900 placeholder:text-gray-400 cursor-text",
+                      "focus-visible:ring-2 focus-visible:ring-blue-500/20 focus-visible:border-blue-400",
+                      errors.name && "border-red-400"
+                    )}
+                  />
+                </div>
+
+                {errors.name && (
+                  <p className="text-xs text-red-600">{errors.name}</p>
+                )}
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-sm font-medium text-gray-800">
+                  Surname
+                </Label>
+
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+
+                  <Input
+                    placeholder="Last name"
+                    value={formData.surname}
+                    onChange={(e) => handleInputChange("surname", e.target.value)}
+                    className={cn(
+                      "h-10 rounded-lg pl-10 bg-white border border-gray-200 text-gray-900 placeholder:text-gray-400 cursor-text",
+                      "focus-visible:ring-2 focus-visible:ring-blue-500/20 focus-visible:border-blue-400",
+                      errors.surname && "border-red-400"
+                    )}
+                  />
+                </div>
+
+                {errors.surname && (
+                  <p className="text-xs text-red-600">{errors.surname}</p>
+                )}
+              </div>
+
+            </div>
+
+            {/* Email */}
+            <div className="space-y-1">
+
+              <Label className="text-sm font-medium text-gray-800">
+                Email
+              </Label>
+
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+
+                <Input
+                  placeholder="Enter your email"
+                  value={formData.email}
+                  onChange={(e) => handleInputChange("email", e.target.value)}
+                  className={cn(
+                    "h-10 rounded-lg pl-10 bg-white border border-gray-200 text-gray-900 placeholder:text-gray-400 cursor-text",
+                    "focus-visible:ring-2 focus-visible:ring-blue-500/20 focus-visible:border-blue-400",
+                    errors.email && "border-red-400"
+                  )}
+                />
+              </div>
+
+              {errors.email && (
+                <p className="text-xs text-red-600">{errors.email}</p>
+              )}
+
+            </div>
+
+            {/* Username */}
+            <div className="space-y-1">
+
+              <Label className="text-sm font-medium text-gray-800">
+                Username
+              </Label>
+
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+
+                <Input
+                  placeholder="Choose a username"
+                  value={formData.username}
+                  onChange={(e) => handleInputChange("username", e.target.value)}
+                  className="h-10 rounded-lg pl-10 bg-white border border-gray-200 text-gray-900 placeholder:text-gray-400 cursor-text focus-visible:ring-2 focus-visible:ring-blue-500/20 focus-visible:border-blue-400"
+                />
+              </div>
+
+            </div>
+
+            {/* Password */}
+            <div className="space-y-1">
+
+              <Label className="text-sm font-medium text-gray-800">
+                Password
+              </Label>
+
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+
+                <Input
+                  placeholder="Create a password"
+                  type={showPassword ? "text" : "password"}
+                  value={formData.password}
+                  onChange={(e) => handleInputChange("password", e.target.value)}
+                  className="h-10 rounded-lg pl-10 pr-10 bg-white border border-gray-200 text-gray-900 placeholder:text-gray-400 cursor-text focus-visible:ring-2 focus-visible:ring-blue-500/20 focus-visible:border-blue-400"
+                />
+
+                {!!formData.password && (
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer"
+                  >
+                    {showPassword ? <Eye size={16} /> : <EyeOff size={16} />}
+                  </button>
+                )}
+
+              </div>
+
+            </div>
+
+            {/* Confirm Password */}
+            <div className="space-y-1">
+
+              <Label className="text-sm font-medium text-gray-800">
+                Confirm Password
+              </Label>
+
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+
+                <Input
+                  placeholder="Confirm your password"
+                  type={showConfirmPassword ? "text" : "password"}
+                  value={formData.confirmPassword}
+                  onChange={(e) => handleInputChange("confirmPassword", e.target.value)}
+                  className="h-10 rounded-lg pl-10 pr-10 bg-white border border-gray-200 text-gray-900 placeholder:text-gray-400 cursor-text focus-visible:ring-2 focus-visible:ring-blue-500/20 focus-visible:border-blue-400"
+                />
+
+                {!!formData.confirmPassword && (
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer"
+                  >
+                    {showConfirmPassword ? <Eye size={16} /> : <EyeOff size={16} />}
+                  </button>
+                )}
+
+              </div>
+
+            </div>
+
+            {/* Submit */}
+            <Button
+              type="submit"
+              disabled={isLoading}
+              className="h-10 w-full rounded-lg font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-700 text-white transition-all !cursor-pointer"
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                "Create Account"
+              )}
+            </Button>
+
+          </form>
+
+        </CardContent>
+
+        {/* Footer */}
+        <CardFooter className="pt-1 pb-3">
+          <p className="w-full text-center text-sm text-gray-600">
+            Already have an account?{" "}
+            <button
+              onClick={() => navigate("/")}
+              className="text-blue-700 hover:text-blue-800 font-semibold underline cursor-pointer"
+            >
+              Sign in
+            </button>
+          </p>
+        </CardFooter>
+
+      </Card>
+    </div>
+  </div>
+);
 }

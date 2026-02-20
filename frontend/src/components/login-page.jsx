@@ -97,141 +97,166 @@ export default function LoginPage() {
     }
   };
 
-  return (
-    <div className="fixed inset-0 flex items-center justify-center bg-gray-50 p-4 overflow-auto">
-      <div className="w-full max-w-md mx-auto">
-        <Card className="shadow-xl border border-gray-700 !bg-gray-800 !text-white">
-          <CardHeader className="space-y-2 text-center pb-6">
-            <div className="mx-auto w-12 h-12 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center mb-2">
-              <Lock className="w-6 h-6 text-white" />
+return (
+<div className="min-h-screen flex items-center justify-center px-4 py-10 bg-gradient-to-br from-white via-blue-50 to-indigo-100
+">
+    {/* soft blobs */}
+    <div className="pointer-events-none fixed inset-0 -z-10">
+  <div className="absolute top-20 left-20 w-72 h-72 bg-blue-400/20 rounded-full blur-3xl" />
+  <div className="absolute bottom-20 right-20 w-72 h-72 bg-purple-400/20 rounded-full blur-3xl" />
+</div>
+
+
+    <div className="w-full max-w-[420px]">
+<Card className="rounded-2xl border border-white/40 bg-white/70 backdrop-blur-xl shadow-2xl">
+        <CardHeader className="text-center pt-10 pb-6 space-y-2">
+          <div className="mx-auto mb-3 w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shadow">
+            <Lock className="w-6 h-6 text-white" />
+          </div>
+
+          <CardTitle className="text-[28px] font-bold tracking-tight text-gray-900">
+         Log in to Student Hub
+        </CardTitle>
+
+
+          <CardDescription className="text-gray-600">
+          Your student events, all in one place
+          </CardDescription>
+        </CardHeader>
+
+        <CardContent className="px-8 pb-2 space-y-5">
+          {errors.general && (
+            <div className="p-3 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg">
+              {errors.general}
             </div>
-            <CardTitle className="text-2xl font-bold tracking-tight !text-white">
-              Welcome back
-            </CardTitle>
-            <CardDescription className="!text-gray-400">
-              Enter your credentials to access your account
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {errors.general && (
-              <div className="p-3 text-sm text-red-400 bg-red-900/20 border border-red-800 rounded-md">
-                {errors.general}
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-5">
+            {/* Email */}
+            <div className="space-y-2">
+              <Label htmlFor="email" className="text-sm font-semibold text-gray-800">
+                Email or username
+              </Label>
+
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Input
+                  id="email"
+                  type="text"
+                  placeholder="Enter your username/email"
+                  value={formData.email}
+                  onChange={(e) => handleInputChange("email", e.target.value)}
+               className={cn(
+  "h-11 rounded-xl pl-10 bg-white/70 border border-gray-200/70 text-gray-900 placeholder:text-gray-400 cursor-text",
+  "focus-visible:ring-2 focus-visible:ring-blue-500/30 focus-visible:border-blue-400",
+  errors.email && "border-red-400 focus-visible:ring-red-500/20 focus-visible:border-red-400"
+)}
+
+
+                  disabled={isLoading}
+                  required
+                />
               </div>
-            )}
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label
-                  htmlFor="email"
-                  className="text-sm font-medium text-white"
-                >
-                  Email or username
-                </Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <Input
-                    id="email"
-                    type="text"
-                    placeholder="Enter your email or username"
-                    value={formData.email}
-                    onChange={(e) => handleInputChange("email", e.target.value)}
-                    className={cn(
-                      "pl-10 transition-all duration-200 !bg-gray-700 !border-gray-600 !text-white placeholder:!text-gray-400 focus:!border-blue-500 focus:!ring-blue-500 focus:!bg-gray-700 [&:-webkit-autofill]:!bg-gray-700 [&:-webkit-autofill]:!text-white [&:-webkit-autofill]:shadow-[0_0_0_1000px_rgb(55,65,81)_inset] [&:-webkit-autofill]:[-webkit-text-fill-color:white]",
-                      errors.email &&
-                      "!border-red-500 focus:!border-red-500 focus:!ring-red-500"
-                    )}
-                    disabled={isLoading}
-                    required
-                  />
-                </div>
-                {errors.email && (
-                  <p className="text-xs text-red-400 mt-1">{errors.email}</p>
+
+              {errors.email && <p className="text-xs text-red-600">{errors.email}</p>}
+            </div>
+
+            {/* Password */}
+            <div className="space-y-2">
+              <Label htmlFor="password" className="text-sm font-semibold text-gray-800">
+                Password
+              </Label>
+
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Enter your password"
+                  value={formData.password}
+                  onChange={(e) => handleInputChange("password", e.target.value)}
+                      className={cn(
+  "h-11 rounded-xl pl-10 bg-white/70 border border-gray-200/70 text-gray-900 placeholder:text-gray-400 cursor-text",
+  "focus-visible:ring-2 focus-visible:ring-blue-500/30 focus-visible:border-blue-400",
+  errors.email && "border-red-400 focus-visible:ring-red-500/20 focus-visible:border-red-400"
+)}
+                  disabled={isLoading}
+                  required
+                />
+
+                {!!formData.password && (
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((p) => !p)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 bg-transparent border-0 p-0"
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                  </button>
                 )}
               </div>
 
-              <div className="space-y-2">
-                <Label
-                  htmlFor="password"
-                  className="text-sm font-medium text-white"
-                >
-                  Password
-                </Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="Enter your password"
-                    value={formData.password}
-                    onChange={(e) =>
-                      handleInputChange("password", e.target.value)
-                    }
-                    className={cn(
-                      "pl-10 pr-10 transition-all duration-200 bg-gray-700 border-gray-600 text-white placeholder:text-gray-400 focus:border-blue-500 focus:ring-blue-500",
-                      errors.password &&
-                      "border-red-500 focus:border-red-500 focus:ring-red-500"
-                    )}
-                    disabled={isLoading}
-                    required
-                  />
-                  {formData.password && (
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword((prev) => !prev)}
-                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-white focus:outline-none p-0 m-0 border-none bg-transparent cursor-pointer"
-                      style={{ padding: '0', margin: '0', border: 'none', background: 'transparent' }}
-                      aria-label={showPassword ? "Show password" : "Hide password"}
-                    >
-                      {showPassword ? (
-                        <Eye className="w-4 h-4" />
-                      ) : (
-                        <EyeOff className="w-4 h-4" />
-                      )}
-                    </button>
-                  )}
-                </div>
-                {errors.password && (
-                  <p className="text-xs text-red-400 mt-1">{errors.password}</p>
-                )}
-              </div>
+              {errors.password && <p className="text-xs text-red-600">{errors.password}</p>}
+            </div>
 
-              <Button
-                type="submit"
-                className="w-full !bg-blue-600 hover:!bg-blue-700 !text-white font-medium py-2.5 transition-all duration-200 cursor-pointer disabled:cursor-not-allowed"
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Signing in...
-                  </>
-                ) : (
-                  "Sign in"
-                )}
-              </Button>
-              <div className="text-center pt-2">
-                <button
-                  type="button"
-                  onClick={() => navigate("/forgot-password")}
-                  className="!text-blue-400 hover:!text-blue-300 font-medium transition-colors duration-200 !bg-transparent border-none p-0 m-0 cursor-pointer"
-                >
-                  Forgot your password?
-                </button>
-              </div>
-            </form>
-          </CardContent>
-          <CardFooter className="pt-6">
-            <p className="text-center text-sm !text-gray-400 w-full">
-              Don't have an account?{" "}
+            {/* Submit */}
+           <Button
+  type="submit"
+  disabled={isLoading}
+className={cn(
+  "h-11 w-full rounded-xl font-semibold transition-all !cursor-pointer",
+  "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-700 text-white",
+  "active:scale-[0.99]",
+  "disabled:opacity-100 disabled:bg-gray-200 disabled:text-gray-500 disabled:!cursor-not-allowed"
+)}
+
+
+
+>
+  {isLoading ? (
+    <>
+      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+      Signing in...
+    </>
+  ) : (
+    "Sign in"
+  )}
+</Button>
+
+
+            {/* Forgot */}
+          <div className="text-center pt-0.5 -mt-1">
               <button
-                onClick={() => navigate("/register")}
-                className="!text-blue-400 hover:!text-blue-300 font-medium transition-colors duration-200 !bg-transparent border-none underline p-0 m-0 cursor-pointer"
+                type="button"
+                onClick={() => navigate("/forgot-password")}
+              className="text-blue-700 hover:text-blue-800 font-semibold bg-transparent border-0 p-0 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/30 rounded"
               >
-                Sign up
+                Forgot your password?
               </button>
-            </p>
-          </CardFooter>
-        </Card>
-      </div>
+            </div>
+          </form>
+        </CardContent>
+
+        <CardFooter className="px-8 pb-8 pt-6">
+          <p className="w-full text-center text-sm text-gray-500">
+            Don&apos;t have an account?{" "}
+            <button
+              onClick={() => navigate("/register")}
+className="text-blue-700 hover:text-blue-800 font-semibold underline bg-transparent border-0 p-0 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/30 rounded"
+            >
+              Sign up
+            </button>
+          </p>
+        </CardFooter>
+      </Card>
+
+      {/* tiny footer text */}
+      <p className="mt-4 text-center text-xs text-gray-400">
+        Tip: Use your student username or email to sign in.
+      </p>
     </div>
-  );
+  </div>
+);
+
 }
+
