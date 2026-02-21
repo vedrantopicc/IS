@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { requireAdmin } from "../middleware/auth-middleware.js";
 import { pool } from "../db.js";
-import { restoreUserById, getDeletedUsers, deleteUserById } from "../controllers/users-controller.js";
+import { restoreUserById, getDeletedUsers, deleteUserById, getUserRoleStats } from "../controllers/users-controller.js";
 import { sendOrganizerApprovalEmail, sendOrganizerRejectionEmail } from "../utils/emailService.js";
 
 const router = Router();
@@ -155,6 +155,23 @@ router.get("/role-requests", requireAdmin, async (req, res, next) => {
       ORDER BY rr.created_at DESC
     `);
     res.json(rows);
+  } catch (err) {
+    next(err);
+  }
+});
+// Statistika uloga za PieChart
+router.get("/stats/roles", requireAdmin, async (req, res, next) => {
+  try {
+    // Koristimo is_organizer jer tvoja baza tako razlikuje uloge
+    const [rows] = await pool.query(`
+      SELECT 
+        CAST(SUM(CASE WHEN is_organizer = 0 AND role != 'Admin' THEN 1 ELSE 0 END) AS UNSIGNED) AS students,
+        CAST(SUM(CASE WHEN is_organizer = 1 AND role != 'Admin' THEN 1 ELSE 0 END) AS UNSIGNED) AS organizers
+      FROM user
+      WHERE deleted_at IS NULL
+    `);
+    
+    res.json(rows[0]);
   } catch (err) {
     next(err);
   }

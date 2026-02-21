@@ -34,7 +34,17 @@ import { toast } from "react-toastify";
 // === IMPORT ZA GRAFIKON ===
 import UserActivityChart from "./user-activity"; 
 
-// === NOVI SERVSI ZA ROLE REQUESTS ===
+// === POMOĆNI SERVISI (Direktno u fajlu) ===
+
+async function getUserRoleStats() {
+  const token = localStorage.getItem("token");
+  const res = await fetch("http://localhost:3000/admin/stats/roles", {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  if (!res.ok) throw new Error("Failed to fetch role statistics");
+  return res.json();
+}
+
 async function getRoleRequests() {
   const token = localStorage.getItem("token");
   const res = await fetch("http://localhost:3000/admin/role-requests", {
@@ -64,18 +74,15 @@ async function rejectRoleRequest(requestId) {
   return res.json();
 }
 
-function getToken() {
-  return localStorage.getItem("token");
-}
+// === POMOĆNE FUNKCIJE ===
+function getToken() { return localStorage.getItem("token"); }
 
 function decodeJwt(token) {
   try {
     const b = token.split(".")[1];
     const j = atob(b.replace(/-/g, "+").replace(/_/g, "/"));
     return JSON.parse(decodeURIComponent(escape(j)));
-  } catch {
-    return null;
-  }
+  } catch { return null; }
 }
 
 function getDisplayName(p) {
@@ -95,21 +102,26 @@ function formatDate(dateString) {
   });
 }
 
+// === GLAVNA KOMPONENTA ===
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const location = useLocation();
+  
   const payload = useMemo(() => {
     const t = getToken();
     return t ? decodeJwt(t) : null;
   }, []);
+
   const displayName = useMemo(() => getDisplayName(payload), [payload]);
   const initials = useMemo(() => getInitials(displayName), [displayName]);
 
+  // State-ovi
   const [dashboardData, setDashboardData] = useState(null);
   const [users, setUsers] = useState([]);
   const [events, setEvents] = useState([]);
   const [deletedUsers, setDeletedUsers] = useState([]);
   const [roleRequests, setRoleRequests] = useState([]); 
+  const [roleStats, setRoleStats] = useState({ students: 0, organizers: 0 });
   const [loading, setLoading] = useState(true);
   const [loadingRequests, setLoadingRequests] = useState(false); 
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -117,7 +129,6 @@ export default function AdminDashboard() {
   const [selectedUser, setSelectedUser] = useState(null);
   const [showUserDetails, setShowUserDetails] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [deletedSearchTerm, setDeletedSearchTerm] = useState("");
 
   useEffect(() => {
     loadDashboardData();
@@ -135,18 +146,22 @@ export default function AdminDashboard() {
     setLoading(true);
     setError("");
     try {
-      const [dashboard, usersData, eventsData, deletedUsersData, requestsData] = await Promise.all([
+      // ✅ Dodat statsData u destrukciju niza
+      const [dashboard, usersData, eventsData, deletedUsersData, requestsData, statsData] = await Promise.all([
         getAdminDashboard(),
         getAllUsers(),
         getAllAdminEvents(),
         getDeletedUsers(),
-        getRoleRequests()
+        getRoleRequests(),
+        getUserRoleStats()
       ]);
+      
       setDashboardData(dashboard);
       setUsers(usersData);
       setEvents(eventsData);
       setDeletedUsers(deletedUsersData || []);
       setRoleRequests(requestsData || []);
+      setRoleStats(statsData);
     } catch (err) {
       setError(err.message);
       toast.error("Failed to load admin data: " + err.message);
@@ -155,14 +170,15 @@ export default function AdminDashboard() {
     }
   };
 
+  const totalForPercent = (roleStats.students + roleStats.organizers) || 1;
+
+  // Handlers
   const handleApproveRequest = async (requestId, username) => {
     try {
       setLoadingRequests(true);
       await approveRoleRequest(requestId);
       toast.success(`Request approved for ${username}`);
-      const requests = await getRoleRequests();
-      setRoleRequests(requests);
-      loadDashboardData(); // Refresh counts
+      loadDashboardData(); 
     } catch (err) {
       toast.error("Failed to approve request: " + err.message);
     } finally {
@@ -188,9 +204,7 @@ export default function AdminDashboard() {
     try {
       await deleteUser(userId);
       toast.success(`User ${username} deleted successfully`);
-      setUsers(users.filter(user => user.id !== userId));
-      const deleted = await getDeletedUsers();
-      setDeletedUsers(deleted);
+      loadDashboardData();
     } catch (err) {
       toast.error("Failed to delete user: " + err.message);
     }
@@ -200,9 +214,7 @@ export default function AdminDashboard() {
     try {
       await restoreUser(userId);
       toast.success(`User ${username} restored successfully`);
-      const [active, deleted] = await Promise.all([getAllUsers(), getDeletedUsers()]);
-      setUsers(active);
-      setDeletedUsers(deleted);
+      loadDashboardData();
     } catch (err) {
       toast.error("Failed to restore user: " + err.message);
     }
@@ -219,9 +231,7 @@ export default function AdminDashboard() {
   };
 
   const handleLogout = async () => {
-    try {
-      await logoutApi();
-    } catch { } finally {
+    try { await logoutApi(); } catch { } finally {
       localStorage.removeItem("token");
       localStorage.removeItem("user");
       navigate("/");
@@ -270,12 +280,7 @@ export default function AdminDashboard() {
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align="end"
-              className="w-60 text-gray-900 bg-white shadow-xl border border-gray-200 rounded-md z-[9999] mt-2"
-              side="bottom"
-              sideOffset={8}
-            >
+            <DropdownMenuContent align="end" className="w-60 text-gray-900 bg-white shadow-xl border border-gray-200 rounded-md z-[9999] mt-2">
               <div className="px-4 py-3 border-b border-gray-100">
                 <p className="text-sm font-medium text-gray-900 truncate">{displayName}</p>
               </div>
@@ -283,9 +288,6 @@ export default function AdminDashboard() {
                 <DropdownMenuItem onClick={() => navigate("/events")} className="flex items-center px-3 py-2 text-sm hover:bg-gray-100 cursor-pointer rounded-sm">
                   <Calendar className="mr-3 h-4 w-4" /> <span>View Events</span>
                 </DropdownMenuItem>
-              </div>
-              <div className="h-px bg-gray-100 mx-2"></div>
-              <div className="p-1">
                 <DropdownMenuItem onClick={() => navigate("/settings")} className="flex items-center px-3 py-2 text-sm hover:bg-gray-100 cursor-pointer rounded-sm">
                   <Settings className="mr-3 h-4 w-4" /> <span>Settings</span>
                 </DropdownMenuItem>
@@ -309,71 +311,73 @@ export default function AdminDashboard() {
         )}
 
         <Tabs value={activeTab} onValueChange={handleTabChange}>
-          {/* ✅ SADA IMA 6 KOLONA */}
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-3 lg:grid-cols-6 h-auto gap-1 bg-gray-100 p-1">
+		  <TabsList className="flex w-full justify-start gap-8 bg-transparent rounded-none p-0 h-12 overflow-x-auto overflow-y-hidden">
             <TabsTrigger value="dashboard" className="flex items-center gap-2 text-black"><BarChart3 className="w-4 h-4" /> Dashboard</TabsTrigger>
             <TabsTrigger value="users" className="flex items-center gap-2 text-black"><Users className="w-4 h-4" /> Users ({userCount})</TabsTrigger>
             <TabsTrigger value="deleted" className="flex items-center gap-2 text-black"><Trash2 className="w-4 h-4" /> Deleted ({deletedUsers.length})</TabsTrigger>
             <TabsTrigger value="role-requests" className="flex items-center gap-2 text-black"><UserCheck className="w-4 h-4" /> Requests ({roleRequests.length})</TabsTrigger>
             <TabsTrigger value="events" className="flex items-center gap-2 text-black"><Calendar className="w-4 h-4" /> Events ({events.length})</TabsTrigger>
-            <TabsTrigger value="statistics" className="flex items-center gap-2 text-green-700 font-bold"><TrendingUp className="w-4 h-4" /> Statistics</TabsTrigger>
+            <TabsTrigger value="statistics" className="flex items-center gap-2 text-black-700 font-bold"><TrendingUp className="w-4 h-4" /> Statistics</TabsTrigger>
           </TabsList>
 
+          {/* DASHBOARD TAB */}
           <TabsContent value="dashboard" className="mt-6">
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle style={{ color: '#000000', fontSize: '14px', fontWeight: 'medium' }}>Total Users</CardTitle>
+                  <CardTitle className="text-sm font-medium text-black">Total Users</CardTitle>
                   <Users className="h-4 w-4 text-gray-500" />
                 </CardHeader>
-                <CardContent>
-                  <div style={{ color: '#000000', fontSize: '24px', fontWeight: 'bold' }}>{dashboardData?.users?.total_users || 0}</div>
-                  <p style={{ color: '#333333', fontSize: '12px' }}>
-                    {dashboardData?.users?.total_students || 0} students, {dashboardData?.users?.total_organizers || 0} organizers
-                  </p>
-                </CardContent>
+               <CardContent>
+				  {/* Zbir studenata i organizatora iz roleStats rute */}
+				  <div className="text-2xl font-bold text-black">
+					{roleStats.students + roleStats.organizers}
+				  </div>
+				  <p className="text-xs text-gray-500">
+					{roleStats.students} students, {roleStats.organizers} organizers
+				  </p>
+				</CardContent>
               </Card>
 
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle style={{ color: '#000000', fontSize: '14px', fontWeight: 'medium' }}>Total Events</CardTitle>
+                  <CardTitle className="text-sm font-medium text-black">Total Events</CardTitle>
                   <Calendar className="h-4 w-4 text-gray-500" />
                 </CardHeader>
                 <CardContent>
-                  <div style={{ color: '#000000', fontSize: '24px', fontWeight: 'bold' }}>{dashboardData?.events?.total_events || 0}</div>
-                  <p style={{ color: '#333333', fontSize: '12px' }}>
-                    {dashboardData?.events?.upcoming_events || 0} upcoming
-                  </p>
+                  <div className="text-2xl font-bold text-black">{dashboardData?.events?.total_events || 0}</div>
+                  <p className="text-xs text-gray-500">{dashboardData?.events?.upcoming_events || 0} upcoming</p>
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle style={{ color: '#000000', fontSize: '14px', fontWeight: 'medium' }}>Past Events</CardTitle>
+                  <CardTitle className="text-sm font-medium text-black">Past Events</CardTitle>
                   <Clock className="h-4 w-4 text-gray-500" />
                 </CardHeader>
                 <CardContent>
-                  <div style={{ color: '#000000', fontSize: '24px', fontWeight: 'bold' }}>{dashboardData?.events?.past_events || 0}</div>
+                  <div className="text-2xl font-bold text-black">{dashboardData?.events?.past_events || 0}</div>
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle style={{ color: '#000000', fontSize: '14px', fontWeight: 'medium' }}>Admins</CardTitle>
+                  <CardTitle className="text-sm font-medium text-black">Admins</CardTitle>
                   <Shield className="h-4 w-4 text-gray-500" />
                 </CardHeader>
                 <CardContent>
-                  <div style={{ color: '#000000', fontSize: '24px', fontWeight: 'bold' }}>{dashboardData?.users?.total_admins || 0}</div>
+                  <div className="text-2xl font-bold text-black">{dashboardData?.users?.total_admins || 0}</div>
                 </CardContent>
               </Card>
             </div>
           </TabsContent>
 
+          {/* USERS TAB */}
           <TabsContent value="users" className="mt-6">
             <Card>
               <CardHeader>
                 <CardTitle className="text-gray-900">User Management</CardTitle>
-                <CardDescription className="text-gray-600">Manage all users in the system.</CardDescription>
+                <CardDescription>Manage all users in the system.</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="mb-4">
@@ -388,10 +392,10 @@ export default function AdminDashboard() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead style={{ color: '#000000', fontWeight: 'bold' }}>User</TableHead>
-                      <TableHead style={{ color: '#000000', fontWeight: 'bold' }}>Email</TableHead>
-                      <TableHead style={{ color: '#000000', fontWeight: 'bold' }}>Role</TableHead>
-                      <TableHead style={{ color: '#000000', fontWeight: 'bold', textAlign: 'right' }}>Actions</TableHead>
+                      <TableHead className="text-black font-bold">User</TableHead>
+                      <TableHead className="text-black font-bold">Email</TableHead>
+                      <TableHead className="text-black font-bold">Role</TableHead>
+                      <TableHead className="text-black font-bold text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -408,20 +412,20 @@ export default function AdminDashboard() {
                           </TableCell>
                           <TableCell className="text-black">{user.email}</TableCell>
                           <TableCell>
-                            <Badge variant={user.role === 'Organizer' ? 'default' : 'secondary'} className="text-black">{user.role}</Badge>
+                            <Badge variant={user.role === 'Organizer' ? 'default' : 'secondary'}>{user.role}</Badge>
                           </TableCell>
                           <TableCell className="text-right">
                             <div className="flex justify-end gap-2">
-                              <Button variant="outline" size="sm" onClick={() => handleViewUser(user)} className="cursor-pointer border-gray-300"><Info className="w-4 h-4" /></Button>
+                              <Button variant="outline" size="sm" onClick={() => handleViewUser(user)} className="cursor-pointer"><Info className="w-4 h-4" /></Button>
                               <AlertDialog>
                                 <AlertDialogTrigger asChild>
-                                  <Button variant="outline" size="sm" className="text-red-600 border-gray-300 cursor-pointer"><Trash2 className="w-4 h-4" /></Button>
+                                  <Button variant="outline" size="sm" className="text-red-600 cursor-pointer"><Trash2 className="w-4 h-4" /></Button>
                                 </AlertDialogTrigger>
                                 <AlertDialogContent>
                                   <AlertDialogHeader><AlertDialogTitle>Delete User</AlertDialogTitle><AlertDialogDescription>Delete "{user.username}"?</AlertDialogDescription></AlertDialogHeader>
                                   <AlertDialogFooter>
-                                    <AlertDialogCancel className="cursor-pointer">Cancel</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => handleDeleteUser(user.id, user.username)} className="bg-red-600 hover:bg-red-700 cursor-pointer">Delete</AlertDialogAction>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => handleDeleteUser(user.id, user.username)} className="bg-red-600 hover:bg-red-700">Delete</AlertDialogAction>
                                   </AlertDialogFooter>
                                 </AlertDialogContent>
                               </AlertDialog>
@@ -435,6 +439,7 @@ export default function AdminDashboard() {
             </Card>
           </TabsContent>
 
+          {/* DELETED TAB */}
           <TabsContent value="deleted" className="mt-6">
             <Card>
               <CardHeader><CardTitle className="text-gray-900">Deleted Users</CardTitle></CardHeader>
@@ -448,11 +453,11 @@ export default function AdminDashboard() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {Array.isArray(deletedUsers) && deletedUsers.length > 0 ? (
+                    {deletedUsers.length > 0 ? (
                       deletedUsers.map((user) => (
                         <TableRow key={user.id}>
                           <TableCell className="text-black">{user.name} {user.surname} (@{user.username})</TableCell>
-                          <TableCell className="text-black">{new Date(user.deleted_at).toLocaleString()}</TableCell>
+                          <TableCell className="text-black">{formatDate(user.deleted_at)}</TableCell>
                           <TableCell className="text-right">
                             <Button variant="outline" size="sm" onClick={() => handleRestoreUser(user.id, user.username)} className="border-green-500 text-green-600 hover:bg-green-50 cursor-pointer"><Undo className="w-4 h-4" /></Button>
                           </TableCell>
@@ -467,11 +472,12 @@ export default function AdminDashboard() {
             </Card>
           </TabsContent>
 
+          {/* REQUESTS TAB */}
           <TabsContent value="role-requests" className="mt-6">
             <Card>
               <CardHeader><CardTitle className="text-gray-900">Role Requests</CardTitle></CardHeader>
               <CardContent>
-                {Array.isArray(roleRequests) && roleRequests.length === 0 ? (
+                {roleRequests.length === 0 ? (
                   <div className="text-center py-8 text-gray-500">No pending requests</div>
                 ) : (
                   <Table>
@@ -486,7 +492,7 @@ export default function AdminDashboard() {
                       {roleRequests.map((req) => (
                         <TableRow key={req.id}>
                           <TableCell className="text-black">{req.name} {req.surname} (@{req.username})</TableCell>
-                          <TableCell className="text-black">{new Date(req.created_at).toLocaleString()}</TableCell>
+                          <TableCell className="text-black">{formatDate(req.created_at)}</TableCell>
                           <TableCell className="text-right">
                             <div className="flex justify-end gap-2">
                               <Button variant="outline" size="sm" onClick={() => handleApproveRequest(req.id, req.username)} disabled={loadingRequests} className="border-green-500 text-green-600 hover:bg-green-50 cursor-pointer"><UserCheck className="w-4 h-4" /></Button>
@@ -502,6 +508,7 @@ export default function AdminDashboard() {
             </Card>
           </TabsContent>
 
+          {/* EVENTS TAB */}
           <TabsContent value="events" className="mt-6">
             <Card>
               <CardHeader><CardTitle className="text-gray-900">Event Management</CardTitle></CardHeader>
@@ -525,8 +532,8 @@ export default function AdminDashboard() {
                         <TableCell className="text-black font-semibold">{parseFloat(event.total_revenue || 0).toFixed(2)} KM</TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
-                            <Button variant="outline" size="sm" onClick={() => navigate(`/events/${event.id}`)} className="cursor-pointer border-gray-300"><Eye className="w-4 h-4" /></Button>
-                            <Button variant="outline" size="sm" onClick={() => handleDeleteEvent(event.id, event.title)} className="text-red-600 border-gray-300 cursor-pointer"><Trash2 className="w-4 h-4" /></Button>
+                            <Button variant="outline" size="sm" onClick={() => navigate(`/events/${event.id}`)} className="cursor-pointer"><Eye className="w-4 h-4" /></Button>
+                            <Button variant="outline" size="sm" onClick={() => handleDeleteEvent(event.id, event.title)} className="text-red-600 cursor-pointer"><Trash2 className="w-4 h-4" /></Button>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -537,16 +544,15 @@ export default function AdminDashboard() {
             </Card>
           </TabsContent>
 
-          {/* ✅ NOVI STATISTIKA TAB KOJI JE DODAT NA KRAJ */}
+          {/* STATISTICS TAB */}
           <TabsContent value="statistics" className="mt-6">
             <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-3">
               <Card className="lg:col-span-2">
                 <CardHeader>
                   <div className="flex items-center gap-2">
-                    <TrendingUp className="w-5 h-5 text-green-600" />
+                    <TrendingUp className="w-5 h-5 text-black-600" />
                     <CardTitle className="text-black">Registration Trends</CardTitle>
                   </div>
-                  <CardDescription>Overview of user activity on the platform.</CardDescription>
                 </CardHeader>
                 <CardContent className="h-[400px]">
                   <UserActivityChart />
@@ -565,18 +571,19 @@ export default function AdminDashboard() {
                     <div className="w-full space-y-4">
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-600">Students</span>
-                        <span className="font-bold text-black">{dashboardData?.users?.total_students || 0}</span>
+                        <span className="font-bold text-black">{roleStats.students}</span>
                       </div>
                       <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
-                        <div className="bg-blue-500 h-full" style={{ width: `${(dashboardData?.users?.total_students / (dashboardData?.users?.total_users || 1)) * 100}%` }}></div>
+                        <div className="bg-blue-500 h-full transition-all duration-500" style={{ width: `${(roleStats.students / totalForPercent) * 100}%` }}></div>
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-600">Organizers</span>
-                        <span className="font-bold text-black">{dashboardData?.users?.total_organizers || 0}</span>
+                        <span className="font-bold text-black">{roleStats.organizers}</span>
                       </div>
                       <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
-                        <div className="bg-green-500 h-full" style={{ width: `${(dashboardData?.users?.total_organizers / (dashboardData?.users?.total_users || 1)) * 100}%` }}></div>
+                        <div className="bg-green-50 h-full transition-all duration-500 bg-green-500" style={{ width: `${(roleStats.organizers / totalForPercent) * 100}%` }}></div>
                       </div>
+                      <p className="text-[10px] text-gray-400 mt-4 italic text-center">* Admin accounts are excluded</p>
                     </div>
                   </CardContent>
                 </Card>

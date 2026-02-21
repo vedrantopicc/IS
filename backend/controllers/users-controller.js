@@ -182,7 +182,7 @@ export async function getUserRoleStats(req, res, next) {
     const query = `
       SELECT 
         CAST(SUM(CASE WHEN is_organizer = 0 AND role != 'Admin' THEN 1 ELSE 0 END) AS UNSIGNED) AS students,
-        CAST(SUM(CASE WHEN is_organizer = 1 THEN 1 ELSE 0 END) AS UNSIGNED) AS organizers
+        CAST(SUM(CASE WHEN is_organizer = 1 AND role != 'Admin' THEN 1 ELSE 0 END) AS UNSIGNED) AS organizers
       FROM \`user\`
       WHERE deleted_at IS NULL
     `;
