@@ -32,7 +32,7 @@ import {
 import { toast } from "react-toastify";
 
 // === IMPORT ZA GRAFIKON ===
-import UserActivityChart from "./user-activity"; 
+import UserActivityChart from "./user-activity";
 
 // === POMOĆNI SERVISI (Direktno u fajlu) ===
 
@@ -102,11 +102,20 @@ function formatDate(dateString) {
   });
 }
 
+// ✅ FUNKCIJA: vraća role na osnovu is_organizer polja sa fallback logikom
+const getUserRole = (user) => {
+  if (user.role === 'Admin') return 'Admin';
+  if (user.is_organizer === 1 || user.is_organizer === '1' || user.is_organizer === true) {
+    return 'Organizer';
+  }
+  return 'Student';
+};
+
 // === GLAVNA KOMPONENTA ===
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const location = useLocation();
-  
+
   const payload = useMemo(() => {
     const t = getToken();
     return t ? decodeJwt(t) : null;
@@ -120,10 +129,10 @@ export default function AdminDashboard() {
   const [users, setUsers] = useState([]);
   const [events, setEvents] = useState([]);
   const [deletedUsers, setDeletedUsers] = useState([]);
-  const [roleRequests, setRoleRequests] = useState([]); 
+  const [roleRequests, setRoleRequests] = useState([]);
   const [roleStats, setRoleStats] = useState({ students: 0, organizers: 0 });
   const [loading, setLoading] = useState(true);
-  const [loadingRequests, setLoadingRequests] = useState(false); 
+  const [loadingRequests, setLoadingRequests] = useState(false);
   const [activeTab, setActiveTab] = useState("dashboard");
   const [error, setError] = useState("");
   const [selectedUser, setSelectedUser] = useState(null);
@@ -146,7 +155,6 @@ export default function AdminDashboard() {
     setLoading(true);
     setError("");
     try {
-      // ✅ Dodat statsData u destrukciju niza
       const [dashboard, usersData, eventsData, deletedUsersData, requestsData, statsData] = await Promise.all([
         getAdminDashboard(),
         getAllUsers(),
@@ -155,16 +163,23 @@ export default function AdminDashboard() {
         getRoleRequests(),
         getUserRoleStats()
       ]);
-      
+
       setDashboardData(dashboard);
-      setUsers(usersData);
+
+      // ✅ Transformiši korisnike - dodaj displayRole na osnovu is_organizer
+      const transformedUsers = usersData.map(user => ({
+        ...user,
+        displayRole: getUserRole(user)
+      }));
+
+      setUsers(transformedUsers);
       setEvents(eventsData);
       setDeletedUsers(deletedUsersData || []);
       setRoleRequests(requestsData || []);
       setRoleStats(statsData);
     } catch (err) {
       setError(err.message);
-      toast.error("Failed to load admin data: " + err.message);
+      toast.error("Failed to load admin  " + err.message);
     } finally {
       setLoading(false);
     }
@@ -178,7 +193,7 @@ export default function AdminDashboard() {
       setLoadingRequests(true);
       await approveRoleRequest(requestId);
       toast.success(`Request approved for ${username}`);
-      loadDashboardData(); 
+      loadDashboardData();
     } catch (err) {
       toast.error("Failed to approve request: " + err.message);
     } finally {
@@ -260,7 +275,8 @@ export default function AdminDashboard() {
     );
   }
 
-  const userCount = users.filter(user => user.role !== 'Admin').length;
+  // ✅ userCount sada koristi displayRole
+  const userCount = users.filter(user => user.displayRole !== 'Admin').length;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -311,13 +327,13 @@ export default function AdminDashboard() {
         )}
 
         <Tabs value={activeTab} onValueChange={handleTabChange}>
-		  <TabsList className="flex w-full justify-start gap-8 bg-transparent rounded-none p-0 h-12 overflow-x-auto overflow-y-hidden">
+          <TabsList className="flex w-full justify-start gap-8 bg-transparent rounded-none p-0 h-12 overflow-x-auto overflow-y-hidden">
             <TabsTrigger value="dashboard" className="flex items-center gap-2 text-black"><BarChart3 className="w-4 h-4" /> Dashboard</TabsTrigger>
             <TabsTrigger value="users" className="flex items-center gap-2 text-black"><Users className="w-4 h-4" /> Users ({userCount})</TabsTrigger>
             <TabsTrigger value="deleted" className="flex items-center gap-2 text-black"><Trash2 className="w-4 h-4" /> Deleted ({deletedUsers.length})</TabsTrigger>
             <TabsTrigger value="role-requests" className="flex items-center gap-2 text-black"><UserCheck className="w-4 h-4" /> Requests ({roleRequests.length})</TabsTrigger>
             <TabsTrigger value="events" className="flex items-center gap-2 text-black"><Calendar className="w-4 h-4" /> Events ({events.length})</TabsTrigger>
-            <TabsTrigger value="statistics" className="flex items-center gap-2 text-black-700 font-bold"><TrendingUp className="w-4 h-4" /> Statistics</TabsTrigger>
+            <TabsTrigger value="statistics" className="flex items-center gap-2 text-black"><TrendingUp className="w-4 h-4" /> Statistics</TabsTrigger>
           </TabsList>
 
           {/* DASHBOARD TAB */}
@@ -328,15 +344,14 @@ export default function AdminDashboard() {
                   <CardTitle className="text-sm font-medium text-black">Total Users</CardTitle>
                   <Users className="h-4 w-4 text-gray-500" />
                 </CardHeader>
-               <CardContent>
-				  {/* Zbir studenata i organizatora iz roleStats rute */}
-				  <div className="text-2xl font-bold text-black">
-					{roleStats.students + roleStats.organizers}
-				  </div>
-				  <p className="text-xs text-gray-500">
-					{roleStats.students} students, {roleStats.organizers} organizers
-				  </p>
-				</CardContent>
+                <CardContent>
+                  <div className="text-2xl font-bold text-black">
+                    {roleStats.students + roleStats.organizers}
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    {roleStats.students} students, {roleStats.organizers} organizers
+                  </p>
+                </CardContent>
               </Card>
 
               <Card>
@@ -402,7 +417,8 @@ export default function AdminDashboard() {
                     {users
                       .filter(user => {
                         const s = searchTerm.toLowerCase();
-                        return user.role !== 'Admin' && (user.name.toLowerCase().includes(s) || user.email.toLowerCase().includes(s) || user.username.toLowerCase().includes(s));
+                        // ✅ Filter sada koristi displayRole
+                        return user.displayRole !== 'Admin' && (user.name.toLowerCase().includes(s) || user.email.toLowerCase().includes(s) || user.username.toLowerCase().includes(s));
                       })
                       .map((user) => (
                         <TableRow key={user.id}>
@@ -412,7 +428,13 @@ export default function AdminDashboard() {
                           </TableCell>
                           <TableCell className="text-black">{user.email}</TableCell>
                           <TableCell>
-                            <Badge variant={user.role === 'Organizer' ? 'default' : 'secondary'}>{user.role}</Badge>
+                            {/* ✅ Prikaz role - uklonjen debug info, prilagođen font */}
+                            <Badge
+                              variant={user.displayRole === 'Organizer' ? 'default' : 'secondary'}
+                              className="text-xs font-medium"
+                            >
+                              {user.displayRole || user.role || 'N/A'}
+                            </Badge>
                           </TableCell>
                           <TableCell className="text-right">
                             <div className="flex justify-end gap-2">
@@ -516,21 +538,21 @@ export default function AdminDashboard() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="text-black">Event</TableHead>
-                      <TableHead className="text-black">Organizer</TableHead>
-                      <TableHead className="text-black">Date</TableHead>
-                      <TableHead className="text-black">Revenue</TableHead>
-                      <TableHead className="text-right text-black">Actions</TableHead>
+                      <TableHead className="text-black font-bold w-1/4">Event</TableHead>
+                      <TableHead className="text-black font-bold w-1/6">Organizer</TableHead>
+                      <TableHead className="text-black font-bold w-1/6">Date</TableHead>
+                      <TableHead className="text-black font-bold w-1/6">Revenue</TableHead>
+                      <TableHead className="text-black font-bold text-right w-1/6">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {events.map((event) => (
                       <TableRow key={event.id}>
-                        <TableCell className="font-medium text-black">{event.title}</TableCell>
-                        <TableCell className="text-black">{event.organizer_name}</TableCell>
-                        <TableCell className="text-black text-xs">{formatDate(event.date_and_time)}</TableCell>
-                        <TableCell className="text-black font-semibold">{parseFloat(event.total_revenue || 0).toFixed(2)} KM</TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="font-medium text-black py-3">{event.title}</TableCell>
+                        <TableCell className="text-black py-3">{event.organizer_name}</TableCell>
+                        <TableCell className="text-black text-xs py-3">{formatDate(event.date_and_time)}</TableCell>
+                        <TableCell className="text-black font-semibold py-3">{parseFloat(event.total_revenue || 0).toFixed(2)} KM</TableCell>
+                        <TableCell className="text-right py-3">
                           <div className="flex justify-end gap-2">
                             <Button variant="outline" size="sm" onClick={() => navigate(`/events/${event.id}`)} className="cursor-pointer"><Eye className="w-4 h-4" /></Button>
                             <Button variant="outline" size="sm" onClick={() => handleDeleteEvent(event.id, event.title)} className="text-red-600 cursor-pointer"><Trash2 className="w-4 h-4" /></Button>
@@ -583,7 +605,6 @@ export default function AdminDashboard() {
                       <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
                         <div className="bg-green-50 h-full transition-all duration-500 bg-green-500" style={{ width: `${(roleStats.organizers / totalForPercent) * 100}%` }}></div>
                       </div>
-                      <p className="text-[10px] text-gray-400 mt-4 italic text-center">* Admin accounts are excluded</p>
                     </div>
                   </CardContent>
                 </Card>
@@ -614,7 +635,8 @@ export default function AdminDashboard() {
               <p><strong>Name:</strong> {selectedUser.name} {selectedUser.surname}</p>
               <p><strong>Username:</strong> @{selectedUser.username}</p>
               <p><strong>Email:</strong> {selectedUser.email}</p>
-              <p><strong>Role:</strong> {selectedUser.role}</p>
+              {/* ✅ Modal sada prikazuje displayRole */}
+              <p><strong>Role:</strong> {selectedUser.displayRole || selectedUser.role}</p>
               {selectedUser.bio && <p><strong>Bio:</strong> {selectedUser.bio}</p>}
             </div>
             <AlertDialogFooter>

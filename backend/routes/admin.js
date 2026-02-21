@@ -25,6 +25,7 @@ router.get("/dashboard", requireAdmin, async (req, res, next) => {
         SUM(CASE WHEN date_and_time > NOW() THEN 1 ELSE 0 END) as upcoming_events,
         SUM(CASE WHEN date_and_time <= NOW() THEN 1 ELSE 0 END) as past_events
       FROM event
+      WHERE status = 'PUBLISHED'
     `);
 
     res.json({
@@ -36,7 +37,7 @@ router.get("/dashboard", requireAdmin, async (req, res, next) => {
   }
 });
 
-// Svi događaji (za admina) – sa ukupnom zaradom
+// Svi događaji (za admina) – sa ukupnom zaradom (samo PUBLISHED)
 router.get("/events", requireAdmin, async (req, res, next) => {
   try {
     const [rows] = await pool.query(`
@@ -55,6 +56,7 @@ router.get("/events", requireAdmin, async (req, res, next) => {
       JOIN \`user\` u ON u.id = e.user_id
       LEFT JOIN ticket_type tt ON tt.event_id = e.id
       LEFT JOIN reservation r ON r.ticket_type_id = tt.id
+      WHERE e.status = 'PUBLISHED'
       GROUP BY e.id, e.title, e.date_and_time, e.image, e.description, e.user_id, u.name, u.surname, u.username, u.email
       ORDER BY e.date_and_time DESC
     `);
@@ -68,7 +70,7 @@ router.get("/events", requireAdmin, async (req, res, next) => {
 router.get("/users", requireAdmin, async (req, res, next) => {
   try {
     const [rows] = await pool.query(`
-      SELECT id, username, name, surname, email, role
+      SELECT id, username, name, surname, email, role, is_organizer
       FROM user 
       WHERE deleted_at IS NULL
       ORDER BY id DESC
