@@ -31,6 +31,7 @@ import { sendRoleRequest } from "../services/roleRequest";
 import { toast } from "react-toastify";
 import { Bell } from "lucide-react";
 import { CheckCheck } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 
 import {
@@ -91,11 +92,22 @@ const [unreadNotif, setUnreadNotif] = useState(0);
 const [notifOpen, setNotifOpen] = useState(false);
 
 
+const z = (n) => String(n).padStart(2, "0");
+const toParamDate = (d) =>
+  d ? `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}` : undefined;
+
+const [eventsPage, setEventsPage] = useState(1);
+const [eventsLimit] = useState(9);
+const [eventsMeta, setEventsMeta] = useState({ page: 1, limit: 9, total: 0, totalPages: 1 });
 
 
-  useEffect(() => {
+
+useEffect(() => {
+  if (activeTab === "events") {
     loadStudentData();
-  }, []);
+  }
+}, [eventsPage, activeTab]);
+
 
 
 const loadNotifications = async () => {
@@ -107,6 +119,7 @@ const loadNotifications = async () => {
     console.error(e);
   }
 };
+
 
 
 const handleMarkAllRead = async () => {
@@ -153,33 +166,104 @@ useEffect(() => {
   return () => clearInterval(t);
 }, []);
 
+useEffect(() => {
+  if (activeTab === "events") setEventsPage(1);
+}, [activeTab]);
 
+
+function renderEventsPagination() {
+  const totalPages = eventsMeta?.totalPages ?? 1;
+  if (totalPages <= 1) return null;
+
+  const go = (p) => setEventsPage(Math.min(totalPages, Math.max(1, p)));
+
+  const maxMiddle = 5;
+  const pages = [];
+
+  const start = Math.max(2, eventsPage - Math.floor(maxMiddle / 2));
+  const end = Math.min(totalPages - 1, start + maxMiddle - 1);
+  const startFixed = Math.max(2, end - maxMiddle + 1);
+
+  const PageBtn = ({ p, active }) => (
+    <button
+      type="button"
+      onClick={() => go(p)}
+      className={[
+        "h-10 w-10 rounded-full text-sm font-medium transition",
+        "hover:bg-gray-100 active:scale-[0.98]",
+        active ? "ring-2 ring-gray-900 text-gray-900 bg-white" : "text-gray-700",
+      ].join(" ")}
+      aria-current={active ? "page" : undefined}
+    >
+      {p}
+    </button>
+  );
+
+  const ArrowBtn = ({ dir }) => {
+    const disabled = dir === "left" ? eventsPage === 1 : eventsPage === totalPages;
+    const Icon = dir === "left" ? ChevronLeft : ChevronRight;
+
+    return (
+      <button
+        type="button"
+        onClick={() => go(dir === "left" ? eventsPage - 1 : eventsPage + 1)}
+        disabled={disabled}
+        className={[
+          "h-10 w-10 rounded-full grid place-items-center transition",
+          disabled ? "text-gray-300 cursor-not-allowed" : "text-gray-800 hover:bg-gray-100",
+        ].join(" ")}
+        aria-label={dir === "left" ? "Previous page" : "Next page"}
+      >
+        <Icon className="h-5 w-5" />
+      </button>
+    );
+  };
+
+  return (
+    <div className="mt-10 flex items-center justify-center gap-2 select-none">
+      <ArrowBtn dir="left" />
+      <PageBtn p={1} active={eventsPage === 1} />
+
+      {startFixed > 2 && <span className="px-1 text-gray-400">…</span>}
+
+      {(() => {
+        for (let p = startFixed; p <= end; p++) {
+          pages.push(<PageBtn key={p} p={p} active={p === eventsPage} />);
+        }
+        return pages;
+      })()}
+
+      {end < totalPages - 1 && <span className="px-1 text-gray-400">…</span>}
+
+      {totalPages > 1 && <PageBtn p={totalPages} active={eventsPage === totalPages} />}
+      <ArrowBtn dir="right" />
+    </div>
+  );
+}
 
   const loadStudentData = async () => {
     try {
       setLoading(true);
       setError("");
 
-    const [reservationsData, eventsResp] = await Promise.all([
-    getUserReservations(),
-    getEvents({ sort: "date_asc", page: 1, limit: 30})
-    ]);
+ const today = new Date();
+today.setHours(0, 0, 0, 0);
+const from = toParamDate(today);
+
+const [reservationsData, eventsResp] = await Promise.all([
+  getUserReservations(),
+  getEvents({ sort: "date_asc", from, page: eventsPage, limit: eventsLimit }),
+]);
+
+const eventsItems = Array.isArray(eventsResp) ? eventsResp : (eventsResp?.items ?? []);
+const meta = Array.isArray(eventsResp) ? null : (eventsResp?.meta ?? null);
+
+// sada više ne filtriraš na frontu, jer backend već šalje upcoming (from=today)
+setReservations(reservationsData);
+setAvailableEvents(eventsItems);
+setEventsMeta(meta ?? { page: eventsPage, limit: eventsLimit, total: eventsItems.length, totalPages: 1 });
 
 // backend sada vraća { data, meta }
-  const eventsData = Array.isArray(eventsResp)
-    ? eventsResp
-    : (eventsResp?.items ?? []);
-
-  const currentDate = new Date();
-
-  const upcomingEvents = eventsData.filter(event => {
-    const eventDate = new Date(event.date_and_time);
-    return eventDate > currentDate;
-    });
-
-  setReservations(reservationsData);
-  setAvailableEvents(upcomingEvents);
-
 
 
     } catch (err) {
@@ -543,63 +627,71 @@ useEffect(() => {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-black">
                     <CalendarDays className="w-5 h-5 text-blue-600" />
-                    Upcoming Events ({availableEvents.length})
+                  Upcoming Events ({eventsMeta?.total ?? availableEvents.length})            
                   </CardTitle>
                   <CardDescription className="text-black">
                     Browse and reserve tickets for upcoming events
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  {availableEvents.length === 0 ? (
-                    <div className="text-center py-8">
-                      <CalendarDays className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                      <p className="text-gray-500">No upcoming events available</p>
-                    </div>
-                  ) : (
-                    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                      {availableEvents.map((event) => {
-                        const totalAvailable = event.total_available_seats || 0;
-                        const seatsDisplay = totalAvailable > 0
-                          ? `${totalAvailable} seat${totalAvailable === 1 ? '' : 's'} available`
-                          : "No seats available";
+  {availableEvents.length === 0 ? (
+    <div className="text-center py-8">
+      <CalendarDays className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+      <p className="text-gray-500">No upcoming events available</p>
+    </div>
+  ) : (
+    <>
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {availableEvents.map((event) => {
+          const totalAvailable = event.total_available_seats || 0;
+          const seatsDisplay =
+            totalAvailable > 0
+              ? `${totalAvailable} seat${totalAvailable === 1 ? "" : "s"} available`
+              : "No seats available";
 
-                        return (
-                          <Card key={event.id} className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer">
-                            <div className="relative h-48 overflow-hidden">
-                              <img
-                                src={event.image || "https://images.pexels.com/photos/1190298/pexels-photo-1190298.jpeg?auto=compress&cs=tinysrgb&w=800"}
-                                alt={event.title}
-                                className="w-full h-full object-cover"
-                              />
-                            </div>
-                            <CardContent className="p-4">
-                              <h3 className="font-semibold text-lg mb-2 line-clamp-2 text-gray-900">{event.title}</h3>
-                              <div className="space-y-2 text-sm text-gray-600 mb-4">
-                                <div className="flex items-center gap-2">
-                                  <Clock className="w-4 h-4" />
-                                  {formatDateTime(event.date_and_time)}
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <Ticket className="w-4 h-4" />
-                                  <span className={totalAvailable === 0 ? "text-red-600" : ""}>
-                                    {seatsDisplay}
-                                  </span>
-                                </div>
-                              </div>
-                              <Button
-                                className="w-full !bg-blue-600 hover:!bg-blue-700 !text-white font-medium py-2 px-4 rounded-md transition-all duration-200 hover:shadow-md hover:scale-105 border-0 cursor-pointer"
-                                onClick={() => navigate(`/events/${event.id}?returnTo=dashboard&tab=events`)}
-                                disabled={totalAvailable === 0}
-                              >
-                                {totalAvailable === 0 ? "Sold Out" : "View Details & Reserve"}
-                              </Button>
-                            </CardContent>
-                          </Card>
-                        );
-                      })}
-                    </div>
-                  )}
-                </CardContent>
+          return (
+            <Card key={event.id} className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer">
+              <div className="relative h-48 overflow-hidden">
+                <img
+                  src={event.image || "https://images.pexels.com/photos/1190298/pexels-photo-1190298.jpeg?auto=compress&cs=tinysrgb&w=800"}
+                  alt={event.title}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+
+              <CardContent className="p-4">
+                <h3 className="font-semibold text-lg mb-2 line-clamp-2 text-gray-900">{event.title}</h3>
+
+                <div className="space-y-2 text-sm text-gray-600 mb-4">
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4" />
+                    {formatDateTime(event.date_and_time)}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Ticket className="w-4 h-4" />
+                    <span className={totalAvailable === 0 ? "text-red-600" : ""}>
+                      {seatsDisplay}
+                    </span>
+                  </div>
+                </div>
+
+                <Button
+                  className="w-full !bg-blue-600 hover:!bg-blue-700 !text-white font-medium py-2 px-4 rounded-md transition-all duration-200 hover:shadow-md hover:scale-105 border-0 cursor-pointer"
+                  onClick={() => navigate(`/events/${event.id}?returnTo=dashboard&tab=events`)}
+                  disabled={totalAvailable === 0}
+                >
+                  {totalAvailable === 0 ? "Sold Out" : "View Details & Reserve"}
+                </Button>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+
+      {renderEventsPagination()}
+    </>
+  )}
+</CardContent>
               </Card>
             </TabsContent>
           </Tabs>
