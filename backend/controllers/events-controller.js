@@ -392,37 +392,61 @@ export async function getOrganizerEvents(req, res, next) {
       return res.status(400).json({ error: "Invalid user ID" });
     }
 
-    // ✅ DODATO: e.deleted_at IS NULL
-    const [events] = await pool.query(
-      `SELECT
-         e.id,
-         e.title,
-         e.description,
-         e.location,
-         e.date_and_time,
-         e.image,
-         e.user_id,
-         e.category_id,
-         e.status,
-         CONCAT_WS(' ', u.name, u.surname) AS organizer_name,
-         u.username AS organizer_username,
-         (
-           SELECT ROUND(AVG(cmt.rating), 1)
-           FROM comments cmt
-           WHERE cmt.event_id = e.id
-         ) AS averageRating
-       FROM event e
-       LEFT JOIN \`user\` u ON u.id = e.user_id
-       WHERE e.user_id = ? AND e.deleted_at IS NULL
-       ORDER BY e.date_and_time DESC`,
-      [userId]
+    // ✅ pagination param
+
+    const page = Math.max(1, parseInt(req.query.page || "1", 10));
+    const limit = Math.max(1, parseInt(req.query.limit || "9", 10));
+    const offset = (page - 1) * limit;
+
+    const q = (req.query.q || "").trim();
+    const hasQ = q.length > 0;
+    const like = `%${q}%`;
+
+    // total
+    const [countRows] = await pool.query(
+      `
+      SELECT COUNT(*) AS total
+      FROM event e
+      WHERE e.user_id = ? AND e.deleted_at IS NULL
+      ${hasQ ? "AND (e.title LIKE ? OR e.location LIKE ?)" : ""}
+      `,
+      hasQ ? [userId, like, like] : [userId]
     );
 
+    const total = Number(countRows?.[0]?.total || 0);
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+
+    // items
+    const [events] = await pool.query(
+      `
+      SELECT
+        e.id, e.title, e.description, e.location, e.date_and_time, e.image,
+        e.user_id, e.category_id, e.status,
+        CONCAT_WS(' ', u.name, u.surname) AS organizer_name,
+        u.username AS organizer_username,
+        (
+          SELECT ROUND(AVG(cmt.rating), 1)
+          FROM comments cmt
+          WHERE cmt.event_id = e.id
+        ) AS averageRating
+      FROM event e
+      LEFT JOIN \`user\` u ON u.id = e.user_id
+      WHERE e.user_id = ? AND e.deleted_at IS NULL
+      ${hasQ ? "AND (e.title LIKE ? OR e.location LIKE ?)" : ""}
+      ORDER BY e.date_and_time DESC
+      LIMIT ? OFFSET ?
+      `,
+      hasQ ? [userId, like, like, limit, offset] : [userId, limit, offset]
+    );
+
+    // ✅ load ticket types only for this page
     for (const event of events) {
       if (!event.id) continue;
       try {
         const [ticketTypes] = await pool.query(
-          `SELECT id, name, price, total_seats FROM ticket_type WHERE event_id = ?`,
+          `SELECT id, name, price, total_seats
+           FROM ticket_type
+           WHERE event_id = ?`,
           [event.id]
         );
         event.ticket_types = ticketTypes;
@@ -432,7 +456,11 @@ export async function getOrganizerEvents(req, res, next) {
       }
     }
 
-    res.json(events);
+    // ✅ return the same shape as EventsPage
+    return res.json({
+      items: events,
+      meta: { page, limit, total, totalPages },
+    });
   } catch (err) {
     console.error("Database error in getOrganizerEvents:", err);
     return res.status(500).json({ error: "Failed to load your events" });
@@ -464,6 +492,9 @@ export async function deleteOrganizerEvent(req, res, next) {
     next(err);
   }
 }
+
+
+
 
 // ✅ REZERVACIJE ZA DOGAĐAJ (vidljivo organizatoru)
 export async function getEventReservations(req, res, next) {

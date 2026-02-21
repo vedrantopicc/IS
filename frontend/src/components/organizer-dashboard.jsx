@@ -21,6 +21,7 @@ import { getCategories } from "../services/categories";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "../components/ui/select";
 import { getOrganizerEvents, createEvent, updateEvent, deleteEvent, getEventReservations, getEventSalesProgress } from "../services/organizer";
 import { toast } from "react-toastify";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 
 // Helper funkcije
@@ -106,6 +107,13 @@ export default function OrganizerDashboard() {
   const [categories, setCategories] = useState([]);
   const [categoryId, setCategoryId] = useState("");
 
+  const [page, setPage] = useState(1);
+  const [limit] = useState(9);
+  const [meta, setMeta] = useState({ page: 1, limit: 9, total: 0, totalPages: 1 });
+
+  const [q, setQ] = useState("");
+  const [qDebounced, setQDebounced] = useState("");
+
   const getInitialFormData = () => {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
@@ -121,9 +129,19 @@ export default function OrganizerDashboard() {
   };
   const [formData, setFormData] = useState(getInitialFormData());
 
-  useEffect(() => {
-    loadEvents();
-  }, []);
+useEffect(() => {
+  loadEvents();
+}, [page]);
+
+useEffect(() => {
+  const t = setTimeout(() => setQDebounced(q), 350);
+  return () => clearTimeout(t);
+}, [q]);
+
+useEffect(() => {
+  setPage(1);
+}, [qDebounced]);
+
 
   useEffect(() => {
     let alive = true;
@@ -142,20 +160,26 @@ export default function OrganizerDashboard() {
   }, []);
 
 
-  const loadEvents = async () => {
-    try {
-      setLoading(true);
-      const data = await getOrganizerEvents();
-      console.log("📊 Organizer events data:", data);
-      console.log("📊 First event averageRating:", data[0]?.averageRating);
-      setEvents(data);
-    } catch (err) {
-      console.error("Failed to load events:", err);
-      toast.error("Failed to load events");
-    } finally {
-      setLoading(false);
-    }
-  };
+ const loadEvents = async () => {
+  try {
+    setLoading(true);
+
+    const resp = await getOrganizerEvents({ page, limit, q: qDebounced });
+
+    const items = Array.isArray(resp) ? resp : (resp?.items ?? []);
+    const meta  = Array.isArray(resp)
+      ? { page, limit, total: items.length, totalPages: 1 }
+      : (resp?.meta ?? { page, limit, total: 0, totalPages: 1 });
+
+    setEvents(items);
+    setMeta(meta);
+  } catch (err) {
+    console.error("Failed to load events:", err);
+    toast.error("Failed to load events");
+  } finally {
+    setLoading(false);
+  }
+};
 
   const addTicketType = () => {
     setTicketTypes([...ticketTypes, { name: "", price: "", total_seats: "" }]);
@@ -223,6 +247,7 @@ export default function OrganizerDashboard() {
       toast.success(status === "DRAFT" ? "Event saved as draft" : "Event created successfully");
       setShowCreateDialog(false);
       resetForm();
+      setPage(1);
       loadEvents();
     } catch (err) {
       console.error("Failed to create event:", err);
@@ -257,6 +282,7 @@ export default function OrganizerDashboard() {
       toast.success(status === "DRAFT" ? "Event saved as draft" : "Event updated successfully");
       setShowEditDialog(false);
       resetForm();
+      setPage(1);
       loadEvents();
     } catch (err) {
       console.error("Failed to update event:", err);
@@ -270,6 +296,7 @@ export default function OrganizerDashboard() {
       toast.success("Event deleted successfully");
       setShowDeleteDialog(false);
       setSelectedEvent(null);
+      setPage(1);
       loadEvents();
     } catch (err) {
       console.error("Failed to delete event:", err);
@@ -329,6 +356,76 @@ export default function OrganizerDashboard() {
       navigate("/");
     }
   };
+
+  function renderPagination() {
+  const totalPages = meta?.totalPages ?? 1;
+  if (totalPages <= 1) return null;
+
+  const go = (p) => setPage(Math.min(totalPages, Math.max(1, p)));
+
+  const maxMiddle = 5;
+  const pages = [];
+
+  const start = Math.max(2, page - Math.floor(maxMiddle / 2));
+  const end = Math.min(totalPages - 1, start + maxMiddle - 1);
+  const startFixed = Math.max(2, end - maxMiddle + 1);
+
+  const PageBtn = ({ p, active }) => (
+    <button
+      type="button"
+      onClick={() => go(p)}
+      className={[
+        "h-10 w-10 rounded-full text-sm font-medium transition",
+        "hover:bg-gray-100 active:scale-[0.98]",
+        active ? "ring-2 ring-gray-900 text-gray-900 bg-white" : "text-gray-700",
+      ].join(" ")}
+      aria-current={active ? "page" : undefined}
+    >
+      {p}
+    </button>
+  );
+
+  const ArrowBtn = ({ dir }) => {
+    const disabled = dir === "left" ? page === 1 : page === totalPages;
+    const Icon = dir === "left" ? ChevronLeft : ChevronRight;
+
+    return (
+      <button
+        type="button"
+        onClick={() => go(dir === "left" ? page - 1 : page + 1)}
+        disabled={disabled}
+        className={[
+          "h-10 w-10 rounded-full grid place-items-center transition",
+          disabled ? "text-gray-300 cursor-not-allowed" : "text-gray-800 hover:bg-gray-100",
+        ].join(" ")}
+        aria-label={dir === "left" ? "Previous page" : "Next page"}
+      >
+        <Icon className="h-5 w-5" />
+      </button>
+    );
+  };
+
+  return (
+    <div className="mt-10 flex items-center justify-center gap-2 select-none">
+      <ArrowBtn dir="left" />
+      <PageBtn p={1} active={page === 1} />
+
+      {startFixed > 2 && <span className="px-1 text-gray-400">…</span>}
+
+      {(() => {
+        for (let p = startFixed; p <= end; p++) {
+          pages.push(<PageBtn key={p} p={p} active={p === page} />);
+        }
+        return pages;
+      })()}
+
+      {end < totalPages - 1 && <span className="px-1 text-gray-400">…</span>}
+
+      {totalPages > 1 && <PageBtn p={totalPages} active={page === totalPages} />}
+      <ArrowBtn dir="right" />
+    </div>
+  );
+}
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -451,6 +548,9 @@ export default function OrganizerDashboard() {
             </CardContent>
           </Card>
         ) : (
+          
+          <>
+          
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {events.map((event) => {
               const { date, time } = formatDateTime(event.date_and_time);
@@ -579,6 +679,9 @@ export default function OrganizerDashboard() {
               );
             })}
           </div>
+
+          {renderPagination()}
+         </>
         )}
 
         {/* CREATE DIALOG */}

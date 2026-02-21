@@ -6,8 +6,15 @@ function getAuthHeader() {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-export async function getOrganizerEvents() {
-  const response = await fetch(`${API_BASE_URL}/events/organizer/my-events`, {
+
+export async function getOrganizerEvents({ page = 1, limit = 9, q = "" } = {}) {
+  const qs = new URLSearchParams({
+    page: String(page),
+    limit: String(limit),
+  });
+  if (q.trim()) qs.set("q", q.trim());
+
+  const response = await fetch(`${API_BASE_URL}/events/organizer/my-events?${qs}`, {
     method: "GET",
     headers: getAuthHeader(),
   });
@@ -19,6 +26,8 @@ export async function getOrganizerEvents() {
 
   return response.json();
 }
+
+
 
 export async function createEvent(eventData) {
   if (!Array.isArray(eventData.ticketTypes) || eventData.ticketTypes.length === 0) {
