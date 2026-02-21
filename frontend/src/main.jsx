@@ -16,7 +16,7 @@ import ProtectedRoute from "./components/protected-route";
 import PublicRoute from "./components/public-route";
 import ForgotPassword from "./components/forgot-password.jsx";
 import ResetPassword from "./components/reset-password";
-
+import EventStatsChart from "./components/event-stats-chart";
 const router = createBrowserRouter([
   {
     path: "/",
@@ -87,6 +87,22 @@ const router = createBrowserRouter([
     element: (
       <ProtectedRoute>
         <OrganizerDashboard />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/organizer-dashboard",
+    element: (
+      <ProtectedRoute>
+        <OrganizerDashboard />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/organizer/event-stats/:eventId", // Dodajemo parametar :eventId
+    element: (
+      <ProtectedRoute>
+        <EventStatsChart />
       </ProtectedRoute>
     ),
   },

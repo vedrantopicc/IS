@@ -1,4 +1,5 @@
 // src/pages/OrganizerDashboard.jsx
+// Pronađi ovu liniju na vrhu organizer-dashboard.jsx
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Avatar, AvatarFallback } from "../components/ui/avatar";
@@ -14,12 +15,13 @@ import { Badge } from "../components/ui/badge";
 import { Table, TableHead, TableRow, TableCell, TableHeader, TableBody } from "../components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../components/ui/dialog";
-import { Settings, LogOut, Plus, Edit, Trash2, Users, Calendar, Clock, MapPin, Eye, Shield, Minus, BarChart3, Star } from "lucide-react";
+import { Settings, LogOut, Plus, Edit, Trash2, Users, Calendar, Clock, MapPin, Eye, Shield, Minus, BarChart3, Star, ArrowRight, TrendingUp} from "lucide-react";
 import { logoutApi } from "../services/auth";
 import { getCategories } from "../services/categories";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "../components/ui/select";
 import { getOrganizerEvents, createEvent, updateEvent, deleteEvent, getEventReservations, getEventSalesProgress } from "../services/organizer";
 import { toast } from "react-toastify";
+
 
 // Helper funkcije
 function getToken() { return localStorage.getItem("token"); }
@@ -53,6 +55,8 @@ function getCurrentUserRole() {
   }
   return null;
 }
+
+
 
 const formatDateTime = (dateTimeString) => {
   if (!dateTimeString) return { date: "", time: "" };
@@ -533,6 +537,18 @@ export default function OrganizerDashboard() {
                         <BarChart3 className="mr-2 h-4 w-4" />
                         Sales Progress
                       </Button>
+					  
+					  {/* --- AŽURIRANO DUGME SA STRELICOM --- */}
+						<Button
+						  size="sm"
+						  variant="outline"
+						  onClick={() => navigate(`/organizer/event-stats/${event.id}`)}
+						  className="w-full text-purple-600 hover:text-purple-700 border-purple-300 hover:bg-purple-50 cursor-pointer flex items-center justify-center gap-2"
+						>
+						  {/* Samo ikonica za rast i tekst, centrirano */}
+						  <TrendingUp className="h-4 w-4" /> 
+						  <span className="font-medium">Analytics</span>
+						</Button>
 
                       <div className="flex gap-2 pt-2">
                         <Button

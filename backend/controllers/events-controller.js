@@ -582,3 +582,60 @@ export async function deleteEventById(req, res, next) {
     next(err);
   }
 }
+export async function getEventTimeStats(req, res, next) {
+  try {
+    const { eventId } = req.params;
+    const { period = 'daily' } = req.query; 
+    const userId = req.user.id;
+
+    const [eventCheck] = await pool.query(
+      "SELECT id FROM event WHERE id = ? AND user_id = ? AND deleted_at IS NULL",
+      [eventId, userId]
+    );
+
+    if (!eventCheck.length) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+
+    let query = "";
+    switch (period) {
+      case 'daily':
+        // Sati za danas do trenutnog sata
+        query = `
+          SELECT HOUR(reservation_date) AS hour, CAST(SUM(number_of_tickets) AS UNSIGNED) AS count 
+          FROM reservation WHERE event_id = ? AND DATE(reservation_date) = CURDATE()
+          AND HOUR(reservation_date) <= HOUR(NOW())
+          GROUP BY hour ORDER BY hour ASC`;
+        break;
+      case 'weekly':
+        // Imena dana u zadnjih 7 dana
+        query = `
+          SELECT DAYNAME(reservation_date) AS day, CAST(SUM(number_of_tickets) AS UNSIGNED) AS count 
+          FROM reservation WHERE event_id = ? AND reservation_date >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+          GROUP BY day, DAYOFWEEK(reservation_date) ORDER BY DAYOFWEEK(reservation_date) ASC`;
+        break;
+      case 'monthly':
+        // Dani u tekućem mjesecu
+        query = `
+          SELECT DATE_FORMAT(reservation_date, '%d %b') AS date, CAST(SUM(number_of_tickets) AS UNSIGNED) AS count 
+          FROM reservation WHERE event_id = ? AND MONTH(reservation_date) = MONTH(CURRENT_DATE()) 
+          AND YEAR(reservation_date) = YEAR(CURRENT_DATE())
+          GROUP BY date ORDER BY MIN(reservation_date) ASC`;
+        break;
+      case 'yearly':
+        // Mjeseci u godini
+        query = `
+          SELECT MONTH(reservation_date) AS month, CAST(SUM(number_of_tickets) AS UNSIGNED) AS count 
+          FROM reservation WHERE event_id = ? AND YEAR(reservation_date) = YEAR(CURRENT_DATE())
+          GROUP BY month ORDER BY month ASC`;
+        break;
+      default:
+        return res.status(400).json({ error: "Invalid period" });
+    }
+
+    const [stats] = await pool.query(query, [eventId]);
+    res.json(stats);
+  } catch (err) {
+    next(err);
+  }
+}

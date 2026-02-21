@@ -41,6 +41,19 @@ export async function login(req, res, _next) {
     if (!isMatch) {
       return res.status(401).json({ error: "Invalid credentials" });
     }
+
+    // --- NOVO: Bilježenje aktivnosti pri uspješnoj prijavi ---
+    try {
+      await pool.query(
+        "INSERT INTO user_activity (user_id) VALUES (?)", 
+        [user.id]
+      );
+    } catch (activityError) {
+      // Bilježimo grešku u konzolu, ali ne prekidamo login proces
+      console.error("Greška pri upisu u user_activity:", activityError.message);
+    }
+    // -------------------------------------------------------
+
     const { password: _pw, ...safeUser } = user;
 
     const jti = uuidv4();

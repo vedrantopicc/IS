@@ -8,7 +8,8 @@ import {
   updateEvent,
   deleteOrganizerEvent,
   getEventReservations,
-  getEventSalesProgress
+  getEventSalesProgress,
+  getEventTimeStats // ← 1. DODAJ OVO
 } from "../controllers/events-controller.js";
 
 import { requireAdmin, requireOrganizer } from "../middleware/auth-middleware.js";
@@ -25,6 +26,7 @@ router.put("/organizer/:id", requireOrganizer, updateEvent);
 router.delete("/organizer/:id", requireOrganizer, deleteOrganizerEvent);
 router.get("/organizer/:eventId/reservations", requireOrganizer, getEventReservations);
 router.get("/organizer/:eventId/sales-progress", requireOrganizer, getEventSalesProgress);
+router.get("/organizer/:eventId/time-stats", requireOrganizer, getEventTimeStats); // ← 2. DODAJ OVU LINIJU
 
 // admin
 router.delete("/:id", requireAdmin, deleteEventById);
