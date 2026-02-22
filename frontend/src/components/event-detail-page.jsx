@@ -1,4 +1,3 @@
-// EventDetailPage.jsx
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "./ui/button";
@@ -44,6 +43,14 @@ function getCurrentUserRole() {
   return null;
 }
 
+// ✅ NOVA FUNKCIJA: Dobavi trenutni user ID
+function getCurrentUserId() {
+  const token = getToken();
+  if (!token) return null;
+  const decoded = decodeJwt(token);
+  return decoded?.id || decoded?.userId || decoded?.user_id || decoded?.sub || null;
+}
+
 export default function EventDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -72,6 +79,17 @@ export default function EventDetailPage() {
   const isStudent = userRole === "Student";
   const isLoggedIn = !!getToken();
 
+  // ✅ NOVO: Dobavi current user ID i provjeri da li je organizator
+  const currentUserId = useMemo(() => getCurrentUserId(), []);
+
+  const isOrganizer = useMemo(() => {
+    if (!currentUserId || !event) return false;
+    return (
+      event.user_id === parseInt(currentUserId) ||
+      event.organizer_id === parseInt(currentUserId)
+    );
+  }, [currentUserId, event]);
+
   const hasExistingReservation = useMemo(() => {
     return userReservations.some(res => res.event_id === parseInt(id));
   }, [userReservations, id]);
@@ -94,7 +112,6 @@ export default function EventDetailPage() {
         if (!alive) return;
         setEvent(eventData);
         setUserReservations(reservationsData);
-        // Automatski izaberi prvi tip ako postoji
         if (eventData.ticket_types?.length > 0) {
           setSelectedTicketType(eventData.ticket_types[0].id.toString());
         }
@@ -183,14 +200,6 @@ export default function EventDetailPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 via-white to-gray-50 text-[#242424]">
       <div className="max-w-5xl mx-auto px-4 py-4 md:py-6">
-        {/* Back 
-      <button
-        onClick={handleBackNavigation}
-        className="mb-2 inline-flex items-center gap-2 text-gray-600 hover:text-black transition-colors"
-      >
-        <ArrowLeft className="h-4 w-4" /> Back
-      </button>*/}
-
         {/* Header / Hero */}
         <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-none">
           {event.image ? (
@@ -224,24 +233,6 @@ export default function EventDetailPage() {
             <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
               {/* MAIN */}
               <div className="md:col-span-8 space-y-4">
-                {/* Quick info row (only if no image header text) */}
-                {!event.image && (
-                  <div className="flex flex-wrap gap-2 md:hidden">
-                    <div className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm text-gray-700">
-                      <Calendar className="h-4 w-4 text-blue-600" />
-                      <span>{date}</span>
-                    </div>
-                    <div className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm text-gray-700">
-                      <Clock className="h-4 w-4 text-blue-600" />
-                      <span>{time}</span>
-                    </div>
-                    <div className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm text-gray-700">
-                      <MapPin className="h-4 w-4 text-red-600" />
-                      <span>{event.location || "TBD"}</span>
-                    </div>
-                  </div>
-                )}
-
                 {/* Description */}
                 <section className="rounded-2xl border border-gray-200 bg-white p-4 md:p-6">
                   <h3 className="text-lg font-bold mb-2">Description</h3>
@@ -257,9 +248,6 @@ export default function EventDetailPage() {
                       <Ticket className="h-5 w-5 text-blue-600" />
                       Ticket types
                     </h3>
-                    <span className="text-sm text-gray-500">
-                      {event.ticket_types?.length || 0} type(s)
-                    </span>
                   </div>
 
                   <div className="mt-4 space-y-3">
@@ -311,9 +299,9 @@ export default function EventDetailPage() {
                     Reviews
                   </h3>
 
-                  {/* Dodaj ovaj wrapper za scroll */}
-                  <div className="max-h-[400px] overflow-y-auto pr-2">
-                    <Comments eventId={id} />
+                  <div className="max-h-[250px] overflow-y-auto pr-2">
+                    {/* ✅ PROSLIJEDI isOrganizer PROP */}
+                    <Comments eventId={id} isOrganizer={isOrganizer} />
                   </div>
                 </section>
               </div>
@@ -360,8 +348,8 @@ export default function EventDetailPage() {
                   )}
                 </div>
 
-                {/* Reservation card */}
-                {isStudent && (
+                {/* ✅ IZMIJENJENO: Reservation card - samo za studente koji nisu organizatori */}
+                {isStudent && !isOrganizer && (
                   <div className="rounded-2xl border border-gray-200 bg-white p-4">
                     <h3 className="text-base font-bold flex items-center gap-2">
                       <Ticket className="h-5 w-5 text-blue-600" />
@@ -385,14 +373,8 @@ export default function EventDetailPage() {
                       ) : hasExistingReservation ? (
                         <div className="rounded-xl border border-green-200 bg-green-50 p-3">
                           <p className="text-sm font-semibold text-green-800">
-                            ✓ You already have a reservation
+                            You already have a reservation for this event!
                           </p>
-                          <Button
-                            onClick={() => navigate("/student-dashboard?tab=reservations")}
-                            className="mt-3 w-full !bg-green-600 hover:!bg-green-700 !text-white !border-0 cursor-pointer transition-colors"
-                          >
-                            View My Reservations
-                          </Button>
                         </div>
                       ) : isEventInPast ? (
                         <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
@@ -405,7 +387,6 @@ export default function EventDetailPage() {
                         </div>
                       ) : event.ticket_types?.some((tt) => tt.available_seats > 0) ? (
                         <div className="space-y-3">
-                          {/* Ticket type */}
                           <div>
                             <label className="block text-sm font-medium mb-2 text-gray-800">
                               Ticket type
@@ -430,7 +411,6 @@ export default function EventDetailPage() {
                             </Select>
                           </div>
 
-                          {/* Quantity + total + CTA */}
                           {selectedTicket && (
                             <>
                               <div className="flex items-center justify-between gap-3">
@@ -475,10 +455,6 @@ export default function EventDetailPage() {
                               >
                                 {reservationLoading ? "Reserving..." : `Reserve ${numberOfTickets} ticket${numberOfTickets > 1 ? "s" : ""}`}
                               </Button>
-
-                              <p className="text-xs text-gray-500">
-                                * You can reserve only once per event.
-                              </p>
                             </>
                           )}
                         </div>
@@ -497,12 +473,31 @@ export default function EventDetailPage() {
                   </div>
                 )}
 
-                {/* If not student, optional compact note */}
+                {/* ✅ NOVO: Poruka za organizatore - ne mogu rezervisati svoj događaj */}
+                {isStudent && isOrganizer && (
+                  <div className="rounded-2xl border border-gray-200 bg-white p-4">
+                    <h3 className="text-base font-bold flex items-center gap-2 mb-3">
+                      <Ticket className="h-5 w-5 text-blue-600" />
+                      Reserve
+                    </h3>
+
+                    <div className="rounded-xl border border-yellow-200 bg-yellow-50 p-4">
+                      <p className="text-sm font-semibold text-yellow-900 flex items-center gap-2">
+                        <AlertCircle className="h-4 w-4" />
+                        Organizer notice
+                      </p>
+                      <p className="text-sm text-yellow-800 mt-1">
+                        As the event organizer, you cannot reserve tickets for your own event.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 {!isStudent && (
                   <div className="rounded-2xl border border-gray-200 bg-white p-4">
                     <h3 className="text-base font-bold mb-1">Note</h3>
                     <p className="text-sm text-gray-700">
-                      Reservations are available for students only.
+                      Reservations are not available.
                     </p>
                   </div>
                 )}

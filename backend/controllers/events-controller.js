@@ -238,8 +238,10 @@ export async function createEvent(req, res, next) {
 
     // ✅ Šalji notifikacije SAMO ako je event objavljen
     if (eventStatus === 'PUBLISHED') {
+      // 🔥 IZMIJENJENO: ISKLJUČI ORGANIZATORA (userId) iz notifikacija
       const [students] = await pool.query(
-        `SELECT id FROM \`user\` WHERE role = 'Student'`
+        `SELECT id FROM \`user\` WHERE role = 'Student' AND id != ?`,
+        [userId]  // ✅ Dodaj userId da se isključi organizator
       );
 
       if (students.length) {
@@ -256,7 +258,7 @@ export async function createEvent(req, res, next) {
            VALUES ?`,
           [values]
         );
-        console.log(`📩 Notifications sent for event ${eventId}`);
+        console.log(`📩 Notifications sent for event ${eventId} (excluded organizer ${userId})`);
       }
     }
 
@@ -338,8 +340,10 @@ export async function updateEvent(req, res, next) {
     // ✅ 3. Šalji notifikacije SAMO ako je status promenjen iz DRAFT u PUBLISHED
     const newStatus = status || oldStatus; // ako nije prosleđen, ostaje stari
     if (newStatus === 'PUBLISHED' && oldStatus === 'DRAFT') {
+      // 🔥 IZMIJENJENO: ISKLJUČI ORGANIZATORA iz notifikacija
       const [students] = await pool.query(
-        `SELECT id FROM \`user\` WHERE role = 'Student'`
+        `SELECT id FROM \`user\` WHERE role = 'Student' AND id != ?`,
+        [userId]  // ✅ Dodaj userId
       );
 
       if (students.length) {
@@ -357,7 +361,7 @@ export async function updateEvent(req, res, next) {
           [values]
         );
         
-        console.log(`📩 Notifications sent for event ${id} (DRAFT → PUBLISHED)`);
+        console.log(`📩 Notifications sent for event ${id} (DRAFT → PUBLISHED, excluded organizer ${userId})`);
       }
     }
 

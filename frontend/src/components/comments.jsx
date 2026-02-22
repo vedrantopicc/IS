@@ -3,7 +3,7 @@ import { Button } from "./ui/button";
 import { Textarea } from "./ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Avatar, AvatarFallback } from "./ui/avatar";
-import { MessageCircle, Edit2, Trash2, Save, X, Star } from "lucide-react";
+import { MessageCircle, Edit2, Trash2, Save, X, Star, AlertCircle } from "lucide-react";
 import { getEventComments, createComment, updateComment, deleteComment } from "../services/comments";
 import { toast } from "react-toastify";
 
@@ -108,7 +108,7 @@ function StarRating({ rating, onRatingChange, readOnly = false, size = "md" }) {
   );
 }
 
-export default function Comments({ eventId }) {
+export default function Comments({ eventId, isOrganizer = false }) {
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState("");
   const [newRating, setNewRating] = useState(0);
@@ -118,6 +118,7 @@ export default function Comments({ eventId }) {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [userReview, setUserReview] = useState(null);
+  const [localIsOrganizer, setLocalIsOrganizer] = useState(isOrganizer);
   
   const token = getToken();
   const payload = useMemo(() => token ? decodeJwt(token) : null, [token]);
@@ -131,13 +132,16 @@ export default function Comments({ eventId }) {
     }
   }, [eventId]);
 
+  useEffect(() => {
+    setLocalIsOrganizer(isOrganizer);
+  }, [isOrganizer]);
+
   const loadComments = async () => {
     try {
       setLoading(true);
       const commentsData = await getEventComments(eventId);
       setComments(commentsData);
       
-      // Find if current user already has a review
       if (currentUserId) {
         const myReview = commentsData.find(
           c => c.user_id === parseInt(currentUserId)
@@ -153,13 +157,11 @@ export default function Comments({ eventId }) {
   };
 
   const handleAddComment = async () => {
-    // Validacija: OCENA JE OBAVEZNA
     if (newRating < 1 || newRating > 5) {
       toast.error("Please select a rating (1-5 stars)");
       return;
     }
   
-    // Validacija dužine teksta (ako postoji)
     if (newComment.length > 1000) {
       toast.error("Comment is too long (max 1000 characters)");
       return;
@@ -181,38 +183,35 @@ export default function Comments({ eventId }) {
     }
   };
 
-// U handleEditComment:
-const handleEditComment = async (commentId) => {
-  // Validacija: OCENA JE OBAVEZNA
-  if (editRating < 1 || editRating > 5) {
-    toast.error("Please select a rating (1-5 stars)");
-    return;
-  }
+  const handleEditComment = async (commentId) => {
+    if (editRating < 1 || editRating > 5) {
+      toast.error("Please select a rating (1-5 stars)");
+      return;
+    }
 
-  // Validacija dužine teksta (ako postoji)
-  if (editText.length > 1000) {
-    toast.error("Comment is too long (max 1000 characters)");
-    return;
-  }
+    if (editText.length > 1000) {
+      toast.error("Comment is too long (max 1000 characters)");
+      return;
+    }
 
-  try {
-    setSubmitting(true);
-    const updatedComment = await updateComment(commentId, editText.trim(), editRating);
-    setComments(prev => 
-      prev.map(comment => comment.id === commentId ? updatedComment : comment)
-    );
-    setUserReview(updatedComment);
-    setEditingComment(null);
-    setEditText("");
-    setEditRating(0);
-    toast.success("Review updated successfully");
-  } catch (error) {
-    console.error("Failed to update review:", error);
-    toast.error(error.message || "Failed to update review");
-  } finally {
-    setSubmitting(false);
-  }
-};
+    try {
+      setSubmitting(true);
+      const updatedComment = await updateComment(commentId, editText.trim(), editRating);
+      setComments(prev => 
+        prev.map(comment => comment.id === commentId ? updatedComment : comment)
+      );
+      setUserReview(updatedComment);
+      setEditingComment(null);
+      setEditText("");
+      setEditRating(0);
+      toast.success("Review updated successfully");
+    } catch (error) {
+      console.error("Failed to update review:", error);
+      toast.error(error.message || "Failed to update review");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const handleDeleteComment = async (commentId) => {
     if (!window.confirm("Are you sure you want to delete this review?")) {
@@ -251,8 +250,8 @@ const handleEditComment = async (commentId) => {
 
   return (
     <div className="space-y-4">
-      {/* Forma za dodavanje recenzije */}
-      {isStudent && !userReview && (
+      {/* Forma se prikazuje samo ako NIJE organizator i nema recenziju */}
+      {isStudent && !userReview && !localIsOrganizer && !isOrganizer ? (
         <div className="space-y-3 border-b border-gray-200 pb-4">
           <div className="space-y-2">
             <label className="text-sm font-medium text-gray-700">
@@ -286,9 +285,9 @@ const handleEditComment = async (commentId) => {
             </Button>
           </div>
         </div>
-      )}
+      ) : null}
   
-      {/* Lista komentara - ISTI STIL KAO TICKET TYPES */}
+      {/* Lista komentara sa fiksnom visinom i scroll-om */}
       {loading ? (
         <div className="text-center py-4">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
@@ -299,7 +298,7 @@ const handleEditComment = async (commentId) => {
           No reviews yet. Be the first to share your experience!
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
           {comments.map((comment) => {
             const isOwner = currentUserId && comment.user_id === parseInt(currentUserId);
             const isEditing = editingComment === comment.id;
@@ -312,7 +311,6 @@ const handleEditComment = async (commentId) => {
                 key={comment.id} 
                 className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 hover:bg-gray-100 transition"
               >
-                {/* Header: avatar + ime + ocena + vreme */}
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0">
                     <Avatar className="h-8 w-8 flex-shrink-0">
@@ -334,7 +332,6 @@ const handleEditComment = async (commentId) => {
                     </div>
                   </div>
                   
-                  {/* Edit/Delete dugmići */}
                   {isStudent && isOwner && !isEditing && (
                     <div className="flex items-center gap-1 flex-shrink-0">
                       <Button
@@ -358,7 +355,6 @@ const handleEditComment = async (commentId) => {
                   )}
                 </div>
   
-                {/* Tekst komentara ili edit forma */}
                 {isEditing ? (
                   <div className="mt-3 space-y-3">
                     <div className="space-y-2">

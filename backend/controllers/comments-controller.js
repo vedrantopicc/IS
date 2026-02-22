@@ -40,12 +40,10 @@ export const createComment = async (req, res) => {
       return res.status(403).json({ message: "Only students can add reviews" });
     }
 
-    // Validacija: OCENA JE OBAVEZNA
     if (!rating || rating < 1 || rating > 5) {
       return res.status(400).json({ message: "Rating is required (1-5 stars)" });
     }
 
-    // Validacija dužine teksta (ako je prosleđen)
     if (comment_text && comment_text.length > 1000) {
       return res.status(400).json({ message: "Comment is too long (max 1000 characters)" });
     }
@@ -59,7 +57,17 @@ export const createComment = async (req, res) => {
       return res.status(404).json({ message: "Event not found" });
     }
 
-    // Provera da li već postoji recenzija
+    const [event] = await pool.execute(
+      "SELECT organizer_id FROM event WHERE id = ?",
+      [eventId]
+    );
+
+    if (event.length > 0 && event[0].organizer_id === userId) {
+      return res.status(403).json({ 
+        message: "Organizers cannot review their own events" 
+      });
+    }
+
     const [existingReview] = await pool.execute(
       "SELECT id FROM comments WHERE user_id = ? AND event_id = ?",
       [userId, eventId]

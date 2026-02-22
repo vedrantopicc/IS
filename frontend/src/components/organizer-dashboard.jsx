@@ -15,7 +15,7 @@ import { Badge } from "../components/ui/badge";
 import { Table, TableHead, TableRow, TableCell, TableHeader, TableBody } from "../components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../components/ui/dialog";
-import { Settings, LogOut, Plus, Edit, Trash2, Users, Calendar, Clock, MapPin, Eye, Shield, Minus, BarChart3, Star, ArrowRight, TrendingUp} from "lucide-react";
+import { Settings, LogOut, Plus, Edit, Trash2, Users, Calendar, Clock, MapPin, Eye, Shield, Minus, BarChart3, Star, ArrowRight, TrendingUp } from "lucide-react";
 import { logoutApi } from "../services/auth";
 import { getCategories } from "../services/categories";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "../components/ui/select";
@@ -129,18 +129,18 @@ export default function OrganizerDashboard() {
   };
   const [formData, setFormData] = useState(getInitialFormData());
 
-useEffect(() => {
-  loadEvents();
-}, [page]);
+  useEffect(() => {
+    loadEvents();
+  }, [page]);
 
-useEffect(() => {
-  const t = setTimeout(() => setQDebounced(q), 350);
-  return () => clearTimeout(t);
-}, [q]);
+  useEffect(() => {
+    const t = setTimeout(() => setQDebounced(q), 350);
+    return () => clearTimeout(t);
+  }, [q]);
 
-useEffect(() => {
-  setPage(1);
-}, [qDebounced]);
+  useEffect(() => {
+    setPage(1);
+  }, [qDebounced]);
 
 
   useEffect(() => {
@@ -160,26 +160,26 @@ useEffect(() => {
   }, []);
 
 
- const loadEvents = async () => {
-  try {
-    setLoading(true);
+  const loadEvents = async () => {
+    try {
+      setLoading(true);
 
-    const resp = await getOrganizerEvents({ page, limit, q: qDebounced });
+      const resp = await getOrganizerEvents({ page, limit, q: qDebounced });
 
-    const items = Array.isArray(resp) ? resp : (resp?.items ?? []);
-    const meta  = Array.isArray(resp)
-      ? { page, limit, total: items.length, totalPages: 1 }
-      : (resp?.meta ?? { page, limit, total: 0, totalPages: 1 });
+      const items = Array.isArray(resp) ? resp : (resp?.items ?? []);
+      const meta = Array.isArray(resp)
+        ? { page, limit, total: items.length, totalPages: 1 }
+        : (resp?.meta ?? { page, limit, total: 0, totalPages: 1 });
 
-    setEvents(items);
-    setMeta(meta);
-  } catch (err) {
-    console.error("Failed to load events:", err);
-    toast.error("Failed to load events");
-  } finally {
-    setLoading(false);
-  }
-};
+      setEvents(items);
+      setMeta(meta);
+    } catch (err) {
+      console.error("Failed to load events:", err);
+      toast.error("Failed to load events");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const addTicketType = () => {
     setTicketTypes([...ticketTypes, { name: "", price: "", total_seats: "" }]);
@@ -211,7 +211,7 @@ useEffect(() => {
 
   const handleCreateEvent = async (status = "DRAFT") => {
     const cid = Number(categoryId);
-    
+
     if (!Number.isInteger(cid) || cid <= 0) {
       toast.error("Please select a valid category");
       return;
@@ -257,7 +257,7 @@ useEffect(() => {
 
   const handleUpdateEvent = async (status = null) => {
     const cid = Number(categoryId);
-    
+
     if (!formData.date_and_time || new Date(formData.date_and_time) <= new Date()) {
       toast.error("Event date must be in the future");
       return;
@@ -358,74 +358,74 @@ useEffect(() => {
   };
 
   function renderPagination() {
-  const totalPages = meta?.totalPages ?? 1;
-  if (totalPages <= 1) return null;
+    const totalPages = meta?.totalPages ?? 1;
+    if (totalPages <= 1) return null;
 
-  const go = (p) => setPage(Math.min(totalPages, Math.max(1, p)));
+    const go = (p) => setPage(Math.min(totalPages, Math.max(1, p)));
 
-  const maxMiddle = 5;
-  const pages = [];
+    const maxMiddle = 5;
+    const pages = [];
 
-  const start = Math.max(2, page - Math.floor(maxMiddle / 2));
-  const end = Math.min(totalPages - 1, start + maxMiddle - 1);
-  const startFixed = Math.max(2, end - maxMiddle + 1);
+    const start = Math.max(2, page - Math.floor(maxMiddle / 2));
+    const end = Math.min(totalPages - 1, start + maxMiddle - 1);
+    const startFixed = Math.max(2, end - maxMiddle + 1);
 
-  const PageBtn = ({ p, active }) => (
-    <button
-      type="button"
-      onClick={() => go(p)}
-      className={[
-        "h-10 w-10 rounded-full text-sm font-medium transition",
-        "hover:bg-gray-100 active:scale-[0.98]",
-        active ? "ring-2 ring-gray-900 text-gray-900 bg-white" : "text-gray-700",
-      ].join(" ")}
-      aria-current={active ? "page" : undefined}
-    >
-      {p}
-    </button>
-  );
-
-  const ArrowBtn = ({ dir }) => {
-    const disabled = dir === "left" ? page === 1 : page === totalPages;
-    const Icon = dir === "left" ? ChevronLeft : ChevronRight;
-
-    return (
+    const PageBtn = ({ p, active }) => (
       <button
         type="button"
-        onClick={() => go(dir === "left" ? page - 1 : page + 1)}
-        disabled={disabled}
+        onClick={() => go(p)}
         className={[
-          "h-10 w-10 rounded-full grid place-items-center transition",
-          disabled ? "text-gray-300 cursor-not-allowed" : "text-gray-800 hover:bg-gray-100",
+          "h-10 w-10 rounded-full text-sm font-medium transition",
+          "hover:bg-gray-100 active:scale-[0.98]",
+          active ? "ring-2 ring-gray-900 text-gray-900 bg-white" : "text-gray-700",
         ].join(" ")}
-        aria-label={dir === "left" ? "Previous page" : "Next page"}
+        aria-current={active ? "page" : undefined}
       >
-        <Icon className="h-5 w-5" />
+        {p}
       </button>
     );
-  };
 
-  return (
-    <div className="mt-10 flex items-center justify-center gap-2 select-none">
-      <ArrowBtn dir="left" />
-      <PageBtn p={1} active={page === 1} />
+    const ArrowBtn = ({ dir }) => {
+      const disabled = dir === "left" ? page === 1 : page === totalPages;
+      const Icon = dir === "left" ? ChevronLeft : ChevronRight;
 
-      {startFixed > 2 && <span className="px-1 text-gray-400">…</span>}
+      return (
+        <button
+          type="button"
+          onClick={() => go(dir === "left" ? page - 1 : page + 1)}
+          disabled={disabled}
+          className={[
+            "h-10 w-10 rounded-full grid place-items-center transition",
+            disabled ? "text-gray-300 cursor-not-allowed" : "text-gray-800 hover:bg-gray-100",
+          ].join(" ")}
+          aria-label={dir === "left" ? "Previous page" : "Next page"}
+        >
+          <Icon className="h-5 w-5" />
+        </button>
+      );
+    };
 
-      {(() => {
-        for (let p = startFixed; p <= end; p++) {
-          pages.push(<PageBtn key={p} p={p} active={p === page} />);
-        }
-        return pages;
-      })()}
+    return (
+      <div className="mt-10 flex items-center justify-center gap-2 select-none">
+        <ArrowBtn dir="left" />
+        <PageBtn p={1} active={page === 1} />
 
-      {end < totalPages - 1 && <span className="px-1 text-gray-400">…</span>}
+        {startFixed > 2 && <span className="px-1 text-gray-400">…</span>}
 
-      {totalPages > 1 && <PageBtn p={totalPages} active={page === totalPages} />}
-      <ArrowBtn dir="right" />
-    </div>
-  );
-}
+        {(() => {
+          for (let p = startFixed; p <= end; p++) {
+            pages.push(<PageBtn key={p} p={p} active={p === page} />);
+          }
+          return pages;
+        })()}
+
+        {end < totalPages - 1 && <span className="px-1 text-gray-400">…</span>}
+
+        {totalPages > 1 && <PageBtn p={totalPages} active={page === totalPages} />}
+        <ArrowBtn dir="right" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -548,140 +548,140 @@ useEffect(() => {
             </CardContent>
           </Card>
         ) : (
-          
-          <>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {events.map((event) => {
-              const { date, time } = formatDateTime(event.date_and_time);
-              const isPast = isEventInPast(event.date_and_time);
 
-              return (
-                <Card key={event.id} className={`overflow-hidden bg-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02] ${isPast ? 'opacity-75' : ''} relative`}>
-                  {/* ✅ STATUS BADGE */}
-                  {event.status === "DRAFT" && (
-                    <Badge className="absolute top-2 left-2 bg-yellow-500 text-white z-10">
-                      Draft
-                    </Badge>
-                  )}
-                  
-                  {/* ✅ IMAGE SECTION */}
-                  <div className="relative h-48 overflow-hidden">
-                    {event.image ? (
-                      <img
-                        src={event.image}
-                        alt={event.title}
-                        className="w-full h-full object-cover transition-transform duration-300 hover:scale-110"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-400">
-                        <Calendar className="h-12 w-12" />
-                      </div>
-                    )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
-                    {isPast && (
-                      <Badge className="absolute top-2 right-2 bg-gray-600/90 text-white">
-                        Past Event
+          <>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {events.map((event) => {
+                const { date, time } = formatDateTime(event.date_and_time);
+                const isPast = isEventInPast(event.date_and_time);
+
+                return (
+                  <Card key={event.id} className={`overflow-hidden bg-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02] ${isPast ? 'opacity-75' : ''} relative`}>
+                    {/* ✅ STATUS BADGE */}
+                    {event.status === "DRAFT" && (
+                      <Badge className="absolute top-2 left-2 bg-yellow-500 text-white z-10">
+                        Draft
                       </Badge>
                     )}
-                  </div>
 
-                  {/* ✅ CONTENT SECTION */}
-                  <CardContent className="p-6 space-y-4">
-                    <h3 className="text-xl font-bold text-gray-900 line-clamp-2 leading-tight">
-                      {event.title}
-                    </h3>
-
-                    {/* Location */}
-                    <div className="flex items-center space-x-2 text-gray-600">
-                      <MapPin className="w-4 h-4 text-blue-600 flex-shrink-0" />
-                      <span className="text-sm font-medium line-clamp-1">{event.location || "Location not specified"}</span>
-                    </div>
-
-                    {/* Date, Time & Rating */}
-                    <div className="flex flex-wrap items-center gap-4 text-gray-600">
-                      <div className="flex items-center space-x-2">
-                        <Calendar className="w-4 h-4 text-blue-600 flex-shrink-0" />
-                        <span className="text-sm font-medium">{date}</span>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Clock className="w-4 h-4 text-blue-600 flex-shrink-0" />
-                        <span className="text-sm font-medium">{time}</span>
-                      </div>
-                      {event.averageRating && parseFloat(event.averageRating) > 0 && (
-                        <div className="flex items-center space-x-1">
-                          <Star className="w-4 h-4 fill-yellow-400 text-yellow-400 flex-shrink-0" />
-                          <span className="text-sm font-bold text-gray-900">{parseFloat(event.averageRating).toFixed(1)}</span>
+                    {/* ✅ IMAGE SECTION */}
+                    <div className="relative h-48 overflow-hidden">
+                      {event.image ? (
+                        <img
+                          src={event.image}
+                          alt={event.title}
+                          className="w-full h-full object-cover transition-transform duration-300 hover:scale-110"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-400">
+                          <Calendar className="h-12 w-12" />
                         </div>
+                      )}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
+                      {isPast && (
+                        <Badge className="absolute top-2 right-2 bg-gray-600/90 text-white">
+                          Past Event
+                        </Badge>
                       )}
                     </div>
 
-                    {/* ✅ ACTION BUTTONS */}
-                    <div className="pt-2 border-t border-gray-100 space-y-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleViewReservations(event)}
-                        className="w-full text-gray-700 hover:text-gray-900 border-gray-300 hover:bg-gray-100 cursor-pointer"
-                      >
-                        <Users className="mr-2 h-4 w-4" />
-                        View Reservations
-                      </Button>
+                    {/* ✅ CONTENT SECTION */}
+                    <CardContent className="p-6 space-y-4">
+                      <h3 className="text-xl font-bold text-gray-900 line-clamp-2 leading-tight">
+                        {event.title}
+                      </h3>
 
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleViewSalesProgress(event)}
-                        className="w-full text-green-600 hover:text-green-700 border-green-300 hover:bg-green-50 cursor-pointer"
-                      >
-                        <BarChart3 className="mr-2 h-4 w-4" />
-                        Sales Progress
-                      </Button>
-					  
-					  {/* --- AŽURIRANO DUGME SA STRELICOM --- */}
-						<Button
-						  size="sm"
-						  variant="outline"
-						  onClick={() => navigate(`/organizer/event-stats/${event.id}`)}
-						  className="w-full text-purple-600 hover:text-purple-700 border-purple-300 hover:bg-purple-50 cursor-pointer flex items-center justify-center gap-2"
-						>
-						  {/* Samo ikonica za rast i tekst, centrirano */}
-						  <TrendingUp className="h-4 w-4" /> 
-						  <span className="font-medium">Analytics</span>
-						</Button>
-
-                      <div className="flex gap-2 pt-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleEdit(event)}
-                          className="flex-1 text-blue-600 hover:text-blue-700 border-blue-300 hover:bg-blue-50 cursor-pointer"
-                        >
-                          <Edit className="mr-2 h-4 w-4" />
-                          Edit
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setSelectedEvent(event);
-                            setShowDeleteDialog(true);
-                          }}
-                          className="flex-1 text-red-600 hover:text-red-700 hover:bg-red-50 cursor-pointer"
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Delete
-                        </Button>
+                      {/* Location */}
+                      <div className="flex items-center space-x-2 text-gray-600">
+                        <MapPin className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                        <span className="text-sm font-medium line-clamp-1">{event.location || "Location not specified"}</span>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
 
-          {renderPagination()}
-         </>
+                      {/* Date, Time & Rating */}
+                      <div className="flex flex-wrap items-center gap-4 text-gray-600">
+                        <div className="flex items-center space-x-2">
+                          <Calendar className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                          <span className="text-sm font-medium">{date}</span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Clock className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                          <span className="text-sm font-medium">{time}</span>
+                        </div>
+                        {event.averageRating && parseFloat(event.averageRating) > 0 && (
+                          <div className="flex items-center space-x-1">
+                            <Star className="w-4 h-4 fill-yellow-400 text-yellow-400 flex-shrink-0" />
+                            <span className="text-sm font-bold text-gray-900">{parseFloat(event.averageRating).toFixed(1)}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* ✅ ACTION BUTTONS */}
+                      <div className="pt-2 border-t border-gray-100 space-y-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleViewReservations(event)}
+                          className="w-full text-gray-700 hover:text-gray-900 border-gray-300 hover:bg-gray-100 cursor-pointer"
+                        >
+                          <Users className="mr-2 h-4 w-4" />
+                          View Reservations
+                        </Button>
+
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleViewSalesProgress(event)}
+                          className="w-full text-green-600 hover:text-green-700 border-green-300 hover:bg-green-50 cursor-pointer"
+                        >
+                          <BarChart3 className="mr-2 h-4 w-4" />
+                          Sales Progress
+                        </Button>
+
+                        {/* --- AŽURIRANO DUGME SA STRELICOM --- */}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => navigate(`/organizer/event-stats/${event.id}`)}
+                          className="w-full text-purple-600 hover:text-purple-700 border-purple-300 hover:bg-purple-50 cursor-pointer flex items-center justify-center gap-2"
+                        >
+                          {/* Samo ikonica za rast i tekst, centrirano */}
+                          <TrendingUp className="h-4 w-4" />
+                          <span className="font-medium">Analytics</span>
+                        </Button>
+
+                        <div className="flex gap-2 pt-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleEdit(event)}
+                            className="flex-1 text-blue-600 hover:text-blue-700 border-blue-300 hover:bg-blue-50 cursor-pointer"
+                          >
+                            <Edit className="mr-2 h-4 w-4" />
+                            Edit
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setSelectedEvent(event);
+                              setShowDeleteDialog(true);
+                            }}
+                            className="flex-1 text-red-600 hover:text-red-700 hover:bg-red-50 cursor-pointer"
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+
+            {renderPagination()}
+          </>
         )}
 
         {/* CREATE DIALOG */}
@@ -706,7 +706,7 @@ useEffect(() => {
                 <Input
                   value={formData.location}
                   onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                  placeholder="Enter event location (e.g. City Hall, Banja Luka)"
+                  placeholder="Enter event location"
                 />
               </div>
               <div className="mb-4">
@@ -761,46 +761,66 @@ useEffect(() => {
                     <Plus className="h-3 w-3 mr-1" /> Add
                   </Button>
                 </div>
-                <div className="space-y-3 p-3 bg-gray-50 rounded">
+                <div className="space-y-3 p-3 bg-white rounded-lg border border-black">
                   {ticketTypes.map((tt, index) => (
-                    <div key={index} className="grid grid-cols-12 gap-2 items-end">
-                      <div className="col-span-4">
+                    <div key={index} className="grid grid-cols-12 gap-3 items-end">
+                      {/* Name - šire polje */}
+                      <div className="col-span-5">
+                        <label className="block text-xs font-medium text-black mb-1">
+                          Name
+                        </label>
                         <Input
-                          placeholder="Name (e.g. VIP)"
+                          className="focus-visible:outline-none focus-visible:ring-0 h-10"
+                          placeholder="e.g. VIP, Regular"
                           value={tt.name}
                           onChange={(e) => updateTicketType(index, "name", e.target.value)}
                           required
                         />
                       </div>
+
+                      {/* Price */}
                       <div className="col-span-3">
+                        <label className="block text-xs font-medium text-black mb-1">
+                          Price (KM)
+                        </label>
                         <Input
+                          className="focus-visible:outline-none focus-visible:ring-0 h-10"
                           type="number"
                           step="0.01"
                           min="0"
-                          placeholder="Price"
+                          placeholder="0.00"
                           value={tt.price}
                           onChange={(e) => updateTicketType(index, "price", e.target.value)}
                           required
                         />
                       </div>
+
+                      {/* Seats */}
                       <div className="col-span-3">
+                        <label className="block text-xs font-medium text-black mb-1">
+                          Seats
+                        </label>
                         <Input
+                          className="focus-visible:outline-none focus-visible:ring-0 h-10"
                           type="number"
                           min="1"
-                          placeholder="Seats"
+                          placeholder="100"
                           value={tt.total_seats}
                           onChange={(e) => updateTicketType(index, "total_seats", e.target.value)}
                           required
                         />
                       </div>
-                      <div className="col-span-2 flex justify-end">
+
+                      {/* Delete button */}
+                      <div className="col-span-1 flex items-end pb-1">
                         {ticketTypes.length > 1 && (
                           <Button
                             type="button"
                             size="sm"
                             variant="ghost"
                             onClick={() => removeTicketType(index)}
-                            className="text-red-500 hover:bg-red-50 p-1 h-8 w-8"
+                            className="text-red-500 hover:bg-red-50 hover:text-red-700 p-2 h-9 w-9 rounded-md"
+                            title="Remove ticket type"
                           >
                             <Minus className="h-4 w-4" />
                           </Button>
