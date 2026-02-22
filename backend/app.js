@@ -10,6 +10,10 @@ import demoRouter from "./routes/demo.js"; // ← novi import
 import roleRequestRoutes from "./routes/role-requests.js";
 import categoriesRouter from "./routes/categories.js";
 import notificationsRouter from "./routes/notifications.js";
+import path from "path";
+import { fileURLToPath } from "url";
+
+
 
 
 
@@ -21,6 +25,12 @@ app.use(cors({
   methods: ["GET", "POST", "PUT", "DELETE","PATCH",  "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"]
 }));
+
+
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 
 app.use(express.json());
 
@@ -34,7 +44,10 @@ app.use("/comments", commentsRouter);
 app.use("/demo", demoRouter); // ← novi demo endpoint (samo u developmentu)
 app.use("/role-requests", roleRequestRoutes);
 app.use("/notifications", notificationsRouter);
-
+// npr. backend/uploads
+// app.js
+// umjesto "uploads" -> idi jedan folder gore
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 
 app.use((req, res) => {
@@ -46,5 +59,13 @@ app.use((err, req, res, next) => {
   const status = err.status || 500;
   res.status(status).json({ error: err.message || "Internal Server Error" });
 });
+
+
+
+
+
+
+
+
 
 export default app;

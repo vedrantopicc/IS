@@ -23,6 +23,7 @@ import { getOrganizerEvents, createEvent, updateEvent, deleteEvent, getEventRese
 import { toast } from "react-toastify";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
+import { resolveImage } from "../lib/image";
 
 // Helper funkcije
 function getToken() { return localStorage.getItem("token"); }
@@ -111,8 +112,18 @@ export default function OrganizerDashboard() {
   const [limit] = useState(9);
   const [meta, setMeta] = useState({ page: 1, limit: 9, total: 0, totalPages: 1 });
 
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState("");
+
+
   const [q, setQ] = useState("");
   const [qDebounced, setQDebounced] = useState("");
+
+   const fallbackUrl =
+  "https://images.pexels.com/photos/1190298/pexels-photo-1190298.jpeg?auto=compress&cs=tinysrgb&w=800";
+
+
+  
 
   const getInitialFormData = () => {
     const tomorrow = new Date();
@@ -128,6 +139,13 @@ export default function OrganizerDashboard() {
     };
   };
   const [formData, setFormData] = useState(getInitialFormData());
+
+const onPickImage = (file) => {
+  setImageFile(file || null);
+  if (file) setImagePreview(URL.createObjectURL(file));
+  else setImagePreview("");
+};
+
 
   useEffect(() => {
     loadEvents();
@@ -160,6 +178,7 @@ export default function OrganizerDashboard() {
   }, []);
 
 
+  
   const loadEvents = async () => {
     try {
       setLoading(true);
@@ -228,22 +247,33 @@ export default function OrganizerDashboard() {
     }
 
     try {
-      const eventData = {
-        title: formData.title.trim(),
-        description: formData.description.trim(),
-        location: formData.location.trim(),
-        date_and_time: formatDateTimeForMySQL(formData.date_and_time),
-        image: formData.image.trim() || null,
-        category_id: cid,
-        status: status,
-        ticketTypes: ticketTypes.map(tt => ({
-          name: tt.name.trim(),
-          price: parseFloat(tt.price),
-          total_seats: parseInt(tt.total_seats)
-        }))
-      };
+    const fd = new FormData();
 
-      await createEvent(eventData);
+fd.append("title", formData.title.trim());
+fd.append("description", formData.description.trim());
+fd.append("location", formData.location.trim());
+fd.append("date_and_time", formatDateTimeForMySQL(formData.date_and_time));
+fd.append("category_id", String(cid));
+fd.append("status", status);
+
+// ticketTypes mora ovako:
+fd.append("ticketTypes", JSON.stringify(
+  ticketTypes.map(tt => ({
+    name: tt.name.trim(),
+    price: parseFloat(tt.price),
+    total_seats: parseInt(tt.total_seats)
+  }))
+));
+
+// slika
+if (imageFile) {
+  fd.append("image", imageFile);
+} else if (formData.image.trim()) {
+  // fallback (ako ti ostane stari URL u formData.image)
+  fd.append("image", formData.image.trim());
+}
+
+await createEvent(fd);;
       toast.success(status === "DRAFT" ? "Event saved as draft" : "Event created successfully");
       setShowCreateDialog(false);
       resetForm();
@@ -268,17 +298,26 @@ export default function OrganizerDashboard() {
     }
 
     try {
-      const eventData = {
-        title: formData.title.trim(),
-        description: formData.description.trim(),
-        location: formData.location.trim(),
-        date_and_time: formatDateTimeForMySQL(formData.date_and_time),
-        image: formData.image.trim() || null,
-        category_id: cid,
-        ...(status && { status })
-      };
+      const fd = new FormData();
 
-      await updateEvent(selectedEvent.id, eventData);
+fd.append("title", formData.title.trim());
+fd.append("description", formData.description.trim());
+fd.append("location", formData.location.trim());
+fd.append("date_and_time", formatDateTimeForMySQL(formData.date_and_time));
+fd.append("category_id", String(cid));
+
+// status je opcionalan
+if (status) fd.append("status", status);
+
+// slika: samo ako je izabrana nova
+if (imageFile) {
+  fd.append("image", imageFile);
+} else if (formData.image.trim()) {
+  // fallback ako i dalje koristiš URL
+  fd.append("image", formData.image.trim());
+}
+
+await updateEvent(selectedEvent.id, fd);
       toast.success(status === "DRAFT" ? "Event saved as draft" : "Event updated successfully");
       setShowEditDialog(false);
       resetForm();
@@ -339,6 +378,8 @@ export default function OrganizerDashboard() {
       status: event.status || "DRAFT"
     });
     setCategoryId(String(event.category_id || ""));
+    setImageFile(null);
+    setImagePreview("");
 
     setShowEditDialog(true);
   };
@@ -346,6 +387,8 @@ export default function OrganizerDashboard() {
   const resetForm = () => {
     setFormData(getInitialFormData());
     setCategoryId("");
+    setImageFile(null);
+    setImagePreview("");
     setTicketTypes([{ name: "", price: "", total_seats: "" }]);
   };
 
@@ -356,6 +399,7 @@ export default function OrganizerDashboard() {
       navigate("/");
     }
   };
+ 
 
   function renderPagination() {
     const totalPages = meta?.totalPages ?? 1;
@@ -384,6 +428,7 @@ export default function OrganizerDashboard() {
         {p}
       </button>
     );
+
 
     const ArrowBtn = ({ dir }) => {
       const disabled = dir === "left" ? page === 1 : page === totalPages;
@@ -569,7 +614,7 @@ export default function OrganizerDashboard() {
                     <div className="relative h-48 overflow-hidden">
                       {event.image ? (
                         <img
-                          src={event.image}
+                          src={resolveImage(event.image)}
                           alt={event.title}
                           className="w-full h-full object-cover transition-transform duration-300 hover:scale-110"
                         />
@@ -693,14 +738,14 @@ export default function OrganizerDashboard() {
             </DialogHeader>
             <form className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
               <div>
-                <label className="block text-sm font-medium mb-1">Event Title *</label>
-                <Input
-                  value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  placeholder="Enter event title"
-                  required
-                />
-              </div>
+             <label className="block text-sm font-medium mb-1">Event Title *</label>
+         <Input
+            value={formData.title}
+            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+            placeholder="Enter event title"
+            required
+          />
+          </div>
               <div>
                 <label className="block text-sm font-medium mb-1">Location</label>
                 <Input
@@ -733,27 +778,54 @@ export default function OrganizerDashboard() {
                   rows={3}
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1">Date & Time *</label>
-                  <Input
-                    type="datetime-local"
-                    value={formData.date_and_time}
-                    onChange={(e) => setFormData({ ...formData, date_and_time: e.target.value })}
-                    min={new Date().toISOString().slice(0, 16)}
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Image URL</label>
-                  <Input
-                    type="url"
-                    value={formData.image}
-                    onChange={(e) => setFormData({ ...formData, image: e.target.value })}
-                    placeholder="https://example.com/image.jpg"
-                  />
-                </div>
-              </div>
+             <div className="grid grid-cols-2 gap-4">
+  <div>
+    <label className="block text-sm font-medium mb-1">Date & Time *</label>
+    <Input
+      type="datetime-local"
+      value={formData.date_and_time}
+      onChange={(e) => setFormData({ ...formData, date_and_time: e.target.value })}
+      min={new Date().toISOString().slice(0, 16)}
+      required
+    />
+  </div>
+
+  <div>
+    <label className="block text-sm font-medium mb-1">Event Image</label>
+
+    <div className="flex items-center gap-3">
+      <Input
+        type="file"
+        accept="image/*"
+        onChange={(e) => onPickImage(e.target.files?.[0])}
+      />
+
+      {imageFile && (
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => onPickImage(null)}
+          className="shrink-0"
+        >
+          Remove
+        </Button>
+      )}
+    </div>
+
+    {(imagePreview || formData.image) && (
+      <div className="mt-2 overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
+        <img
+          src={imagePreview || resolveImage(formData.image)}
+          alt="Preview"
+          className="h-32 w-full object-cover"
+        />
+      </div>
+    )}
+
+    <p className="mt-1 text-xs text-gray-500">JPG/PNG/WEBP, max ~5MB</p>
+  </div>
+</div>
+           
               <div>
                 <div className="flex justify-between items-center mb-2">
                   <label className="block text-sm font-medium">Ticket Types *</label>
@@ -920,13 +992,17 @@ export default function OrganizerDashboard() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Image URL</label>
-                  <Input
-                    type="url"
-                    value={formData.image}
-                    onChange={(e) => setFormData({ ...formData, image: e.target.value })}
-                    placeholder="https://example.com/image.jpg"
-                  />
+                 <label className="block text-sm font-medium mb-1">Upload Image</label>
+                <Input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setImageFile(e.target.files?.[0] || null)}
+                />
+
+                {/* opcionalno: pokaži staru URL vrijednost ako želiš zadržati */}
+                {formData.image ? (
+                  <p className="text-xs text-gray-500 mt-1">Current: {formData.image}</p>
+                  ) : null}
                 </div>
               </div>
               <DialogFooter className="flex flex-col sm:flex-row gap-2">

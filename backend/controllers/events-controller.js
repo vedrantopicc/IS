@@ -195,8 +195,22 @@ res.json({
 export async function createEvent(req, res, next) {
   try {
     const userId = req.user.id;
-    // ✅ DODATO: status u destructuring
-    const { title, description, location, date_and_time, image, ticketTypes, category_id, status } = req.body;
+
+    let { title, description, location, date_and_time, ticketTypes, category_id, status, image } = req.body;
+
+    // FormData često šalje ticketTypes kao string
+    if (typeof ticketTypes === "string") {
+      try {
+        ticketTypes = JSON.parse(ticketTypes);
+      } catch {
+        ticketTypes = [];
+      }
+    }
+
+    // Ako je uploadovan fajl, koristi njega; inače zadrži URL iz body (ako postoji)
+    const imagePath = req.file
+      ? `/uploads/${req.file.filename}`
+      : (typeof image === "string" && image.trim() ? image.trim() : null);
 
     if (!title || !date_and_time || !Array.isArray(ticketTypes) || ticketTypes.length === 0) {
       return res.status(400).json({ error: "Title, date, and at least one ticket type are required" });
@@ -206,24 +220,22 @@ export async function createEvent(req, res, next) {
     }
 
     for (const tt of ticketTypes) {
-      if (!tt.name || tt.price == null || tt.total_seats == null || tt.total_seats <= 0) {
+      if (!tt.name || tt.price == null || tt.total_seats == null || Number(tt.total_seats) <= 0) {
         return res.status(400).json({ error: "Each ticket type must have 'name', 'price', and 'total_seats > 0'" });
       }
     }
 
-    // ✅ Koristi prosleđeni status ili default 'DRAFT'
-    const eventStatus = status || 'DRAFT';
+    const eventStatus = status || "DRAFT";
 
     const [eventResult] = await pool.query(
-     `INSERT INTO event (title, description, location, date_and_time, image, user_id, category_id, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      // ✅ DODATO: eventStatus na kraj params niza
-      [title, description || null, location || null, date_and_time, image || null, userId, category_id, eventStatus]
+      `INSERT INTO event (title, description, location, date_and_time, image, user_id, category_id, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [title, description || null, location || null, date_and_time, imagePath, userId, category_id, eventStatus]
     );
 
     const eventId = eventResult.insertId;
 
-    const ticketTypeValues = ticketTypes.map(tt => [
+    const ticketTypeValues = ticketTypes.map((tt) => [
       eventId,
       tt.name,
       tt.price,
@@ -236,12 +248,11 @@ export async function createEvent(req, res, next) {
       [ticketTypeValues]
     );
 
-    // ✅ Šalji notifikacije SAMO ako je event objavljen
-    if (eventStatus === 'PUBLISHED') {
-      // 🔥 IZMIJENJENO: ISKLJUČI ORGANIZATORA (userId) iz notifikacija
+    // Notifikacije samo ako je objavljeno
+    if (eventStatus === "PUBLISHED") {
       const [students] = await pool.query(
         `SELECT id FROM \`user\` WHERE role = 'Student' AND id != ?`,
-        [userId]  // ✅ Dodaj userId da se isključi organizator
+        [userId]
       );
 
       if (students.length) {
@@ -258,7 +269,6 @@ export async function createEvent(req, res, next) {
            VALUES ?`,
           [values]
         );
-        console.log(`📩 Notifications sent for event ${eventId} (excluded organizer ${userId})`);
       }
     }
 
@@ -271,6 +281,7 @@ export async function createEvent(req, res, next) {
          e.date_and_time,
          e.image,
          e.user_id,
+         e.category_id,
          e.status,
          CONCAT_WS(' ', u.name, u.surname) AS organizer_name,
          u.username AS organizer_username
@@ -294,16 +305,15 @@ export async function createEvent(req, res, next) {
   }
 }
 
-// ✅ AŽURIRAJ OSNOVNE PODATKE DOGAĐAJA (UKLJUČUJUĆI LOKACIJU I STATUS)
 export async function updateEvent(req, res, next) {
   try {
     const { id } = req.params;
     const userId = req.user.id;
-    const { title, description, location, date_and_time, image, category_id, status } = req.body;
 
-    // ✅ 1. Proveri trenutni (STARI) status eventa PRE ažuriranja
+    let { title, description, location, date_and_time, image, category_id, status } = req.body;
+
     const [existing] = await pool.query(
-      "SELECT id, status, title FROM event WHERE id = ? AND user_id = ?",
+      "SELECT id, status, title, image FROM event WHERE id = ? AND user_id = ?",
       [id, userId]
     );
 
@@ -313,8 +323,17 @@ export async function updateEvent(req, res, next) {
 
     const oldStatus = existing[0].status;
     const eventTitle = existing[0].title;
-    
-    // ✅ 2. Ažuriraj event
+    const oldImage = existing[0].image;
+
+    // default = stara slika
+    let newImage = oldImage;
+
+    if (req.file) {
+      newImage = `/uploads/${req.file.filename}`;
+    } else if (typeof image === "string" && image.trim()) {
+      newImage = image.trim();
+    }
+
     await pool.query(
       `UPDATE event SET 
          title = ?,
@@ -324,26 +343,26 @@ export async function updateEvent(req, res, next) {
          image = ?,
          category_id = ?,
          status = COALESCE(?, status)
-       WHERE id = ?`,
+       WHERE id = ? AND user_id = ?`,
       [
         title || null,
         description || null,
         location || null,
         date_and_time || null,
-        image || null,
+        newImage,
         Number(category_id),
         status,
-        id
+        id,
+        userId
       ]
     );
 
-    // ✅ 3. Šalji notifikacije SAMO ako je status promenjen iz DRAFT u PUBLISHED
-    const newStatus = status || oldStatus; // ako nije prosleđen, ostaje stari
-    if (newStatus === 'PUBLISHED' && oldStatus === 'DRAFT') {
-      // 🔥 IZMIJENJENO: ISKLJUČI ORGANIZATORA iz notifikacija
+    const newStatus = status || oldStatus;
+
+    if (newStatus === "PUBLISHED" && oldStatus === "DRAFT") {
       const [students] = await pool.query(
         `SELECT id FROM \`user\` WHERE role = 'Student' AND id != ?`,
-        [userId]  // ✅ Dodaj userId
+        [userId]
       );
 
       if (students.length) {
@@ -360,8 +379,6 @@ export async function updateEvent(req, res, next) {
            VALUES ?`,
           [values]
         );
-        
-        console.log(`📩 Notifications sent for event ${id} (DRAFT → PUBLISHED, excluded organizer ${userId})`);
       }
     }
 
@@ -386,7 +403,6 @@ export async function updateEvent(req, res, next) {
     next(err);
   }
 }
-
 // ✅ DOHVATI DOGAĐAJE ORGANIZATORA (samo neobrisani)
 export async function getOrganizerEvents(req, res, next) {
   try {

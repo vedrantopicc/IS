@@ -32,7 +32,7 @@ import { toast } from "react-toastify";
 import { Bell } from "lucide-react";
 import { CheckCheck } from "lucide-react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-
+import { resolveImage } from "../lib/image";
 
 import {
   getNotifications,
@@ -80,6 +80,8 @@ export default function StudentDashboard() {
   const [selectedReservation, setSelectedReservation] = useState(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [requesting, setRequesting] = useState(false);
+  const fallbackUrl =
+  "https://images.pexels.com/photos/1190298/pexels-photo-1190298.jpeg?auto=compress&cs=tinysrgb&w=800";
 
   const activeTab = searchParams.get("tab") || "events";
 const setActiveTab = (tab) => {
@@ -668,10 +670,10 @@ if (meta?.totalPages && eventsPage > meta.totalPages) {
             <Card key={event.id} className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer">
               <div className="relative h-48 overflow-hidden">
                 <img
-                  src={event.image || "https://images.pexels.com/photos/1190298/pexels-photo-1190298.jpeg?auto=compress&cs=tinysrgb&w=800"}
-                  alt={event.title}
-                  className="w-full h-full object-cover"
-                />
+  src={resolveImage(event.image) || fallbackUrl}
+  alt={event.title}
+  className="w-full h-full object-cover"
+/>
               </div>
 
               <CardContent className="p-4">

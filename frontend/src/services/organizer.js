@@ -29,18 +29,16 @@ export async function getOrganizerEvents({ page = 1, limit = 9, q = "" } = {}) {
 
 
 
-export async function createEvent(eventData) {
-  if (!Array.isArray(eventData.ticketTypes) || eventData.ticketTypes.length === 0) {
-    throw new Error("At least one ticket type is required");
-  }
+export async function createEvent(bodyData) {
+  const isForm = bodyData instanceof FormData;
 
   const response = await fetch(`${API_BASE_URL}/events/organizer/create`, {
     method: "POST",
     headers: {
-      "Content-Type": "application/json",
       ...getAuthHeader(),
+      ...(isForm ? {} : { "Content-Type": "application/json" }),
     },
-    body: JSON.stringify(eventData),
+    body: isForm ? bodyData : JSON.stringify(bodyData),
   });
 
   if (!response.ok) {
@@ -51,15 +49,16 @@ export async function createEvent(eventData) {
   return response.json();
 }
 
-// ✅ Ispravljeno: "organizer" (ne "organiganizer")
-export async function updateEvent(eventId, eventData) {
+export async function updateEvent(eventId, bodyData) {
+  const isForm = bodyData instanceof FormData;
+
   const response = await fetch(`${API_BASE_URL}/events/organizer/${eventId}`, {
     method: "PUT",
     headers: {
-      "Content-Type": "application/json",
       ...getAuthHeader(),
+      ...(isForm ? {} : { "Content-Type": "application/json" }),
     },
-    body: JSON.stringify(eventData),
+    body: isForm ? bodyData : JSON.stringify(bodyData),
   });
 
   if (!response.ok) {

@@ -13,6 +13,7 @@ import {
 } from "../controllers/events-controller.js";
 
 import { requireAdmin, requireOrganizer } from "../middleware/auth-middleware.js";
+import{ upload }from "../middleware/upload.js";
 
 const router = Router();
 
@@ -21,8 +22,8 @@ router.get("/", getAllEvents);
 
 // organizer (mora prije /:id)
 router.get("/organizer/my-events", requireOrganizer, getOrganizerEvents);
-router.post("/organizer/create", requireOrganizer, createEvent);
-router.put("/organizer/:id", requireOrganizer, updateEvent);
+router.post("/organizer/create", requireOrganizer, upload.single("image"), createEvent);
+router.put("/organizer/:id", requireOrganizer, upload.single("image"), updateEvent);
 router.delete("/organizer/:id", requireOrganizer, deleteOrganizerEvent);
 router.get("/organizer/:eventId/reservations", requireOrganizer, getEventReservations);
 router.get("/organizer/:eventId/sales-progress", requireOrganizer, getEventSalesProgress);

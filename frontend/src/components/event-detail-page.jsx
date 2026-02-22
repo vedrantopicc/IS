@@ -8,6 +8,7 @@ import { getEvent } from "../services/events";
 import { createReservation, getUserReservations } from "../services/reservations";
 import { toast } from "react-toastify";
 import Comments from "./comments";
+import { resolveImage } from "../lib/image";
 
 function formatDT(dtStr) {
   if (!dtStr) return { date: "", time: "" };
@@ -78,6 +79,7 @@ export default function EventDetailPage() {
   const userRole = useMemo(() => getCurrentUserRole(), []);
   const isStudent = userRole === "Student";
   const isLoggedIn = !!getToken();
+  
 
   // ✅ NOVO: Dobavi current user ID i provjeri da li je organizator
   const currentUserId = useMemo(() => getCurrentUserId(), []);
@@ -205,7 +207,7 @@ export default function EventDetailPage() {
           {event.image ? (
             <div className="relative">
               <img
-                src={event.image}
+                src={resolveImage(event.image)}
                 alt={event.title}
                 className="w-full h-56 md:h-72 object-cover"
               />
