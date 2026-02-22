@@ -82,7 +82,12 @@ export default function StudentDashboard() {
   const [requesting, setRequesting] = useState(false);
 
   const activeTab = searchParams.get("tab") || "events";
-  const setActiveTab = (tab) => setSearchParams({ tab });
+const setActiveTab = (tab) => {
+  const next = new URLSearchParams(searchParams);
+  next.set("tab", tab);
+  next.set("page", "1"); // ✅ reset na prvu stranicu
+  setSearchParams(next);
+};
 
   
 
@@ -96,18 +101,28 @@ const z = (n) => String(n).padStart(2, "0");
 const toParamDate = (d) =>
   d ? `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}` : undefined;
 
-const [eventsPage, setEventsPage] = useState(1);
 const [eventsLimit] = useState(9);
 const [eventsMeta, setEventsMeta] = useState({ page: 1, limit: 9, total: 0, totalPages: 1 });
 
+const eventsPage = useMemo(() => {
+  const p = Number(searchParams.get("page") || "1");
+  return Number.isFinite(p) && p > 0 ? p : 1;
+}, [searchParams]);
+
+const setPageInUrl = (p) => {
+  const next = new URLSearchParams(searchParams);
+  next.set("tab", activeTab);          // zadrži tab
+  next.set("page", String(p));         // upiši page
+  setSearchParams(next);
+};
 
 
 useEffect(() => {
   if (activeTab === "events") {
     loadStudentData();
   }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
 }, [eventsPage, activeTab]);
-
 
 
 const loadNotifications = async () => {
@@ -166,17 +181,13 @@ useEffect(() => {
   return () => clearInterval(t);
 }, []);
 
-useEffect(() => {
-  if (activeTab === "events") setEventsPage(1);
-}, [activeTab]);
 
 
 function renderEventsPagination() {
   const totalPages = eventsMeta?.totalPages ?? 1;
   if (totalPages <= 1) return null;
 
-  const go = (p) => setEventsPage(Math.min(totalPages, Math.max(1, p)));
-
+const go = (p) => setPageInUrl(Math.min(totalPages, Math.max(1, p)));
   const maxMiddle = 5;
   const pages = [];
 
@@ -263,6 +274,10 @@ setReservations(reservationsData);
 setAvailableEvents(eventsItems);
 setEventsMeta(meta ?? { page: eventsPage, limit: eventsLimit, total: eventsItems.length, totalPages: 1 });
 
+if (meta?.totalPages && eventsPage > meta.totalPages) {
+  setPageInUrl(meta.totalPages);
+  return; // da ne postavljaš “prazne” rezultate
+}
 // backend sada vraća { data, meta }
 
 
