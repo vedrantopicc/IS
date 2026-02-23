@@ -58,11 +58,11 @@ export const createComment = async (req, res) => {
     }
 
     const [event] = await pool.execute(
-      "SELECT organizer_id FROM event WHERE id = ?",
+      "SELECT user_id FROM event WHERE id = ?",
       [eventId]
     );
 
-    if (event.length > 0 && event[0].organizer_id === userId) {
+    if (event.length > 0 && event[0].user_id === userId) {
       return res.status(403).json({ 
         message: "Organizers cannot review their own events" 
       });

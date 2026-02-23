@@ -1,5 +1,4 @@
 // src/pages/OrganizerDashboard.jsx
-// Pronađi ovu liniju na vrhu organizer-dashboard.jsx
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Avatar, AvatarFallback } from "../components/ui/avatar";
@@ -22,7 +21,6 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from ".
 import { getOrganizerEvents, createEvent, updateEvent, deleteEvent, getEventReservations, getEventSalesProgress } from "../services/organizer";
 import { toast } from "react-toastify";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-
 import { resolveImage } from "../lib/image";
 
 // Helper funkcije
@@ -44,7 +42,6 @@ function getDisplayName(p) {
 function getInitials(name) {
   return (name.split(" ").filter(Boolean).slice(0, 2).map(s => s[0]?.toUpperCase() || "").join("")) || "U";
 }
-
 function getCurrentUserRole() {
   const token = getToken();
   if (!token) return null;
@@ -57,9 +54,6 @@ function getCurrentUserRole() {
   }
   return null;
 }
-
-
-
 const formatDateTime = (dateTimeString) => {
   if (!dateTimeString) return { date: "", time: "" };
   const dt = new Date(dateTimeString);
@@ -67,13 +61,11 @@ const formatDateTime = (dateTimeString) => {
   const time = dt.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
   return { date, time };
 };
-
 const isEventInPast = (dateTimeString) => {
   const eventDate = new Date(dateTimeString);
   const currentDate = new Date();
   return eventDate < currentDate;
 };
-
 const formatDateTimeForMySQL = (dateTime) => {
   const date = new Date(dateTime);
   return date.getFullYear() + '-' +
@@ -103,27 +95,24 @@ export default function OrganizerDashboard() {
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [reservations, setReservations] = useState([]);
   const [salesProgress, setSalesProgress] = useState(null);
-
   const [ticketTypes, setTicketTypes] = useState([{ name: "", price: "", total_seats: "" }]);
   const [categories, setCategories] = useState([]);
   const [categoryId, setCategoryId] = useState("");
-
   const [page, setPage] = useState(1);
   const [limit] = useState(9);
   const [meta, setMeta] = useState({ page: 1, limit: 9, total: 0, totalPages: 1 });
 
-  const [imageFile, setImageFile] = useState(null);
+  // ✅ Niz slika umesto jedne
+  const [imageFiles, setImageFiles] = useState([]);
   const [imagePreview, setImagePreview] = useState("");
 
+  // ✅ PRAĆENJE OBRISANIH SLIKA
+  const [deletedImageIds, setDeletedImageIds] = useState([]);
 
   const [q, setQ] = useState("");
   const [qDebounced, setQDebounced] = useState("");
-
-   const fallbackUrl =
-  "https://images.pexels.com/photos/1190298/pexels-photo-1190298.jpeg?auto=compress&cs=tinysrgb&w=800";
-
-
-  
+  const fallbackUrl =
+    "https://images.pexels.com/photos/1190298/pexels-photo-1190298.jpeg?auto=compress&cs=tinysrgb&w=800";
 
   const getInitialFormData = () => {
     const tomorrow = new Date();
@@ -138,14 +127,44 @@ export default function OrganizerDashboard() {
       status: "DRAFT"
     };
   };
+
   const [formData, setFormData] = useState(getInitialFormData());
 
-const onPickImage = (file) => {
-  setImageFile(file || null);
-  if (file) setImagePreview(URL.createObjectURL(file));
-  else setImagePreview("");
-};
+  // ✅ Funkcija za više slika
+  const onPickImages = (files) => {
+    const newFiles = Array.from(files || []);
+    setImageFiles(prev => [...prev, ...newFiles.map(file => ({
+      type: 'new',
+      file: file,
+      path: URL.createObjectURL(file),
+      isMain: false
+    }))]);
+    if (imageFiles.length === 0 && newFiles.length > 0) {
+      setImagePreview(URL.createObjectURL(newFiles[0]));
+    }
+  };
 
+  // ✅ Obriši pojedinačnu sliku - SA PRAĆENJEM OBRISANIH ID-JEVA
+  const removeImage = (index) => {
+    const removedImg = imageFiles[index];
+
+    // ✅ Ako je slika iz baze, sačuvaj njen ID za brisanje
+    if (removedImg?.type === 'existing' && removedImg?.id) {
+      setDeletedImageIds(prev => [...prev, removedImg.id]);
+    }
+
+    const newFiles = imageFiles.filter((_, i) => i !== index);
+    setImageFiles(newFiles);
+    if (newFiles.length > 0) {
+      if (newFiles[0].file) {
+        setImagePreview(URL.createObjectURL(newFiles[0].file));
+      } else {
+        setImagePreview(resolveImage(newFiles[0].path));
+      }
+    } else {
+      setImagePreview("");
+    }
+  };
 
   useEffect(() => {
     loadEvents();
@@ -160,10 +179,8 @@ const onPickImage = (file) => {
     setPage(1);
   }, [qDebounced]);
 
-
   useEffect(() => {
     let alive = true;
-
     (async () => {
       try {
         const cats = await getCategories();
@@ -173,23 +190,17 @@ const onPickImage = (file) => {
         toast.error("Failed to load categories");
       }
     })();
-
     return () => { alive = false; };
   }, []);
 
-
-  
   const loadEvents = async () => {
     try {
       setLoading(true);
-
       const resp = await getOrganizerEvents({ page, limit, q: qDebounced });
-
       const items = Array.isArray(resp) ? resp : (resp?.items ?? []);
       const meta = Array.isArray(resp)
         ? { page, limit, total: items.length, totalPages: 1 }
         : (resp?.meta ?? { page, limit, total: 0, totalPages: 1 });
-
       setEvents(items);
       setMeta(meta);
     } catch (err) {
@@ -228,52 +239,47 @@ const onPickImage = (file) => {
     return true;
   };
 
+  // ✅ Slanje više slika
   const handleCreateEvent = async (status = "DRAFT") => {
     const cid = Number(categoryId);
-
     if (!Number.isInteger(cid) || cid <= 0) {
       toast.error("Please select a valid category");
       return;
     }
-
     if (!formData.date_and_time || new Date(formData.date_and_time) <= new Date()) {
       toast.error("Event date must be in the future");
       return;
     }
-
     if (!validateTicketTypes()) {
       toast.error("Please fill all ticket type fields correctly (name, price ≥ 0, seats > 0)");
       return;
     }
-
     try {
-    const fd = new FormData();
-
-fd.append("title", formData.title.trim());
-fd.append("description", formData.description.trim());
-fd.append("location", formData.location.trim());
-fd.append("date_and_time", formatDateTimeForMySQL(formData.date_and_time));
-fd.append("category_id", String(cid));
-fd.append("status", status);
-
-// ticketTypes mora ovako:
-fd.append("ticketTypes", JSON.stringify(
-  ticketTypes.map(tt => ({
-    name: tt.name.trim(),
-    price: parseFloat(tt.price),
-    total_seats: parseInt(tt.total_seats)
-  }))
-));
-
-// slika
-if (imageFile) {
-  fd.append("image", imageFile);
-} else if (formData.image.trim()) {
-  // fallback (ako ti ostane stari URL u formData.image)
-  fd.append("image", formData.image.trim());
-}
-
-await createEvent(fd);;
+      const fd = new FormData();
+      fd.append("title", formData.title.trim());
+      fd.append("description", formData.description.trim());
+      fd.append("location", formData.location.trim());
+      fd.append("date_and_time", formatDateTimeForMySQL(formData.date_and_time));
+      fd.append("category_id", String(cid));
+      fd.append("status", status);
+      fd.append("ticketTypes", JSON.stringify(
+        ticketTypes.map(tt => ({
+          name: tt.name.trim(),
+          price: parseFloat(tt.price),
+          total_seats: parseInt(tt.total_seats)
+        }))
+      ));
+      // ✅ SLANJE VIŠE SLIKA
+      if (imageFiles && imageFiles.length > 0) {
+        imageFiles.forEach(fileObj => {
+          if (fileObj.file) {
+            fd.append("images", fileObj.file);
+          }
+        });
+      } else if (formData.image.trim()) {
+        fd.append("images", formData.image.trim());
+      }
+      await createEvent(fd);
       toast.success(status === "DRAFT" ? "Event saved as draft" : "Event created successfully");
       setShowCreateDialog(false);
       resetForm();
@@ -285,9 +291,9 @@ await createEvent(fd);;
     }
   };
 
+  // ✅ Slanje više slika pri ažuriranju - SA DELETED IMAGES I TICKET TYPES
   const handleUpdateEvent = async (status = null) => {
     const cid = Number(categoryId);
-
     if (!formData.date_and_time || new Date(formData.date_and_time) <= new Date()) {
       toast.error("Event date must be in the future");
       return;
@@ -296,28 +302,55 @@ await createEvent(fd);;
       toast.error("Please select a category");
       return;
     }
-
+    if (!validateTicketTypes()) {
+      toast.error("Please fill all ticket type fields correctly (name, price ≥ 0, seats > 0)");
+      return;
+    }
     try {
       const fd = new FormData();
+      fd.append("title", formData.title.trim());
+      fd.append("description", formData.description.trim());
+      fd.append("location", formData.location.trim());
+      fd.append("date_and_time", formatDateTimeForMySQL(formData.date_and_time));
+      fd.append("category_id", String(cid));
+      if (status) fd.append("status", status);
 
-fd.append("title", formData.title.trim());
-fd.append("description", formData.description.trim());
-fd.append("location", formData.location.trim());
-fd.append("date_and_time", formatDateTimeForMySQL(formData.date_and_time));
-fd.append("category_id", String(cid));
+      // ✅ SLANJE GLAVNE SLIKE I DODATNIH SLIKA
+      if (imageFiles && imageFiles.length > 0) {
+        // Prva slika je uvijek glavna
+        const mainImage = imageFiles[0];
 
-// status je opcionalan
-if (status) fd.append("status", status);
+        if (mainImage.type === 'new' && mainImage.file) {
+          fd.append("image", mainImage.file);
+        } else if (mainImage.type === 'existing' && mainImage.path) {
+          fd.append("image", mainImage.path);
+        }
 
-// slika: samo ako je izabrana nova
-if (imageFile) {
-  fd.append("image", imageFile);
-} else if (formData.image.trim()) {
-  // fallback ako i dalje koristiš URL
-  fd.append("image", formData.image.trim());
-}
+        // Pošalji ostale nove slike
+        imageFiles.slice(1).forEach(fileObj => {
+          if (fileObj.type === 'new' && fileObj.file) {
+            fd.append("images", fileObj.file);
+          }
+        });
+      } else if (formData.image.trim()) {
+        fd.append("image", formData.image.trim());
+      }
 
-await updateEvent(selectedEvent.id, fd);
+      // ✅ POŠALJI ID-JEVE OBRISANIH SLIKA
+      if (deletedImageIds.length > 0) {
+        fd.append("deletedImages", JSON.stringify(deletedImageIds));
+      }
+
+      // ✅ POŠALJI TICKET TYPES
+      fd.append("ticketTypes", JSON.stringify(
+        ticketTypes.map(tt => ({
+          name: tt.name.trim(),
+          price: parseFloat(tt.price),
+          total_seats: parseInt(tt.total_seats)
+        }))
+      ));
+
+      await updateEvent(selectedEvent.id, fd);
       toast.success(status === "DRAFT" ? "Event saved as draft" : "Event updated successfully");
       setShowEditDialog(false);
       resetForm();
@@ -367,7 +400,9 @@ await updateEvent(selectedEvent.id, fd);
     }
   };
 
+  // ✅ Učitavanje postojećih slika - SA RESETOM DELETED IDs
   const handleEdit = (event) => {
+    setDeletedImageIds([]); // ✅ RESETUJ PRI OTVARANJU EDIT
     setSelectedEvent(event);
     setFormData({
       title: event.title,
@@ -378,17 +413,50 @@ await updateEvent(selectedEvent.id, fd);
       status: event.status || "DRAFT"
     });
     setCategoryId(String(event.category_id || ""));
-    setImageFile(null);
-    setImagePreview("");
 
+    // ✅ UČITAJ POSTOJEĆE TICKET TYPES
+    if (event.ticket_types && event.ticket_types.length > 0) {
+      setTicketTypes(event.ticket_types.map(tt => ({
+        name: tt.name || "",
+        price: String(tt.price || ""),
+        total_seats: String(tt.total_seats || "")
+      })));
+    } else {
+      setTicketTypes([{ name: "", price: "", total_seats: "" }]);
+    }
+
+    // ✅ UČITAJ POSTOJEĆE DODATNE SLIKE IZ BAZE
+    if (event.additional_images && event.additional_images.length > 0) {
+      const existingImages = event.additional_images.map(img => ({
+        type: 'existing',
+        path: img.image_path,
+        id: img.id
+      }));
+
+      // ✅ Ako event ima glavnu sliku, stavi je na prvu poziciju
+      if (event.image) {
+        const mainImageIndex = existingImages.findIndex(img => img.path === event.image);
+        if (mainImageIndex !== -1) {
+          const [mainImg] = existingImages.splice(mainImageIndex, 1);
+          existingImages.unshift(mainImg);
+        }
+      }
+
+      setImageFiles(existingImages);
+    } else {
+      setImageFiles([]);
+    }
+
+    setImagePreview("");
     setShowEditDialog(true);
   };
 
   const resetForm = () => {
     setFormData(getInitialFormData());
     setCategoryId("");
-    setImageFile(null);
+    setImageFiles([]);
     setImagePreview("");
+    setDeletedImageIds([]); // ✅ RESETUJ I OVDJE
     setTicketTypes([{ name: "", price: "", total_seats: "" }]);
   };
 
@@ -399,17 +467,13 @@ await updateEvent(selectedEvent.id, fd);
       navigate("/");
     }
   };
- 
 
   function renderPagination() {
     const totalPages = meta?.totalPages ?? 1;
     if (totalPages <= 1) return null;
-
     const go = (p) => setPage(Math.min(totalPages, Math.max(1, p)));
-
     const maxMiddle = 5;
     const pages = [];
-
     const start = Math.max(2, page - Math.floor(maxMiddle / 2));
     const end = Math.min(totalPages - 1, start + maxMiddle - 1);
     const startFixed = Math.max(2, end - maxMiddle + 1);
@@ -429,11 +493,9 @@ await updateEvent(selectedEvent.id, fd);
       </button>
     );
 
-
     const ArrowBtn = ({ dir }) => {
       const disabled = dir === "left" ? page === 1 : page === totalPages;
       const Icon = dir === "left" ? ChevronLeft : ChevronRight;
-
       return (
         <button
           type="button"
@@ -454,18 +516,14 @@ await updateEvent(selectedEvent.id, fd);
       <div className="mt-10 flex items-center justify-center gap-2 select-none">
         <ArrowBtn dir="left" />
         <PageBtn p={1} active={page === 1} />
-
         {startFixed > 2 && <span className="px-1 text-gray-400">…</span>}
-
         {(() => {
           for (let p = startFixed; p <= end; p++) {
             pages.push(<PageBtn key={p} p={p} active={p === page} />);
           }
           return pages;
         })()}
-
         {end < totalPages - 1 && <span className="px-1 text-gray-400">…</span>}
-
         {totalPages > 1 && <PageBtn p={totalPages} active={page === totalPages} />}
         <ArrowBtn dir="right" />
       </div>
@@ -482,7 +540,6 @@ await updateEvent(selectedEvent.id, fd);
               Welcome, <span className="font-semibold">{displayName}</span>
             </p>
           </div>
-
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="h-10 w-10 rounded-full p-0 relative z-50 cursor-pointer hover:bg-gray-100 transition-colors">
@@ -502,7 +559,6 @@ await updateEvent(selectedEvent.id, fd);
               <div className="px-4 py-3 border-b border-gray-100">
                 <p className="text-sm font-medium text-gray-900 truncate">{displayName}</p>
               </div>
-
               {isAdmin && (
                 <>
                   <div className="p-1">
@@ -517,7 +573,6 @@ await updateEvent(selectedEvent.id, fd);
                   <div className="h-px bg-gray-100 mx-2"></div>
                 </>
               )}
-
               <div className="p-1">
                 <DropdownMenuItem
                   onClick={() => navigate("/events")}
@@ -527,9 +582,7 @@ await updateEvent(selectedEvent.id, fd);
                   <span>View Events</span>
                 </DropdownMenuItem>
               </div>
-
               <div className="h-px bg-gray-100 mx-2"></div>
-
               <div className="p-1">
                 <DropdownMenuItem
                   onClick={() => navigate("/student-dashboard")}
@@ -539,7 +592,6 @@ await updateEvent(selectedEvent.id, fd);
                   <span>Student Dashboard</span>
                 </DropdownMenuItem>
               </div>
-
               <div className="p-1">
                 <DropdownMenuItem
                   onClick={() => navigate("/settings")}
@@ -549,9 +601,7 @@ await updateEvent(selectedEvent.id, fd);
                   <span>Settings</span>
                 </DropdownMenuItem>
               </div>
-
               <div className="h-px bg-gray-100 mx-2"></div>
-
               <div className="p-1">
                 <DropdownMenuItem
                   onClick={handleLogout}
@@ -593,24 +643,18 @@ await updateEvent(selectedEvent.id, fd);
             </CardContent>
           </Card>
         ) : (
-
           <>
-
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {events.map((event) => {
                 const { date, time } = formatDateTime(event.date_and_time);
                 const isPast = isEventInPast(event.date_and_time);
-
                 return (
                   <Card key={event.id} className={`overflow-hidden bg-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02] ${isPast ? 'opacity-75' : ''} relative`}>
-                    {/* ✅ STATUS BADGE */}
                     {event.status === "DRAFT" && (
                       <Badge className="absolute top-2 left-2 bg-yellow-500 text-white z-10">
                         Draft
                       </Badge>
                     )}
-
-                    {/* ✅ IMAGE SECTION */}
                     <div className="relative h-48 overflow-hidden">
                       {event.image ? (
                         <img
@@ -630,20 +674,14 @@ await updateEvent(selectedEvent.id, fd);
                         </Badge>
                       )}
                     </div>
-
-                    {/* ✅ CONTENT SECTION */}
                     <CardContent className="p-6 space-y-4">
                       <h3 className="text-xl font-bold text-gray-900 line-clamp-2 leading-tight">
                         {event.title}
                       </h3>
-
-                      {/* Location */}
                       <div className="flex items-center space-x-2 text-gray-600">
                         <MapPin className="w-4 h-4 text-blue-600 flex-shrink-0" />
                         <span className="text-sm font-medium line-clamp-1">{event.location || "Location not specified"}</span>
                       </div>
-
-                      {/* Date, Time & Rating */}
                       <div className="flex flex-wrap items-center gap-4 text-gray-600">
                         <div className="flex items-center space-x-2">
                           <Calendar className="w-4 h-4 text-blue-600 flex-shrink-0" />
@@ -660,8 +698,6 @@ await updateEvent(selectedEvent.id, fd);
                           </div>
                         )}
                       </div>
-
-                      {/* ✅ ACTION BUTTONS */}
                       <div className="pt-2 border-t border-gray-100 space-y-2">
                         <Button
                           size="sm"
@@ -672,7 +708,6 @@ await updateEvent(selectedEvent.id, fd);
                           <Users className="mr-2 h-4 w-4" />
                           View Reservations
                         </Button>
-
                         <Button
                           size="sm"
                           variant="outline"
@@ -682,19 +717,15 @@ await updateEvent(selectedEvent.id, fd);
                           <BarChart3 className="mr-2 h-4 w-4" />
                           Sales Progress
                         </Button>
-
-                        {/* --- AŽURIRANO DUGME SA STRELICOM --- */}
                         <Button
                           size="sm"
                           variant="outline"
                           onClick={() => navigate(`/organizer/event-stats/${event.id}`)}
                           className="w-full text-purple-600 hover:text-purple-700 border-purple-300 hover:bg-purple-50 cursor-pointer flex items-center justify-center gap-2"
                         >
-                          {/* Samo ikonica za rast i tekst, centrirano */}
                           <TrendingUp className="h-4 w-4" />
                           <span className="font-medium">Analytics</span>
                         </Button>
-
                         <div className="flex gap-2 pt-2">
                           <Button
                             size="sm"
@@ -724,7 +755,6 @@ await updateEvent(selectedEvent.id, fd);
                 );
               })}
             </div>
-
             {renderPagination()}
           </>
         )}
@@ -738,14 +768,14 @@ await updateEvent(selectedEvent.id, fd);
             </DialogHeader>
             <form className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
               <div>
-             <label className="block text-sm font-medium mb-1">Event Title *</label>
-         <Input
-            value={formData.title}
-            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-            placeholder="Enter event title"
-            required
-          />
-          </div>
+                <label className="block text-sm font-medium mb-1">Event Title *</label>
+                <Input
+                  value={formData.title}
+                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                  placeholder="Enter event title"
+                  required
+                />
+              </div>
               <div>
                 <label className="block text-sm font-medium mb-1">Location</label>
                 <Input
@@ -778,54 +808,111 @@ await updateEvent(selectedEvent.id, fd);
                   rows={3}
                 />
               </div>
-             <div className="grid grid-cols-2 gap-4">
-  <div>
-    <label className="block text-sm font-medium mb-1">Date & Time *</label>
-    <Input
-      type="datetime-local"
-      value={formData.date_and_time}
-      onChange={(e) => setFormData({ ...formData, date_and_time: e.target.value })}
-      min={new Date().toISOString().slice(0, 16)}
-      required
-    />
-  </div>
-
-  <div>
-    <label className="block text-sm font-medium mb-1">Event Image</label>
-
-    <div className="flex items-center gap-3">
-      <Input
-        type="file"
-        accept="image/*"
-        onChange={(e) => onPickImage(e.target.files?.[0])}
-      />
-
-      {imageFile && (
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => onPickImage(null)}
-          className="shrink-0"
-        >
-          Remove
-        </Button>
-      )}
-    </div>
-
-    {(imagePreview || formData.image) && (
-      <div className="mt-2 overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
-        <img
-          src={imagePreview || resolveImage(formData.image)}
-          alt="Preview"
-          className="h-32 w-full object-cover"
-        />
-      </div>
-    )}
-
-    <p className="mt-1 text-xs text-gray-500">JPG/PNG/WEBP, max ~5MB</p>
-  </div>
-</div>
-           
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Date & Time *</label>
+                  <Input
+                    type="datetime-local"
+                    value={formData.date_and_time}
+                    onChange={(e) => setFormData({ ...formData, date_and_time: e.target.value })}
+                    min={new Date().toISOString().slice(0, 16)}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Event Images</label>
+                  <div className="flex items-center gap-3">
+                    <Input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={(e) => {
+                        onPickImages(e.target.files);
+                        e.target.value = '';
+                      }}
+                    />
+                    {imageFiles.length > 0 && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          setImageFiles([]);
+                          setImagePreview("");
+                        }}
+                        className="shrink-0"
+                      >
+                        Remove All
+                      </Button>
+                    )}
+                  </div>
+                  {imageFiles.length > 0 && (
+                    <div className="mt-2">
+                      <p className="text-xs text-gray-600 mb-2 font-medium">
+                        Click on an image to set it as the main image
+                      </p>
+                      <div className="grid grid-cols-4 gap-2">
+                        {imageFiles.map((img, idx) => {
+                          const isMain = idx === 0;
+                          const isFile = img.type === 'new';
+                          return (
+                            <div
+                              key={idx}
+                              className={`relative cursor-pointer group ${isMain ? 'ring-2 ring-blue-500 rounded-lg' : ''}`}
+                              onClick={() => {
+                                const newFiles = [...imageFiles];
+                                const [removed] = newFiles.splice(idx, 1);
+                                newFiles.unshift(removed);
+                                setImageFiles(newFiles);
+                                const clickedImage = imageFiles[idx];
+                                if (clickedImage.type === 'existing') {
+                                  setFormData(prev => ({
+                                    ...prev,
+                                    image: clickedImage.path
+                                  }));
+                                } else if (clickedImage.file) {
+                                  setFormData(prev => ({
+                                    ...prev,
+                                    image: clickedImage.path
+                                  }));
+                                }
+                              }}
+                            >
+                              <img
+                                src={isFile ? img.path : resolveImage(img.path)}
+                                alt={`Image ${idx + 1}`}
+                                className="h-20 w-full object-cover rounded-lg"
+                              />
+                              {isMain && (
+                                <div className="absolute top-1 left-1 bg-blue-500 text-white text-xs px-2 py-0.5 rounded font-medium">
+                                  Main
+                                </div>
+                              )}
+                              {/*<div className="absolute bottom-1 left-1/2 transform -translate-x-1/2 bg-black/70 text-white text-xs px-1.5 py-0.5 rounded">
+                                {isFile ? 'New' : 'DB'}
+                              </div>*/}
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const newFiles = imageFiles.filter((_, i) => i !== idx);
+                                  setImageFiles(newFiles);
+                                }}
+                                className="absolute top-1 right-1 bg-red-600 hover:bg-red-700 text-white rounded-full p-1.5 shadow-lg opacity-0 group-hover:opacity-100 transition-all duration-200 hover:scale-110 border-2 border-white"
+                                title="Delete image"
+                              >
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                  <p className="mt-1 text-xs text-gray-500">JPG/PNG/WEBP, max ~5MB each, up to 10 images</p>
+                </div>
+              </div>
               <div>
                 <div className="flex justify-between items-center mb-2">
                   <label className="block text-sm font-medium">Ticket Types *</label>
@@ -836,11 +923,8 @@ await updateEvent(selectedEvent.id, fd);
                 <div className="space-y-3 p-3 bg-white rounded-lg border border-black">
                   {ticketTypes.map((tt, index) => (
                     <div key={index} className="grid grid-cols-12 gap-3 items-end">
-                      {/* Name - šire polje */}
                       <div className="col-span-5">
-                        <label className="block text-xs font-medium text-black mb-1">
-                          Name
-                        </label>
+                        <label className="block text-xs font-medium text-black mb-1">Name</label>
                         <Input
                           className="focus-visible:outline-none focus-visible:ring-0 h-10"
                           placeholder="e.g. VIP, Regular"
@@ -849,12 +933,8 @@ await updateEvent(selectedEvent.id, fd);
                           required
                         />
                       </div>
-
-                      {/* Price */}
                       <div className="col-span-3">
-                        <label className="block text-xs font-medium text-black mb-1">
-                          Price (KM)
-                        </label>
+                        <label className="block text-xs font-medium text-black mb-1">Price (KM)</label>
                         <Input
                           className="focus-visible:outline-none focus-visible:ring-0 h-10"
                           type="number"
@@ -866,12 +946,8 @@ await updateEvent(selectedEvent.id, fd);
                           required
                         />
                       </div>
-
-                      {/* Seats */}
                       <div className="col-span-3">
-                        <label className="block text-xs font-medium text-black mb-1">
-                          Seats
-                        </label>
+                        <label className="block text-xs font-medium text-black mb-1">Seats</label>
                         <Input
                           className="focus-visible:outline-none focus-visible:ring-0 h-10"
                           type="number"
@@ -882,8 +958,6 @@ await updateEvent(selectedEvent.id, fd);
                           required
                         />
                       </div>
-
-                      {/* Delete button */}
                       <div className="col-span-1 flex items-end pb-1">
                         {ticketTypes.length > 1 && (
                           <Button
@@ -902,44 +976,44 @@ await updateEvent(selectedEvent.id, fd);
                   ))}
                 </div>
               </div>
-              <DialogFooter className="flex flex-col sm:flex-row gap-2">
+            </form>
+            <DialogFooter className="flex flex-col sm:flex-row gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowCreateDialog(false)}
+                className="!bg-gray-100 hover:!bg-gray-200 !text-gray-700 !border-gray-300 cursor-pointer font-medium px-6 py-2"
+              >
+                Cancel
+              </Button>
+              <div className="flex gap-2 flex-1 justify-end">
                 <Button
                   type="button"
-                  variant="outline"
-                  onClick={() => setShowCreateDialog(false)}
-                  className="!bg-gray-100 hover:!bg-gray-200 !text-gray-700 !border-gray-300 cursor-pointer font-medium px-6 py-2"
+                  onClick={() => handleCreateEvent("DRAFT")}
+                  className="!bg-yellow-500 hover:!bg-yellow-600 !text-white cursor-pointer font-semibold shadow-md px-6 py-2"
                 >
-                  Cancel
+                  Save as Draft
                 </Button>
-                <div className="flex gap-2 flex-1 justify-end">
-                  <Button
-                    type="button"
-                    onClick={() => handleCreateEvent("DRAFT")}
-                    className="!bg-yellow-500 hover:!bg-yellow-600 !text-white cursor-pointer font-semibold shadow-md px-6 py-2"
-                  >
-                    Save as Draft
-                  </Button>
-                  <Button
-                    type="button"
-                    onClick={() => handleCreateEvent("PUBLISHED")}
-                    className="!bg-blue-600 hover:!bg-blue-700 !text-white cursor-pointer font-semibold shadow-md px-6 py-2"
-                  >
-                    Publish
-                  </Button>
-                </div>
-              </DialogFooter>
-            </form>
+                <Button
+                  type="button"
+                  onClick={() => handleCreateEvent("PUBLISHED")}
+                  className="!bg-blue-600 hover:!bg-blue-700 !text-white cursor-pointer font-semibold shadow-md px-6 py-2"
+                >
+                  Publish
+                </Button>
+              </div>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
 
-        {/* EDIT DIALOG */}
+        {/* ✅ EDIT DIALOG - AŽURIRAN ZA ODABIR GLAVNE SLIKE */}
         <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
           <DialogContent className="bg-white text-black max-w-2xl">
             <DialogHeader>
               <DialogTitle>Edit Event</DialogTitle>
               <DialogDescription>Update basic event details.</DialogDescription>
             </DialogHeader>
-            <form className="space-y-4">
+            <form className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
               <div>
                 <label className="block text-sm font-medium mb-1">Event Title *</label>
                 <Input
@@ -992,51 +1066,195 @@ await updateEvent(selectedEvent.id, fd);
                   />
                 </div>
                 <div>
-                 <label className="block text-sm font-medium mb-1">Upload Image</label>
-                <Input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => setImageFile(e.target.files?.[0] || null)}
-                />
-
-                {/* opcionalno: pokaži staru URL vrijednost ako želiš zadržati */}
-                {formData.image ? (
-                  <p className="text-xs text-gray-500 mt-1">Current: {formData.image}</p>
-                  ) : null}
+                  <label className="block text-sm font-medium mb-1">Add More Images</label>
+                  <Input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={(e) => {
+                      const newFiles = Array.from(e.target.files || []);
+                      setImageFiles(prev => [
+                        ...prev,
+                        ...newFiles.map(file => ({
+                          type: 'new',
+                          file: file,
+                          path: URL.createObjectURL(file)
+                        }))
+                      ]);
+                      e.target.value = '';
+                    }}
+                  />
+                  {/* ✅ PRIKAZ SVIH SLIKA SA ODABIROM GLAVNE */}
+                  {imageFiles.length > 0 && (
+                    <div className="mt-2">
+                      <p className="text-xs text-gray-600 mb-2 font-medium">
+                        Click on an image to set it as the main image
+                      </p>
+                      <div className="grid grid-cols-4 gap-2">
+                        {imageFiles.map((img, idx) => {
+                          const isMain = idx === 0;
+                          const isFile = img.type === 'new';
+                          return (
+                            <div
+                              key={idx}
+                              className={`relative cursor-pointer group ${isMain ? 'ring-2 ring-blue-500 rounded-lg' : ''}`}
+                              onClick={() => {
+                                // Pomeri ovu sliku na prvu poziciju
+                                const newFiles = [...imageFiles];
+                                const [removed] = newFiles.splice(idx, 1);
+                                newFiles.unshift(removed);
+                                setImageFiles(newFiles);
+                                // ✅ AŽURIRAJ GLAVNU SLIKU U formData
+                                const clickedImage = imageFiles[idx];
+                                if (clickedImage.type === 'existing') {
+                                  setFormData(prev => ({
+                                    ...prev,
+                                    image: clickedImage.path
+                                  }));
+                                } else if (clickedImage.file) {
+                                  setFormData(prev => ({
+                                    ...prev,
+                                    image: clickedImage.path
+                                  }));
+                                }
+                              }}
+                            >
+                              <img
+                                src={isFile ? img.path : resolveImage(img.path)}
+                                alt={`Image ${idx + 1}`}
+                                className="h-20 w-full object-cover rounded-lg"
+                              />
+                              {isMain && (
+                                <div className="absolute top-1 left-1 bg-blue-500 text-white text-xs px-2 py-0.5 rounded font-medium">
+                                  Main
+                                </div>
+                              )}
+                              {/*<div className="absolute bottom-1 left-1/2 transform -translate-x-1/2 bg-black/70 text-white text-xs px-1.5 py-0.5 rounded">
+                                {isFile ? 'New' : 'DB'}
+                              </div>*/}
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  removeImage(idx);
+                                }}
+                                className="absolute top-1 right-1 bg-red-600 hover:bg-red-700 text-red rounded-full p-1.5 shadow-lg opacity-0 group-hover:opacity-100 transition-all duration-200 hover:scale-110 border-2 border-white"
+                                title="Delete image"
+                              >
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
-              <DialogFooter className="flex flex-col sm:flex-row gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    setShowEditDialog(false);
-                    resetForm();
-                  }}
-                  className="!bg-gray-100 hover:!bg-gray-200 !text-gray-700 !border-gray-300 cursor-pointer font-medium px-6 py-2"
-                >
-                  Cancel
-                </Button>
-                <div className="flex gap-2 flex-1 justify-end">
-                  {formData.status === "DRAFT" && (
-                    <Button
-                      type="button"
-                      onClick={() => handleUpdateEvent("DRAFT")}
-                      className="!bg-yellow-500 hover:!bg-yellow-600 !text-white cursor-pointer font-semibold shadow-md px-6 py-2"
-                    >
-                      Save as Draft
-                    </Button>
-                  )}
+              {/* ✅ TICKET TYPES SEKCIJA */}
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <label className="block text-sm font-medium">Ticket Types *</label>
                   <Button
                     type="button"
-                    onClick={() => handleUpdateEvent("PUBLISHED")}
-                    className="!bg-green-600 hover:!bg-green-700 !text-white cursor-pointer font-semibold shadow-md px-6 py-2"
+                    size="sm"
+                    variant="outline"
+                    onClick={addTicketType}
+                    className="!h-7 !px-2"
                   >
-                    {formData.status === "DRAFT" ? "Publish" : "Save Changes"}
+                    <Plus className="h-3 w-3 mr-1" /> Add
                   </Button>
                 </div>
-              </DialogFooter>
+                <div className="space-y-3 p-3 bg-white rounded-lg border border-black">
+                  {ticketTypes.map((tt, index) => (
+                    <div key={index} className="grid grid-cols-12 gap-3 items-end">
+                      <div className="col-span-5">
+                        <label className="block text-xs font-medium text-black mb-1">Name</label>
+                        <Input
+                          className="focus-visible:outline-none focus-visible:ring-0 h-10"
+                          placeholder="e.g. VIP, Regular"
+                          value={tt.name}
+                          onChange={(e) => updateTicketType(index, "name", e.target.value)}
+                          required
+                        />
+                      </div>
+                      <div className="col-span-3">
+                        <label className="block text-xs font-medium text-black mb-1">Price (KM)</label>
+                        <Input
+                          className="focus-visible:outline-none focus-visible:ring-0 h-10"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          placeholder="0.00"
+                          value={tt.price}
+                          onChange={(e) => updateTicketType(index, "price", e.target.value)}
+                          required
+                        />
+                      </div>
+                      <div className="col-span-3">
+                        <label className="block text-xs font-medium text-black mb-1">Seats</label>
+                        <Input
+                          className="focus-visible:outline-none focus-visible:ring-0 h-10"
+                          type="number"
+                          min="1"
+                          placeholder="100"
+                          value={tt.total_seats}
+                          onChange={(e) => updateTicketType(index, "total_seats", e.target.value)}
+                          required
+                        />
+                      </div>
+                      <div className="col-span-1 flex items-end pb-1">
+                        {ticketTypes.length > 1 && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => removeTicketType(index)}
+                            className="text-red-500 hover:bg-red-50 hover:text-red-700 p-2 h-9 w-9 rounded-md"
+                            title="Remove ticket type"
+                          >
+                            <Minus className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </form>
+            <DialogFooter className="flex flex-col sm:flex-row gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setShowEditDialog(false);
+                  resetForm();
+                }}
+                className="!bg-gray-100 hover:!bg-gray-200 !text-gray-700 !border-gray-300 cursor-pointer font-medium px-6 py-2"
+              >
+                Cancel
+              </Button>
+              <div className="flex gap-2 flex-1 justify-end">
+                {formData.status === "DRAFT" && (
+                  <Button
+                    type="button"
+                    onClick={() => handleUpdateEvent("DRAFT")}
+                    className="!bg-yellow-500 hover:!bg-yellow-600 !text-white cursor-pointer font-semibold shadow-md px-6 py-2"
+                  >
+                    Save as Draft
+                  </Button>
+                )}
+                <Button
+                  type="button"
+                  onClick={() => handleUpdateEvent("PUBLISHED")}
+                  className="!bg-green-600 hover:!bg-green-700 !text-white cursor-pointer font-semibold shadow-md px-6 py-2"
+                >
+                  {formData.status === "DRAFT" ? "Publish" : "Save Changes"}
+                </Button>
+              </div>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
 

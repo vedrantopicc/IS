@@ -1,37 +1,45 @@
 import { pool } from "../db.js";
 
-// ✅ DOHVATI JEDAN DOGAĐAJ SA SVIM TIPOVIMA ULAZNICA
+// ✅ DOHVATI JEDAN DOGAĐAJ SA SVIM TIPOVIMA ULAZNICA I DODATNIM SLIKAMA
 export async function getEventById(req, res, next) {
   try {
     const { id } = req.params;
 
     const [eventRows] = await pool.query(
-  `SELECT
-     e.id,
-     e.title,
-     e.description,
-     e.location,
-     e.date_and_time,
-     e.image,
-     e.user_id,
-     e.category_id,
-     e.status,
-     c.name AS category_name,
-     CONCAT_WS(' ', u.name, u.surname) AS organizer_name,
-     u.username AS organizer_username
-   FROM event e
-   JOIN \`user\` u ON u.id = e.user_id
-   LEFT JOIN category c ON c.id = e.category_id
-   WHERE e.id = ? AND e.deleted_at IS NULL AND e.status = 'PUBLISHED'`,
-  [id]
-);
-
+      `SELECT
+         e.id,
+         e.title,
+         e.description,
+         e.location,
+         e.date_and_time,
+         e.image,
+         e.user_id,
+         e.category_id,
+         e.status,
+         c.name AS category_name,
+         CONCAT_WS(' ', u.name, u.surname) AS organizer_name,
+         u.username AS organizer_username
+       FROM event e
+       JOIN \`user\` u ON u.id = e.user_id
+       LEFT JOIN category c ON c.id = e.category_id
+       WHERE e.id = ? AND e.deleted_at IS NULL AND e.status = 'PUBLISHED'`,
+      [id]
+    );
 
     if (!eventRows?.length) {
       return res.status(404).json({ error: "Event not found" });
     }
 
     const event = eventRows[0];
+
+    // ✅ NOVO: Dohvati dodatne slike iz event_image tabele
+    const [additionalImages] = await pool.query(
+      `SELECT id, image_path, is_primary, display_order 
+       FROM event_image 
+       WHERE event_id = ? 
+       ORDER BY display_order ASC, id ASC`,
+      [id]
+    );
 
     const [ticketTypes] = await pool.query(
       `SELECT
@@ -50,6 +58,7 @@ export async function getEventById(req, res, next) {
 
     res.json({
       ...event,
+      additional_images: additionalImages,
       ticket_types: ticketTypes
     });
   } catch (err) {
@@ -60,145 +69,122 @@ export async function getEventById(req, res, next) {
 // ✅ DOHVATI SVE DOGAĐAJE (za javni pregled)
 export async function getAllEvents(req, res, next) {
   try {
-   // --- filteri ---
-let { from, to, sort = "date_desc", category_id, search, page = 1, limit = 9 } = req.query;
+    let { from, to, sort = "date_desc", category_id, search, page = 1, limit = 9 } = req.query;
 
-search = (search && search.trim()) || undefined;
-from = (from && from.trim()) || undefined;
-to = (to && to.trim()) || undefined;
+    search = (search && search.trim()) || undefined;
+    from = (from && from.trim()) || undefined;
+    to = (to && to.trim()) || undefined;
 
-page = Math.max(1, parseInt(page, 10) || 1);
-limit = Math.min(50, Math.max(1, parseInt(limit, 10) || 9)); // max 50 radi sigurnosti
-const offset = (page - 1) * limit;
+    page = Math.max(1, parseInt(page, 10) || 1);
+    limit = Math.min(50, Math.max(1, parseInt(limit, 10) || 9));
+    const offset = (page - 1) * limit;
 
-const where = [];
-const params = [];
+    const where = [];
+    const params = [];
 
-// ✅ DODATO: filtriraj samo objavljene i neobrisane evente
-where.push("e.deleted_at IS NULL");
-where.push("e.status = 'PUBLISHED'");
+    where.push("e.deleted_at IS NULL");
+    where.push("e.status = 'PUBLISHED'");
 
-if (category_id) {
-  where.push("e.category_id = ?");
-  params.push(category_id);
-}
+    if (category_id) {
+      where.push("e.category_id = ?");
+      params.push(category_id);
+    }
 
-if (from) {
-  where.push("e.date_and_time >= ?");
-  params.push(`${from} 00:00:00`);
-}
-if (to) {
-  where.push("e.date_and_time < DATE_ADD(?, INTERVAL 1 DAY)");
-  params.push(to);
-}
+    if (from) {
+      where.push("e.date_and_time >= ?");
+      params.push(`${from} 00:00:00`);
+    }
+    if (to) {
+      where.push("e.date_and_time < DATE_ADD(?, INTERVAL 1 DAY)");
+      params.push(to);
+    }
 
-if (search) {
-  where.push("e.title LIKE ?");
-  params.push(`%${search}%`);
-}
+    if (search) {
+      where.push("e.title LIKE ?");
+      params.push(`%${search}%`);
+    }
 
-const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+    const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
 
-// --- sortiranje ---
-const SORT_MAP = {
-  date_asc: "e.date_and_time ASC",
-  date_desc: "e.date_and_time DESC",
-  title_asc: "e.title ASC",
-  title_desc: "e.title DESC",
-  category_asc: "c.name ASC, e.date_and_time DESC",
-  category_desc: "c.name DESC, e.date_and_time DESC",
-};
+    const SORT_MAP = {
+      date_asc: "e.date_and_time ASC",
+      date_desc: "e.date_and_time DESC",
+      title_asc: "e.title ASC",
+      title_desc: "e.title DESC",
+      category_asc: "c.name ASC, e.date_and_time DESC",
+      category_desc: "c.name DESC, e.date_and_time DESC",
+    };
 
-const baseSort = SORT_MAP[String(sort).toLowerCase()] || SORT_MAP.date_asc;
+    const baseSort = SORT_MAP[String(sort).toLowerCase()] || SORT_MAP.date_asc;
+    const orderBy = `(e.date_and_time >= NOW()) DESC, ${baseSort}, e.id DESC`;
 
-// upcoming prvo (1), past poslije (0)
-const orderBy = `(e.date_and_time >= NOW()) DESC, ${baseSort}, e.id DESC`;
-
-
- // --- COUNT (total) ---
-    // Bitno: zbog JOIN ticket_type treba COUNT(DISTINCT e.id)
     const [countRows] = await pool.query(
-      `
-      SELECT COUNT(DISTINCT e.id) AS total
-      FROM event e
-      JOIN \`user\` u ON u.id = e.user_id
-      LEFT JOIN category c ON c.id = e.category_id
-      JOIN ticket_type tt ON tt.event_id = e.id
-      ${whereSql}
-      `,
+      `SELECT COUNT(DISTINCT e.id) AS total
+       FROM event e
+       JOIN \`user\` u ON u.id = e.user_id
+       LEFT JOIN category c ON c.id = e.category_id
+       JOIN ticket_type tt ON tt.event_id = e.id
+       ${whereSql}`,
       params
     );
 
-const total = Number(countRows?.[0]?.total || 0);
-const totalPages = Math.max(1, Math.ceil(total / limit));
+    const total = Number(countRows?.[0]?.total || 0);
+    const totalPages = Math.max(1, Math.ceil(total / limit));
 
+    const [rows] = await pool.query(
+      `SELECT
+         e.id,
+         e.title,
+         e.description,
+         e.location,
+         e.date_and_time,
+         e.image,
+         e.user_id,
+         e.category_id,
+         e.status,
+         c.name AS category_name,
+         CONCAT_WS(' ', u.name, u.surname) AS organizer_name,
+         u.username AS organizer_username,
+         MIN(tt.price) AS min_price,
+         MAX(tt.price) AS max_price,
+         SUM(GREATEST(tt.total_seats - COALESCE(res_sum.reserved, 0), 0)) AS total_available_seats,
+         (
+           SELECT ROUND(AVG(cmt.rating), 1)
+           FROM comments cmt
+           WHERE cmt.event_id = e.id
+         ) AS averageRating
+       FROM event e
+       JOIN \`user\` u ON u.id = e.user_id
+       LEFT JOIN category c ON c.id = e.category_id
+       JOIN ticket_type tt ON tt.event_id = e.id
+       LEFT JOIN (
+         SELECT ticket_type_id, SUM(number_of_tickets) AS reserved
+         FROM reservation
+         GROUP BY ticket_type_id
+       ) res_sum ON res_sum.ticket_type_id = tt.id
+       ${whereSql}
+       GROUP BY e.id
+       ORDER BY ${orderBy}
+       LIMIT ? OFFSET ?`,
+      [...params, limit, offset]
+    );
 
-
-// --- query ---
-const [rows] = await pool.query(
-  `SELECT
-     e.id,
-     e.title,
-     e.description,
-     e.location,
-     e.date_and_time,
-     e.image,
-     e.user_id,
-     e.category_id,
-     e.status,
-     c.name AS category_name,
-     CONCAT_WS(' ', u.name, u.surname) AS organizer_name,
-     u.username AS organizer_username,
-     MIN(tt.price) AS min_price,
-     MAX(tt.price) AS max_price,
-     SUM(GREATEST(tt.total_seats - COALESCE(res_sum.reserved, 0), 0)) AS total_available_seats,
-     (
-       SELECT ROUND(AVG(cmt.rating), 1)
-       FROM comments cmt
-       WHERE cmt.event_id = e.id
-     ) AS averageRating
-   FROM event e
-   JOIN \`user\` u ON u.id = e.user_id
-   LEFT JOIN category c ON c.id = e.category_id
-   JOIN ticket_type tt ON tt.event_id = e.id
-   LEFT JOIN (
-     SELECT ticket_type_id, SUM(number_of_tickets) AS reserved
-     FROM reservation
-     GROUP BY ticket_type_id
-   ) res_sum ON res_sum.ticket_type_id = tt.id
-   ${whereSql}
-   GROUP BY e.id
-   ORDER BY ${orderBy}
-   LIMIT ? OFFSET ?`,
-  [...params, limit, offset]
-);
-
-
-res.json({
-  items:rows,
-  meta: {
-        page,
-        limit,
-        total,
-        totalPages,
-      },
-
-});
-
+    res.json({
+      items: rows,
+      meta: { page, limit, total, totalPages },
+    });
   } catch (err) {
     next(err);
   }
 }
 
-
-// ✅ KREIRAJ DOGAĐAJ SA VIŠE TIPOVIMA ULAZNICA I LOKACIJOM
+// ✅ KREIRAJ DOGAĐAJ SA VIŠE SLIKA
 export async function createEvent(req, res, next) {
   try {
     const userId = req.user.id;
 
     let { title, description, location, date_and_time, ticketTypes, category_id, status, image } = req.body;
 
-    // FormData često šalje ticketTypes kao string
     if (typeof ticketTypes === "string") {
       try {
         ticketTypes = JSON.parse(ticketTypes);
@@ -207,10 +193,13 @@ export async function createEvent(req, res, next) {
       }
     }
 
-    // Ako je uploadovan fajl, koristi njega; inače zadrži URL iz body (ako postoji)
-    const imagePath = req.file
-      ? `/uploads/${req.file.filename}`
-      : (typeof image === "string" && image.trim() ? image.trim() : null);
+    let mainImagePath = null;
+    
+    if (req.files && req.files.length > 0) {
+      mainImagePath = `/uploads/${req.files[0].filename}`;
+    } else if (typeof image === "string" && image.trim()) {
+      mainImagePath = image.trim();
+    }
 
     if (!title || !date_and_time || !Array.isArray(ticketTypes) || ticketTypes.length === 0) {
       return res.status(400).json({ error: "Title, date, and at least one ticket type are required" });
@@ -230,10 +219,25 @@ export async function createEvent(req, res, next) {
     const [eventResult] = await pool.query(
       `INSERT INTO event (title, description, location, date_and_time, image, user_id, category_id, status)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [title, description || null, location || null, date_and_time, imagePath, userId, category_id, eventStatus]
+      [title, description || null, location || null, date_and_time, mainImagePath, userId, category_id, eventStatus]
     );
 
     const eventId = eventResult.insertId;
+
+    if (req.files && req.files.length > 0) {
+      const imageValues = req.files.map((file, index) => [
+        eventId,
+        `/uploads/${file.filename}`,
+        index === 0 ? 1 : 0,
+        index
+      ]);
+
+      await pool.query(
+        `INSERT INTO event_image (event_id, image_path, is_primary, display_order)
+         VALUES ?`,
+        [imageValues]
+      );
+    }
 
     const ticketTypeValues = ticketTypes.map((tt) => [
       eventId,
@@ -248,7 +252,6 @@ export async function createEvent(req, res, next) {
       [ticketTypeValues]
     );
 
-    // Notifikacije samo ako je objavljeno
     if (eventStatus === "PUBLISHED") {
       const [students] = await pool.query(
         `SELECT id FROM \`user\` WHERE role = 'Student' AND id != ?`,
@@ -296,8 +299,17 @@ export async function createEvent(req, res, next) {
       [eventId]
     );
 
+    const [additionalImages] = await pool.query(
+      `SELECT id, image_path, is_primary, display_order 
+       FROM event_image 
+       WHERE event_id = ? 
+       ORDER BY display_order ASC, id ASC`,
+      [eventId]
+    );
+
     res.status(201).json({
       ...fullEvent[0],
+      additional_images: additionalImages,
       ticket_types: ticketTypesResult
     });
   } catch (err) {
@@ -305,12 +317,13 @@ export async function createEvent(req, res, next) {
   }
 }
 
+// // ✅ AŽURIRAJ DOGAĐAJ SA PODRŠKOM ZA PROMENU GLAVNE SLIKE I BRISANJE SLIKA
 export async function updateEvent(req, res, next) {
   try {
     const { id } = req.params;
     const userId = req.user.id;
 
-    let { title, description, location, date_and_time, image, category_id, status } = req.body;
+    let { title, description, location, date_and_time, image, category_id, status, deletedImages, ticketTypes } = req.body;
 
     const [existing] = await pool.query(
       "SELECT id, status, title, image FROM event WHERE id = ? AND user_id = ?",
@@ -325,15 +338,104 @@ export async function updateEvent(req, res, next) {
     const eventTitle = existing[0].title;
     const oldImage = existing[0].image;
 
-    // default = stara slika
-    let newImage = oldImage;
-
-    if (req.file) {
-      newImage = `/uploads/${req.file.filename}`;
-    } else if (typeof image === "string" && image.trim()) {
-      newImage = image.trim();
+    // ✅ PROMENJENO: Obrada glavne slike
+    let newMainImage = oldImage;
+    
+    // Ako je frontend poslao drugu putanju za glavnu sliku
+    if (image && image !== oldImage && image.trim()) {
+      newMainImage = image.trim();
     }
 
+    // Ako su uploadovani novi fajlovi
+    if (req.files && req.files.length > 0) {
+      const [maxOrder] = await pool.query(
+        `SELECT COALESCE(MAX(display_order), -1) AS max_order FROM event_image WHERE event_id = ?`,
+        [id]
+      );
+      
+      const startOrder = maxOrder[0].max_order + 1;
+      
+      const imageValues = req.files.map((file, index) => [
+        id,
+        `/uploads/${file.filename}`,
+        0, // ✅ VAŽNO: Sve nove slike idu sa is_primary = 0
+        startOrder + index
+      ]);
+
+      await pool.query(
+        `INSERT INTO event_image (event_id, image_path, is_primary, display_order)
+         VALUES ?`,
+        [imageValues]
+      );
+
+      {/*// Prva uploadovana slika postaje glavna ako nije već postavljena
+      if (!newMainImage || newMainImage === oldImage) {
+        newMainImage = `/uploads/${req.files[0].filename}`;
+      }*/}
+    }
+
+    // ✅ BRISANJE OZNAČENIH SLIKA IZ BAZE
+    if (deletedImages) {
+      try {
+        const deletedIds = JSON.parse(deletedImages);
+        if (Array.isArray(deletedIds) && deletedIds.length > 0) {
+          const placeholders = deletedIds.map(() => '?').join(',');
+          await pool.query(
+            `DELETE FROM event_image WHERE id IN (${placeholders}) AND event_id = ?`,
+            [...deletedIds, id]
+          );
+        }
+      } catch (err) {
+        console.error("Error parsing deletedImages:", err);
+      }
+    }
+
+    // ✅ KLJUČNI KORAK: Postavi is_primary = 1 SAMO za odabranu glavnu sliku
+    if (newMainImage && newMainImage.trim()) {
+      // Prvo resetuj sve na 0
+      await pool.query(
+        `UPDATE event_image SET is_primary = 0 WHERE event_id = ?`,
+        [id]
+      );
+      
+      // Zatim postavi 1 samo za odabranu sliku
+      await pool.query(
+        `UPDATE event_image SET is_primary = 1 WHERE event_id = ? AND image_path = ?`,
+        [id, newMainImage.trim()]
+      );
+    }
+
+    // ✅ AŽURIRANJE TICKET TYPES
+    if (ticketTypes) {
+      try {
+        const parsedTicketTypes = typeof ticketTypes === "string" 
+          ? JSON.parse(ticketTypes) 
+          : ticketTypes;
+
+        if (Array.isArray(parsedTicketTypes) && parsedTicketTypes.length > 0) {
+          // Obriši stare ticket types
+          await pool.query(`DELETE FROM ticket_type WHERE event_id = ?`, [id]);
+
+          // Ubaci nove
+          const ticketTypeValues = parsedTicketTypes.map((tt) => [
+            id,
+            tt.name,
+            tt.price,
+            tt.total_seats
+          ]);
+
+          await pool.query(
+            `INSERT INTO ticket_type (event_id, name, price, total_seats)
+             VALUES ?`,
+            [ticketTypeValues]
+          );
+        }
+      } catch (err) {
+        console.error("Error parsing ticketTypes:", err);
+      }
+    }
+
+    // Ažuriraj event
     await pool.query(
       `UPDATE event SET 
          title = ?,
@@ -349,7 +451,7 @@ export async function updateEvent(req, res, next) {
         description || null,
         location || null,
         date_and_time || null,
-        newImage,
+        newMainImage,
         Number(category_id),
         status,
         id,
@@ -383,27 +485,36 @@ export async function updateEvent(req, res, next) {
     }
 
     const [updated] = await pool.query(
-      `SELECT
-         e.id,
-         e.title,
-         e.description,
-         e.location,
-         e.date_and_time,
-         e.image,
-         e.user_id,
-         e.category_id,
-         e.status
-       FROM event e
-       WHERE e.id = ?`,
+      `SELECT e.id, e.title, e.description, e.location, e.date_and_time, e.image,
+              e.user_id, e.category_id, e.status
+       FROM event e WHERE e.id = ?`,
       [id]
     );
 
-    res.json(updated[0]);
+    const [additionalImages] = await pool.query(
+      `SELECT id, image_path, is_primary, display_order 
+       FROM event_image 
+       WHERE event_id = ? 
+       ORDER BY display_order ASC, id ASC`,
+      [id]
+    );
+
+    const [ticketTypesResult] = await pool.query(
+      `SELECT id, name, price, total_seats FROM ticket_type WHERE event_id = ?`,
+      [id]
+    );
+
+    res.json({
+      ...updated[0],
+      additional_images: additionalImages,
+      ticket_types: ticketTypesResult
+    });
   } catch (err) {
     next(err);
   }
 }
-// ✅ DOHVATI DOGAĐAJE ORGANIZATORA (samo neobrisani)
+
+// ✅ DOHVATI DOGAĐAJE ORGANIZATORA - UČITAVA I DODATNE SLIKE
 export async function getOrganizerEvents(req, res, next) {
   try {
     const userId = req.user.id;
@@ -411,8 +522,6 @@ export async function getOrganizerEvents(req, res, next) {
     if (!userId || userId <= 0 || isNaN(userId)) {
       return res.status(400).json({ error: "Invalid user ID" });
     }
-
-    // ✅ pagination param
 
     const page = Math.max(1, parseInt(req.query.page || "1", 10));
     const limit = Math.max(1, parseInt(req.query.limit || "9", 10));
@@ -422,24 +531,19 @@ export async function getOrganizerEvents(req, res, next) {
     const hasQ = q.length > 0;
     const like = `%${q}%`;
 
-    // total
     const [countRows] = await pool.query(
-      `
-      SELECT COUNT(*) AS total
-      FROM event e
-      WHERE e.user_id = ? AND e.deleted_at IS NULL
-      ${hasQ ? "AND (e.title LIKE ? OR e.location LIKE ?)" : ""}
-      `,
+      `SELECT COUNT(*) AS total
+       FROM event e
+       WHERE e.user_id = ? AND e.deleted_at IS NULL
+       ${hasQ ? "AND (e.title LIKE ? OR e.location LIKE ?)" : ""}`,
       hasQ ? [userId, like, like] : [userId]
     );
 
     const total = Number(countRows?.[0]?.total || 0);
     const totalPages = Math.max(1, Math.ceil(total / limit));
 
-    // items
     const [events] = await pool.query(
-      `
-      SELECT
+      `SELECT
         e.id, e.title, e.description, e.location, e.date_and_time, e.image,
         e.user_id, e.category_id, e.status,
         CONCAT_WS(' ', u.name, u.surname) AS organizer_name,
@@ -454,29 +558,36 @@ export async function getOrganizerEvents(req, res, next) {
       WHERE e.user_id = ? AND e.deleted_at IS NULL
       ${hasQ ? "AND (e.title LIKE ? OR e.location LIKE ?)" : ""}
       ORDER BY e.date_and_time DESC
-      LIMIT ? OFFSET ?
-      `,
+      LIMIT ? OFFSET ?`,
       hasQ ? [userId, like, like, limit, offset] : [userId, limit, offset]
     );
 
-    // ✅ load ticket types only for this page
+    // ✅ UČITAJ TICKET TYPES I DODATNE SLIKE ZA SVAKI EVENT
     for (const event of events) {
       if (!event.id) continue;
       try {
         const [ticketTypes] = await pool.query(
-          `SELECT id, name, price, total_seats
-           FROM ticket_type
-           WHERE event_id = ?`,
+          `SELECT id, name, price, total_seats FROM ticket_type WHERE event_id = ?`,
           [event.id]
         );
         event.ticket_types = ticketTypes;
+        
+        // ✅ UČITAJ DODATNE SLIKE
+        const [additionalImages] = await pool.query(
+          `SELECT id, image_path, is_primary, display_order
+           FROM event_image
+           WHERE event_id = ?
+           ORDER BY display_order ASC, id ASC`,
+          [event.id]
+        );
+        event.additional_images = additionalImages;
       } catch (err) {
-        console.warn(`Failed to load ticket types for event ${event.id}:`, err.message);
+        console.warn(`Failed to load data for event ${event.id}:`, err.message);
         event.ticket_types = [];
+        event.additional_images = [];
       }
     }
 
-    // ✅ return the same shape as EventsPage
     return res.json({
       items: events,
       meta: { page, limit, total, totalPages },
@@ -502,21 +613,15 @@ export async function deleteOrganizerEvent(req, res, next) {
       return res.status(404).json({ error: "Event not found or you don't have permission" });
     }
 
-    // ✅ PROMENJENO: UPDATE umesto DELETE
     await pool.query("UPDATE `event` SET deleted_at = NOW() WHERE id = ?", [id]);
 
-    res.json({ 
-      message: "Event deleted successfully"
-    });
+    res.json({ message: "Event deleted successfully" });
   } catch (err) {
     next(err);
   }
 }
 
-
-
-
-// ✅ REZERVACIJE ZA DOGAĐAJ (vidljivo organizatoru)
+// ✅ REZERVACIJE ZA DOGAĐAJ
 export async function getEventReservations(req, res, next) {
   try {
     const { eventId } = req.params;
@@ -555,7 +660,7 @@ export async function getEventReservations(req, res, next) {
   }
 }
 
-// ✅ PROGRES PRODAJE ZA DOGAĐAJ (ISRAVQLJENO - BROJEVI KAO BROJEVI)
+// ✅ PROGRES PRODAJE ZA DOGAĐAJ
 export async function getEventSalesProgress(req, res, next) {
   try {
     const { eventId } = req.params;
@@ -611,12 +716,12 @@ export async function getEventSalesProgress(req, res, next) {
     next(err);
   }
 }
+
 // ✅ SOFT DELETE - BRISANJE DOGAĐAJA OD STRANE ADMINA
 export async function deleteEventById(req, res, next) {
   try {
     const { id } = req.params;
     
-    // ✅ Soft delete: samo postavi deleted_at
     const [result] = await pool.query(
       "UPDATE event SET deleted_at = NOW() WHERE id = ?", 
       [id]
@@ -633,6 +738,8 @@ export async function deleteEventById(req, res, next) {
     next(err);
   }
 }
+
+// ✅ STATISTIKE VREMENA
 export async function getEventTimeStats(req, res, next) {
   try {
     const { eventId } = req.params;
@@ -651,7 +758,6 @@ export async function getEventTimeStats(req, res, next) {
     let query = "";
     switch (period) {
       case 'daily':
-        // Sati za danas do trenutnog sata
         query = `
           SELECT HOUR(reservation_date) AS hour, CAST(SUM(number_of_tickets) AS UNSIGNED) AS count 
           FROM reservation WHERE event_id = ? AND DATE(reservation_date) = CURDATE()
@@ -659,14 +765,12 @@ export async function getEventTimeStats(req, res, next) {
           GROUP BY hour ORDER BY hour ASC`;
         break;
       case 'weekly':
-        // Imena dana u zadnjih 7 dana
         query = `
           SELECT DAYNAME(reservation_date) AS day, CAST(SUM(number_of_tickets) AS UNSIGNED) AS count 
           FROM reservation WHERE event_id = ? AND reservation_date >= DATE_SUB(NOW(), INTERVAL 7 DAY)
           GROUP BY day, DAYOFWEEK(reservation_date) ORDER BY DAYOFWEEK(reservation_date) ASC`;
         break;
       case 'monthly':
-        // Dani u tekućem mjesecu
         query = `
           SELECT DATE_FORMAT(reservation_date, '%d %b') AS date, CAST(SUM(number_of_tickets) AS UNSIGNED) AS count 
           FROM reservation WHERE event_id = ? AND MONTH(reservation_date) = MONTH(CURRENT_DATE()) 
@@ -674,7 +778,6 @@ export async function getEventTimeStats(req, res, next) {
           GROUP BY date ORDER BY MIN(reservation_date) ASC`;
         break;
       case 'yearly':
-        // Mjeseci u godini
         query = `
           SELECT MONTH(reservation_date) AS month, CAST(SUM(number_of_tickets) AS UNSIGNED) AS count 
           FROM reservation WHERE event_id = ? AND YEAR(reservation_date) = YEAR(CURRENT_DATE())

@@ -9,11 +9,11 @@ import {
   deleteOrganizerEvent,
   getEventReservations,
   getEventSalesProgress,
-  getEventTimeStats // ← 1. DODAJ OVO
+  getEventTimeStats
 } from "../controllers/events-controller.js";
 
 import { requireAdmin, requireOrganizer } from "../middleware/auth-middleware.js";
-import{ upload }from "../middleware/upload.js";
+import { upload } from "../middleware/upload.js";
 
 const router = Router();
 
@@ -22,12 +22,17 @@ router.get("/", getAllEvents);
 
 // organizer (mora prije /:id)
 router.get("/organizer/my-events", requireOrganizer, getOrganizerEvents);
-router.post("/organizer/create", requireOrganizer, upload.single("image"), createEvent);
-router.put("/organizer/:id", requireOrganizer, upload.single("image"), updateEvent);
+
+// ✅ CREATE: upload.array za više slika (max 10)
+router.post("/organizer/create", requireOrganizer, upload.array("images", 10), createEvent);
+
+// ✅ UPDATE: takođe upload.array za više slika (max 10)
+router.put("/organizer/:id", requireOrganizer, upload.array("images", 10), updateEvent);
+
 router.delete("/organizer/:id", requireOrganizer, deleteOrganizerEvent);
 router.get("/organizer/:eventId/reservations", requireOrganizer, getEventReservations);
 router.get("/organizer/:eventId/sales-progress", requireOrganizer, getEventSalesProgress);
-router.get("/organizer/:eventId/time-stats", requireOrganizer, getEventTimeStats); // ← 2. DODAJ OVU LINIJU
+router.get("/organizer/:eventId/time-stats", requireOrganizer, getEventTimeStats);
 
 // admin
 router.delete("/:id", requireAdmin, deleteEventById);

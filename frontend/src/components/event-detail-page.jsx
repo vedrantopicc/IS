@@ -3,7 +3,7 @@ import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
-import { Calendar, Clock, DollarSign, MapPin, MessageCircle, ArrowLeft, Ticket, Users, AlertCircle } from "lucide-react";
+import { Calendar, Clock, DollarSign, MapPin, MessageCircle, ArrowLeft, Ticket, Users, AlertCircle, Maximize2, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { getEvent } from "../services/events";
 import { createReservation, getUserReservations } from "../services/reservations";
 import { toast } from "react-toastify";
@@ -44,7 +44,6 @@ function getCurrentUserRole() {
   return null;
 }
 
-// ✅ NOVA FUNKCIJA: Dobavi trenutni user ID
 function getCurrentUserId() {
   const token = getToken();
   if (!token) return null;
@@ -76,12 +75,13 @@ export default function EventDetailPage() {
   const [numberOfTickets, setNumberOfTickets] = useState(1);
   const [userReservations, setUserReservations] = useState([]);
 
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [showLightbox, setShowLightbox] = useState(false);
+
   const userRole = useMemo(() => getCurrentUserRole(), []);
   const isStudent = userRole === "Student";
   const isLoggedIn = !!getToken();
-  
 
-  // ✅ NOVO: Dobavi current user ID i provjeri da li je organizator
   const currentUserId = useMemo(() => getCurrentUserId(), []);
 
   const isOrganizer = useMemo(() => {
@@ -102,6 +102,49 @@ export default function EventDetailPage() {
     const currentDate = new Date();
     return eventDate < currentDate;
   }, [event]);
+
+  const mainImage = useMemo(() => {
+    if (!event) return null;
+
+    if (event.additional_images?.length > 0) {
+      const primary = event.additional_images.find(img => img.is_primary === 1);
+      if (primary) return primary.image_path;
+    }
+
+    return event.image || (event.additional_images?.[0]?.image_path) || null;
+  }, [event]);
+
+  const galleryImages = useMemo(() => {
+    if (!event) return [];
+    const images = [];
+    const seenPaths = new Set();
+
+    if (mainImage && !seenPaths.has(mainImage)) {
+      images.push({
+        id: 'main',
+        path: mainImage,
+        isPrimary: true
+      });
+      seenPaths.add(mainImage);
+    }
+
+    if (event.additional_images && event.additional_images.length > 0) {
+      event.additional_images.forEach(img => {
+        if (!seenPaths.has(img.image_path)) {
+          images.push({
+            id: img.id,
+            path: img.image_path,
+            isPrimary: img.is_primary === 1
+          });
+          seenPaths.add(img.image_path);
+        }
+      });
+    }
+
+    return images;
+  }, [event, mainImage]);
+
+  const allImages = useMemo(() => galleryImages, [galleryImages]);
 
   useEffect(() => {
     let alive = true;
@@ -127,10 +170,28 @@ export default function EventDetailPage() {
     return () => { alive = false; };
   }, [id, isLoggedIn]);
 
+  
   const selectedTicket = useMemo(() => {
     if (!event?.ticket_types || !selectedTicketType) return null;
     return event.ticket_types.find(tt => tt.id.toString() === selectedTicketType);
   }, [event, selectedTicketType]);
+
+  const nextImage = () => {
+    if (allImages.length > 1) {
+      setCurrentImageIndex((prev) => (prev + 1) % allImages.length);
+    }
+  };
+
+  const prevImage = () => {
+    if (allImages.length > 1) {
+      setCurrentImageIndex((prev) => (prev - 1 + allImages.length) % allImages.length);
+    }
+  };
+
+  const openLightbox = (index) => {
+    setCurrentImageIndex(index);
+    setShowLightbox(true);
+  };
 
   const handleReservation = async () => {
     if (!isLoggedIn) {
@@ -202,27 +263,27 @@ export default function EventDetailPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 via-white to-gray-50 text-[#242424]">
       <div className="max-w-5xl mx-auto px-4 py-4 md:py-6">
-        {/* Header / Hero */}
         <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-none">
-          {event.image ? (
+          {mainImage ? (
             <div className="relative">
+              {/* ✅ Smanjena visina slike */}
               <img
-                src={resolveImage(event.image)}
+                src={resolveImage(mainImage)}
                 alt={event.title}
-                className="w-full h-56 md:h-72 object-cover"
+                className="w-full h-48 md:h-72 object-cover"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/15 to-transparent" />
-              <div className="absolute bottom-4 left-4 right-4 text-white">
-                <h1 className="text-2xl md:text-3xl font-extrabold leading-tight">
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+              <div className="absolute bottom-3 md:bottom-4 left-4 right-4 text-white">
+                <h1 className="text-xl md:text-2xl font-extrabold leading-tight drop-shadow-sm">
                   {event.title}
                 </h1>
-                <p className="text-white/90 mt-1">
+                <p className="text-white/95 text-sm md:text-base mt-0.5 drop-shadow-sm">
                   Organized by: <span className="font-semibold">{organizer}</span>
                 </p>
               </div>
             </div>
           ) : (
-            <div className="p-3 md:p-5 border-b border-gray-200">
+            <div className="p-4 md:p-6 border-b border-gray-200">
               <h1 className="text-2xl md:text-3xl font-extrabold">{event.title}</h1>
               <p className="text-gray-600 mt-1">
                 Organized by: <span className="font-semibold text-gray-900">{organizer}</span>
@@ -230,11 +291,48 @@ export default function EventDetailPage() {
             </div>
           )}
 
-          {/* Content grid */}
           <div className="p-4 md:p-8">
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-              {/* MAIN */}
-              <div className="md:col-span-8 space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-4 md:gap-6">
+              <div className="md:col-span-8 space-y-4 md:space-y-6">
+                {/* Gallery */}
+                {galleryImages.length > 0 && (
+                  <section className="rounded-2xl border border-gray-200 bg-white p-4 md:p-6">
+                    <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+                      <span>Gallery</span>
+                      <span className="text-sm font-normal text-gray-500">
+                        ({galleryImages.length} {galleryImages.length === 1 ? 'photo' : 'photos'})
+                      </span>
+                    </h3>
+
+                    <div className="grid grid-cols-4 md:grid-cols-5 gap-2">
+                      {galleryImages.map((img, idx) => (
+                        <button
+                          key={img.id}
+                          onClick={() => openLightbox(idx)}
+                          className="relative aspect-square rounded-lg overflow-hidden group cursor-pointer border border-gray-200 hover:border-blue-500 transition-all"
+                        >
+                          <img
+                            src={resolveImage(img.path)}
+                            alt={img.isPrimary ? "Cover image" : "Event gallery"}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          />
+                          {img.isPrimary && (
+                            <span className="absolute top-1.5 left-1.5 text-[10px] font-semibold bg-blue-600/95 text-white px-1.5 py-0.5 rounded shadow-sm">
+                              Cover
+                            </span>
+                          )}
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/25 transition-colors" />
+                          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div className="bg-white/95 rounded-full p-1.5 shadow-lg">
+                              <Maximize2 className="h-3.5 w-3.5 text-gray-800" />
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
                 {/* Description */}
                 <section className="rounded-2xl border border-gray-200 bg-white p-4 md:p-6">
                   <h3 className="text-lg font-bold mb-2">Description</h3>
@@ -243,7 +341,7 @@ export default function EventDetailPage() {
                   </p>
                 </section>
 
-                {/* Ticket Types (list) */}
+                {/* Ticket Types */}
                 <section className="rounded-2xl border border-gray-200 bg-white p-4 md:p-6">
                   <div className="flex items-center justify-between gap-3">
                     <h3 className="text-lg font-bold flex items-center gap-2">
@@ -257,9 +355,9 @@ export default function EventDetailPage() {
                       event.ticket_types.map((tt) => (
                         <div
                           key={tt.id}
-                          className={`rounded-xl border px-4 py-3 flex items-center justify-between gap-4 ${tt.available_seats > 0
-                            ? "border-gray-200 bg-gray-50"
-                            : "border-gray-200 bg-gray-50 opacity-70"
+                          className={`rounded-xl border px-4 py-3 flex items-center justify-between gap-4 transition-colors ${tt.available_seats > 0
+                              ? "border-gray-200 bg-gray-50 hover:border-blue-300"
+                              : "border-gray-200 bg-gray-50 opacity-70"
                             }`}
                         >
                           <div className="min-w-0">
@@ -294,17 +392,24 @@ export default function EventDetailPage() {
                   </div>
                 </section>
 
-                {/* Comments */}
+                {/* Reviews Section */}
                 <section className="rounded-2xl border border-gray-200 bg-white p-4 md:p-6">
                   <h3 className="text-lg font-bold mb-3 flex items-center gap-2">
                     <MessageCircle className="h-5 w-5 text-blue-600" />
                     Reviews
                   </h3>
 
-                  <div className="max-h-[250px] overflow-y-auto pr-2">
-                    {/* ✅ PROSLIJEDI isOrganizer PROP */}
-                    <Comments eventId={id} isOrganizer={isOrganizer} />
-                  </div>
+                  {isOrganizer ? (
+                    <div className="rounded-lg bg-gray-50 p-3 text-left">
+                      <p className="text-sm text-gray-600">
+                        Organizers cannot review their own events
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="max-h-60 overflow-y-auto pr-2">
+                      <Comments eventId={id} isOrganizer={isOrganizer} />
+                    </div>
+                  )}
                 </section>
               </div>
 
@@ -350,7 +455,7 @@ export default function EventDetailPage() {
                   )}
                 </div>
 
-                {/* ✅ IZMIJENJENO: Reservation card - samo za studente koji nisu organizatori */}
+                {/* Reservation card */}
                 {isStudent && !isOrganizer && (
                   <div className="rounded-2xl border border-gray-200 bg-white p-4">
                     <h3 className="text-base font-bold flex items-center gap-2">
@@ -475,7 +580,6 @@ export default function EventDetailPage() {
                   </div>
                 )}
 
-                {/* ✅ NOVO: Poruka za organizatore - ne mogu rezervisati svoj događaj */}
                 {isStudent && isOrganizer && (
                   <div className="rounded-2xl border border-gray-200 bg-white p-4">
                     <h3 className="text-base font-bold flex items-center gap-2 mb-3">
@@ -508,6 +612,74 @@ export default function EventDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* ✅ Lightbox - vidljive kontrole sa tamnom pozadinom */}
+      {showLightbox && allImages.length > 0 && (
+        <div
+          className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-4"
+          onClick={() => setShowLightbox(false)}
+        >
+          {/* Close button - tamna pozadina, jasno vidljiv */}
+          <button
+            onClick={() => setShowLightbox(false)}
+            className="absolute top-4 right-4 
+                 bg-gray-900/80 hover:bg-gray-900
+                 text-gray-900
+                 p-2 rounded-lg
+                 transition-all duration-200
+                 border border-white/20
+                 shadow-lg"
+            aria-label="Close lightbox"
+          >
+            <X className="h-5 w-5" />
+          </button>
+
+          {/* Navigation arrows - tamna pozadina, jasno vidljive */}
+          {allImages.length > 1 && (
+            <>
+              <button
+                onClick={(e) => { e.stopPropagation(); prevImage(); }}
+                className="absolute left-4 top-1/2 -translate-y-1/2 
+                     bg-gray-900/80 hover:bg-gray-900
+                     text-gray-900
+                     p-2 rounded-lg
+                     transition-all duration-200
+                     border border-white/20
+                     shadow-lg"
+                aria-label="Previous image"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); nextImage(); }}
+                className="absolute right-4 top-1/2 -translate-y-1/2 
+                     bg-gray-900/80 hover:bg-gray-900
+                     text-gray-900
+                     p-2 rounded-lg
+                     transition-all duration-200
+                     border border-white/20
+                     shadow-lg"
+                aria-label="Next image"
+              >
+                <ChevronRight className="h-5 w-5" />
+              </button>
+            </>
+          )}
+
+          {/* Slika */}
+          <img
+            src={resolveImage(allImages[currentImageIndex].path)}
+            alt={event.title}
+            className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+
+          {/* Counter badge */}
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white text-sm font-medium bg-gray-900/80 backdrop-blur-sm px-3 py-1.5 rounded-lg border border-white/20">
+            {currentImageIndex + 1} / {allImages.length}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
