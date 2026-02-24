@@ -819,99 +819,150 @@ export default function OrganizerDashboard() {
                     required
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Event Images</label>
-                  <div className="flex items-center gap-3">
-                    <Input
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      onChange={(e) => {
-                        onPickImages(e.target.files);
-                        e.target.value = '';
-                      }}
+                <div className="col-span-2">
+  <label className="block text-sm font-medium mb-2">Event Images</label>
+
+  <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+    {/* LEFT: picker */}
+    <div className="md:col-span-5">
+      <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-sm font-semibold text-gray-900">Add photos</p>
+
+          {imageFiles.length > 0 && (
+            <Button
+              type="button"
+              variant="outline"
+           onClick={() => {
+  // ✅ zapamti sve existing slike za brisanje
+  const ids = imageFiles
+    .filter(img => img.type === "existing" && img.id)
+    .map(img => img.id);
+
+  if (ids.length) setDeletedImageIds(prev => [...prev, ...ids]);
+
+  setImageFiles([]);
+  setImagePreview("");
+}}
+              className="h-8 px-3 text-xs"
+            >
+              Remove all
+            </Button>
+          )}
+        </div>
+
+        <p className="mt-1 text-xs text-gray-600">
+          JPG/PNG/WEBP • max ~5MB • up to 10 images
+        </p>
+
+        <div className="mt-3 flex items-center gap-2">
+          <Input
+            type="file"
+            accept="image/*"
+             disabled={imageFiles.length >= 10}
+            multiple
+            onChange={(e) => {
+              onPickImages(e.target.files);
+              e.target.value = "";
+            }}
+            className="bg-white"
+          />
+        </div>
+
+        <div className="mt-3 text-xs text-gray-600">
+          Tip: click a photo to set it as <span className="font-semibold">Main</span>.
+        </div>
+      </div>
+    </div>
+
+    {/* RIGHT: preview */}
+    <div className="md:col-span-7">
+      {imageFiles.length === 0 ? (
+        <div className="h-[132px] rounded-xl border border-dashed border-gray-300 grid place-items-center bg-white">
+          <div className="text-center">
+            <p className="text-sm font-medium text-gray-700">No images yet</p>
+            <p className="text-xs text-gray-500 mt-1">Add 1–10 images (optional)</p>
+          </div>
+        </div>
+      ) : (
+        <div className="rounded-xl border border-gray-200 bg-white p-3">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-semibold text-gray-900">
+              Preview <span className="text-gray-500 font-medium">({imageFiles.length})</span>
+            </p>
+            <p className="text-xs text-gray-500">
+              Main is used on cards
+            </p>
+          </div>
+
+          <div className="mt-3 max-h-[180px] overflow-auto pr-1">
+            <div className="grid grid-cols-4 gap-2">
+              {imageFiles.map((img, idx) => {
+                const isMain = idx === 0;
+                const isFile = img.type === "new";
+
+                return (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => {
+                      // set main = move to front
+                      const newFiles = [...imageFiles];
+                      const [picked] = newFiles.splice(idx, 1);
+                      newFiles.unshift(picked);
+                      setImageFiles(newFiles);
+
+                      // (opciono) upiši main u formData.image ako želiš
+                      const clicked = imageFiles[idx];
+                      setFormData((prev) => ({
+                        ...prev,
+                        image: clicked.path, // ako je existing path ili blob path
+                      }));
+                    }}
+                    className={[
+                      "relative group rounded-lg overflow-hidden border",
+                      isMain ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200 hover:border-gray-300",
+                      "focus:outline-none focus:ring-2 focus:ring-blue-300",
+                    ].join(" ")}
+                    title="Click to set as main"
+                  >
+                    <img
+                      src={isFile ? img.path : resolveImage(img.path)}
+                      alt={`Image ${idx + 1}`}
+                      className="h-20 w-full object-cover"
                     />
-                    {imageFiles.length > 0 && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => {
-                          setImageFiles([]);
-                          setImagePreview("");
-                        }}
-                        className="shrink-0"
-                      >
-                        Remove All
-                      </Button>
-                    )}
-                  </div>
-                  {imageFiles.length > 0 && (
-                    <div className="mt-2">
-                      <p className="text-xs text-gray-600 mb-2 font-medium">
-                        Click on an image to set it as the main image
-                      </p>
-                      <div className="grid grid-cols-4 gap-2">
-                        {imageFiles.map((img, idx) => {
-                          const isMain = idx === 0;
-                          const isFile = img.type === 'new';
-                          return (
-                            <div
-                              key={idx}
-                              className={`relative cursor-pointer group ${isMain ? 'ring-2 ring-blue-500 rounded-lg' : ''}`}
-                              onClick={() => {
-                                const newFiles = [...imageFiles];
-                                const [removed] = newFiles.splice(idx, 1);
-                                newFiles.unshift(removed);
-                                setImageFiles(newFiles);
-                                const clickedImage = imageFiles[idx];
-                                if (clickedImage.type === 'existing') {
-                                  setFormData(prev => ({
-                                    ...prev,
-                                    image: clickedImage.path
-                                  }));
-                                } else if (clickedImage.file) {
-                                  setFormData(prev => ({
-                                    ...prev,
-                                    image: clickedImage.path
-                                  }));
-                                }
-                              }}
-                            >
-                              <img
-                                src={isFile ? img.path : resolveImage(img.path)}
-                                alt={`Image ${idx + 1}`}
-                                className="h-20 w-full object-cover rounded-lg"
-                              />
-                              {isMain && (
-                                <div className="absolute top-1 left-1 bg-blue-500 text-white text-xs px-2 py-0.5 rounded font-medium">
-                                  Main
-                                </div>
-                              )}
-                              {/*<div className="absolute bottom-1 left-1/2 transform -translate-x-1/2 bg-black/70 text-white text-xs px-1.5 py-0.5 rounded">
-                                {isFile ? 'New' : 'DB'}
-                              </div>*/}
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  const newFiles = imageFiles.filter((_, i) => i !== idx);
-                                  setImageFiles(newFiles);
-                                }}
-                                className="absolute top-1 right-1 bg-red-600 hover:bg-red-700 text-white rounded-full p-1.5 shadow-lg opacity-0 group-hover:opacity-100 transition-all duration-200 hover:scale-110 border-2 border-white"
-                                title="Delete image"
-                              >
-                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                              </button>
-                            </div>
-                          );
-                        })}
+
+                    {/* Main badge */}
+                    {isMain && (
+                      <div className="absolute left-1 top-1 rounded-md bg-blue-600 text-white text-[10px] px-2 py-0.5 font-semibold">
+                        MAIN
                       </div>
-                    </div>
-                  )}
-                  <p className="mt-1 text-xs text-gray-500">JPG/PNG/WEBP, max ~5MB each, up to 10 images</p>
-                </div>
+                    )}
+
+                    {/* Remove */}
+                    <span
+                      role="button"
+                      tabIndex={0}
+                     onClick={(e) => {
+  e.stopPropagation();
+  removeImage(idx); // ✅ ovo puni deletedImageIds za existing slike
+}}
+                      className="absolute right-1 top-1 opacity-0 group-hover:opacity-100 transition
+                                 rounded-full bg-black/70 text-white text-[11px] w-6 h-6 grid place-items-center"
+                      title="Remove"
+                    >
+                      ✕
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  </div>
+</div>
               </div>
               <div>
                 <div className="flex justify-between items-center mb-2">
@@ -1007,256 +1058,324 @@ export default function OrganizerDashboard() {
         </Dialog>
 
         {/* ✅ EDIT DIALOG - AŽURIRAN ZA ODABIR GLAVNE SLIKE */}
-        <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-          <DialogContent className="bg-white text-black max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Edit Event</DialogTitle>
-              <DialogDescription>Update basic event details.</DialogDescription>
-            </DialogHeader>
-            <form className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
-              <div>
-                <label className="block text-sm font-medium mb-1">Event Title *</label>
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+  <DialogContent className="bg-white text-black max-w-2xl">
+    <DialogHeader>
+      <DialogTitle>Edit Event</DialogTitle>
+      <DialogDescription>Update basic event details.</DialogDescription>
+    </DialogHeader>
+
+    <form className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
+      <div>
+        <label className="block text-sm font-medium mb-1">Event Title *</label>
+        <Input
+          value={formData.title}
+          onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+          placeholder="Enter event title"
+          required
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium mb-1">Location</label>
+        <Input
+          value={formData.location}
+          onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+          placeholder="Enter event location"
+        />
+      </div>
+
+      <div className="mb-4">
+        <label className="block text-sm font-medium mb-1">Category *</label>
+        <Select value={categoryId} onValueChange={setCategoryId}>
+          <SelectTrigger className="w-52 bg-white text-black">
+            <SelectValue placeholder="Select category" />
+          </SelectTrigger>
+          <SelectContent className="z-[99999] bg-white text-black border">
+            {categories.map((c) => (
+              <SelectItem key={c.id} value={String(c.id)}>
+                {formatCategoryLabel(c.name)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium mb-1">Description</label>
+        <Textarea
+          value={formData.description}
+          onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+          placeholder="Enter event description"
+          rows={3}
+        />
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium mb-1">Date & Time *</label>
+          <Input
+            type="datetime-local"
+            value={formData.date_and_time}
+            onChange={(e) => setFormData({ ...formData, date_and_time: e.target.value })}
+            required
+          />
+        </div>
+
+        {/* ako ti treba da poravna grid, ostavi prazno ili makni col-span u image sekciji */}
+      </div>
+
+      {/* ✅ ISTI IMAGE UI KAO CREATE */}
+      <div className="col-span-2">
+        <label className="block text-sm font-medium mb-2">Event Images</label>
+
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+          {/* LEFT: picker */}
+          <div className="md:col-span-5">
+            <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-semibold text-gray-900">Add photos</p>
+
+                {imageFiles.length > 0 && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                   onClick={() => {
+  // ✅ zapamti sve existing slike za brisanje
+  const ids = imageFiles
+    .filter(img => img.type === "existing" && img.id)
+    .map(img => img.id);
+
+  if (ids.length) setDeletedImageIds(prev => [...prev, ...ids]);
+
+  setImageFiles([]);
+  setImagePreview("");
+}}
+                    className="h-8 px-3 text-xs"
+                  >
+                    Remove all
+                  </Button>
+                )}
+              </div>
+
+              <p className="mt-1 text-xs text-gray-600">
+                JPG/PNG/WEBP • max ~5MB • up to 10 images
+              </p>
+
+              <div className="mt-3 flex items-center gap-2">
                 <Input
-                  value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  placeholder="Enter event title"
+                  type="file"
+                  accept="image/*"
+                   disabled={imageFiles.length >= 10}
+                  multiple
+                  onChange={(e) => {
+                    onPickImages(e.target.files); // ✅ isto kao create
+                    e.target.value = "";
+                  }}
+                  className="bg-white"
+                />
+              </div>
+
+              <div className="mt-3 text-xs text-gray-600">
+                Tip: click a photo to set it as <span className="font-semibold">Main</span>.
+              </div>
+            </div>
+          </div>
+
+          {/* RIGHT: preview */}
+          <div className="md:col-span-7">
+            {imageFiles.length === 0 ? (
+              <div className="h-[132px] rounded-xl border border-dashed border-gray-300 grid place-items-center bg-white">
+                <div className="text-center">
+                  <p className="text-sm font-medium text-gray-700">No images yet</p>
+                  <p className="text-xs text-gray-500 mt-1">Add 1–10 images (optional)</p>
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-xl border border-gray-200 bg-white p-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-semibold text-gray-900">
+                    Preview <span className="text-gray-500 font-medium">({imageFiles.length})</span>
+                  </p>
+                  <p className="text-xs text-gray-500">Main is used on cards</p>
+                </div>
+
+                <div className="mt-3 max-h-[180px] overflow-auto pr-1">
+                  <div className="grid grid-cols-4 gap-2">
+                    {imageFiles.map((img, idx) => {
+                      const isMain = idx === 0;
+                      const isFile = img.type === "new";
+
+                      return (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => {
+                            // set main = move to front
+                            const newFiles = [...imageFiles];
+                            const [picked] = newFiles.splice(idx, 1);
+                            newFiles.unshift(picked);
+                            setImageFiles(newFiles);
+
+                            // opciono: main image u formData
+                            const clicked = imageFiles[idx];
+                            setFormData((prev) => ({
+                              ...prev,
+                              image: clicked.path,
+                            }));
+                          }}
+                          className={[
+                            "relative group rounded-lg overflow-hidden border",
+                            isMain
+                              ? "border-blue-500 ring-2 ring-blue-200"
+                              : "border-gray-200 hover:border-gray-300",
+                            "focus:outline-none focus:ring-2 focus:ring-blue-300",
+                          ].join(" ")}
+                          title="Click to set as main"
+                        >
+                          <img
+                            src={isFile ? img.path : resolveImage(img.path)}
+                            alt={`Image ${idx + 1}`}
+                            className="h-20 w-full object-cover"
+                          />
+
+                          {/* Main badge */}
+                          {isMain && (
+                            <div className="absolute left-1 top-1 rounded-md bg-blue-600 text-white text-[10px] px-2 py-0.5 font-semibold">
+                              MAIN
+                            </div>
+                          )}
+
+                          {/* Remove */}
+                          <span
+                            role="button"
+                            tabIndex={0}
+                           onClick={(e) => {
+  e.stopPropagation();
+  removeImage(idx); // ✅ ovo puni deletedImageIds za existing slike
+}}
+                            className="absolute right-1 top-1 opacity-0 group-hover:opacity-100 transition
+                                       rounded-full bg-black/70 text-white text-[11px] w-6 h-6 grid place-items-center"
+                            title="Remove"
+                          >
+                            ✕
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ✅ TICKET TYPES SEKCIJA (ostaje kako imaš) */}
+      <div>
+        <div className="flex justify-between items-center mb-2">
+          <label className="block text-sm font-medium">Ticket Types *</label>
+          <Button type="button" size="sm" variant="outline" onClick={addTicketType} className="!h-7 !px-2">
+            <Plus className="h-3 w-3 mr-1" /> Add
+          </Button>
+        </div>
+
+        <div className="space-y-3 p-3 bg-white rounded-lg border border-black">
+          {ticketTypes.map((tt, index) => (
+            <div key={index} className="grid grid-cols-12 gap-3 items-end">
+              <div className="col-span-5">
+                <label className="block text-xs font-medium text-black mb-1">Name</label>
+                <Input
+                  className="focus-visible:outline-none focus-visible:ring-0 h-10"
+                  placeholder="e.g. VIP, Regular"
+                  value={tt.name}
+                  onChange={(e) => updateTicketType(index, "name", e.target.value)}
                   required
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Location</label>
+
+              <div className="col-span-3">
+                <label className="block text-xs font-medium text-black mb-1">Price (KM)</label>
                 <Input
-                  value={formData.location}
-                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                  placeholder="Enter event location"
+                  className="focus-visible:outline-none focus-visible:ring-0 h-10"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="0.00"
+                  value={tt.price}
+                  onChange={(e) => updateTicketType(index, "price", e.target.value)}
+                  required
                 />
               </div>
-              <div className="mb-4">
-                <label className="block text-sm font-medium mb-1">Category *</label>
-                <Select value={categoryId} onValueChange={setCategoryId}>
-                  <SelectTrigger className="w-52 bg-white text-black">
-                    <SelectValue placeholder="Select category" />
-                  </SelectTrigger>
-                  <SelectContent className="z-[99999] bg-white text-black border">
-                    {categories.map((c) => (
-                      <SelectItem key={c.id} value={String(c.id)}>
-                        {formatCategoryLabel(c.name)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Description</label>
-                <Textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="Enter event description"
-                  rows={3}
+
+              <div className="col-span-3">
+                <label className="block text-xs font-medium text-black mb-1">Seats</label>
+                <Input
+                  className="focus-visible:outline-none focus-visible:ring-0 h-10"
+                  type="number"
+                  min="1"
+                  placeholder="100"
+                  value={tt.total_seats}
+                  onChange={(e) => updateTicketType(index, "total_seats", e.target.value)}
+                  required
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1">Date & Time *</label>
-                  <Input
-                    type="datetime-local"
-                    value={formData.date_and_time}
-                    onChange={(e) => setFormData({ ...formData, date_and_time: e.target.value })}
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Add More Images</label>
-                  <Input
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    onChange={(e) => {
-                      const newFiles = Array.from(e.target.files || []);
-                      setImageFiles(prev => [
-                        ...prev,
-                        ...newFiles.map(file => ({
-                          type: 'new',
-                          file: file,
-                          path: URL.createObjectURL(file)
-                        }))
-                      ]);
-                      e.target.value = '';
-                    }}
-                  />
-                  {/* ✅ PRIKAZ SVIH SLIKA SA ODABIROM GLAVNE */}
-                  {imageFiles.length > 0 && (
-                    <div className="mt-2">
-                      <p className="text-xs text-gray-600 mb-2 font-medium">
-                        Click on an image to set it as the main image
-                      </p>
-                      <div className="grid grid-cols-4 gap-2">
-                        {imageFiles.map((img, idx) => {
-                          const isMain = idx === 0;
-                          const isFile = img.type === 'new';
-                          return (
-                            <div
-                              key={idx}
-                              className={`relative cursor-pointer group ${isMain ? 'ring-2 ring-blue-500 rounded-lg' : ''}`}
-                              onClick={() => {
-                                // Pomeri ovu sliku na prvu poziciju
-                                const newFiles = [...imageFiles];
-                                const [removed] = newFiles.splice(idx, 1);
-                                newFiles.unshift(removed);
-                                setImageFiles(newFiles);
-                                // ✅ AŽURIRAJ GLAVNU SLIKU U formData
-                                const clickedImage = imageFiles[idx];
-                                if (clickedImage.type === 'existing') {
-                                  setFormData(prev => ({
-                                    ...prev,
-                                    image: clickedImage.path
-                                  }));
-                                } else if (clickedImage.file) {
-                                  setFormData(prev => ({
-                                    ...prev,
-                                    image: clickedImage.path
-                                  }));
-                                }
-                              }}
-                            >
-                              <img
-                                src={isFile ? img.path : resolveImage(img.path)}
-                                alt={`Image ${idx + 1}`}
-                                className="h-20 w-full object-cover rounded-lg"
-                              />
-                              {isMain && (
-                                <div className="absolute top-1 left-1 bg-blue-500 text-white text-xs px-2 py-0.5 rounded font-medium">
-                                  Main
-                                </div>
-                              )}
-                              {/*<div className="absolute bottom-1 left-1/2 transform -translate-x-1/2 bg-black/70 text-white text-xs px-1.5 py-0.5 rounded">
-                                {isFile ? 'New' : 'DB'}
-                              </div>*/}
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  removeImage(idx);
-                                }}
-                                className="absolute top-1 right-1 bg-red-600 hover:bg-red-700 text-red rounded-full p-1.5 shadow-lg opacity-0 group-hover:opacity-100 transition-all duration-200 hover:scale-110 border-2 border-white"
-                                title="Delete image"
-                              >
-                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                              </button>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-              {/* ✅ TICKET TYPES SEKCIJA */}
-              <div>
-                <div className="flex justify-between items-center mb-2">
-                  <label className="block text-sm font-medium">Ticket Types *</label>
+
+              <div className="col-span-1 flex items-end pb-1">
+                {ticketTypes.length > 1 && (
                   <Button
                     type="button"
                     size="sm"
-                    variant="outline"
-                    onClick={addTicketType}
-                    className="!h-7 !px-2"
+                    variant="ghost"
+                    onClick={() => removeTicketType(index)}
+                    className="text-red-500 hover:bg-red-50 hover:text-red-700 p-2 h-9 w-9 rounded-md"
+                    title="Remove ticket type"
                   >
-                    <Plus className="h-3 w-3 mr-1" /> Add
-                  </Button>
-                </div>
-                <div className="space-y-3 p-3 bg-white rounded-lg border border-black">
-                  {ticketTypes.map((tt, index) => (
-                    <div key={index} className="grid grid-cols-12 gap-3 items-end">
-                      <div className="col-span-5">
-                        <label className="block text-xs font-medium text-black mb-1">Name</label>
-                        <Input
-                          className="focus-visible:outline-none focus-visible:ring-0 h-10"
-                          placeholder="e.g. VIP, Regular"
-                          value={tt.name}
-                          onChange={(e) => updateTicketType(index, "name", e.target.value)}
-                          required
-                        />
-                      </div>
-                      <div className="col-span-3">
-                        <label className="block text-xs font-medium text-black mb-1">Price (KM)</label>
-                        <Input
-                          className="focus-visible:outline-none focus-visible:ring-0 h-10"
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          placeholder="0.00"
-                          value={tt.price}
-                          onChange={(e) => updateTicketType(index, "price", e.target.value)}
-                          required
-                        />
-                      </div>
-                      <div className="col-span-3">
-                        <label className="block text-xs font-medium text-black mb-1">Seats</label>
-                        <Input
-                          className="focus-visible:outline-none focus-visible:ring-0 h-10"
-                          type="number"
-                          min="1"
-                          placeholder="100"
-                          value={tt.total_seats}
-                          onChange={(e) => updateTicketType(index, "total_seats", e.target.value)}
-                          required
-                        />
-                      </div>
-                      <div className="col-span-1 flex items-end pb-1">
-                        {ticketTypes.length > 1 && (
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => removeTicketType(index)}
-                            className="text-red-500 hover:bg-red-50 hover:text-red-700 p-2 h-9 w-9 rounded-md"
-                            title="Remove ticket type"
-                          >
-                            <Minus className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </form>
-            <DialogFooter className="flex flex-col sm:flex-row gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  setShowEditDialog(false);
-                  resetForm();
-                }}
-                className="!bg-gray-100 hover:!bg-gray-200 !text-gray-700 !border-gray-300 cursor-pointer font-medium px-6 py-2"
-              >
-                Cancel
-              </Button>
-              <div className="flex gap-2 flex-1 justify-end">
-                {formData.status === "DRAFT" && (
-                  <Button
-                    type="button"
-                    onClick={() => handleUpdateEvent("DRAFT")}
-                    className="!bg-yellow-500 hover:!bg-yellow-600 !text-white cursor-pointer font-semibold shadow-md px-6 py-2"
-                  >
-                    Save as Draft
+                    <Minus className="h-4 w-4" />
                   </Button>
                 )}
-                <Button
-                  type="button"
-                  onClick={() => handleUpdateEvent("PUBLISHED")}
-                  className="!bg-green-600 hover:!bg-green-700 !text-white cursor-pointer font-semibold shadow-md px-6 py-2"
-                >
-                  {formData.status === "DRAFT" ? "Publish" : "Save Changes"}
-                </Button>
               </div>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </div>
+          ))}
+        </div>
+      </div>
+    </form>
+
+    <DialogFooter className="flex flex-col sm:flex-row gap-2">
+      <Button
+        type="button"
+        variant="outline"
+        onClick={() => {
+          setShowEditDialog(false);
+          resetForm();
+        }}
+        className="!bg-gray-100 hover:!bg-gray-200 !text-gray-700 !border-gray-300 cursor-pointer font-medium px-6 py-2"
+      >
+        Cancel
+      </Button>
+
+      <div className="flex gap-2 flex-1 justify-end">
+        {formData.status === "DRAFT" && (
+          <Button
+            type="button"
+            onClick={() => handleUpdateEvent("DRAFT")}
+            className="!bg-yellow-500 hover:!bg-yellow-600 !text-white cursor-pointer font-semibold shadow-md px-6 py-2"
+          >
+            Save as Draft
+          </Button>
+        )}
+
+        <Button
+          type="button"
+          onClick={() => handleUpdateEvent("PUBLISHED")}
+          className="!bg-green-600 hover:!bg-green-700 !text-white cursor-pointer font-semibold shadow-md px-6 py-2"
+        >
+          {formData.status === "DRAFT" ? "Publish" : "Save Changes"}
+        </Button>
+      </div>
+    </DialogFooter>
+  </DialogContent>
+</Dialog>
 
         {/* DELETE DIALOG */}
         <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
