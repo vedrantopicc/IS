@@ -170,7 +170,6 @@ export default function EventDetailPage() {
     return () => { alive = false; };
   }, [id, isLoggedIn]);
 
-
   const selectedTicket = useMemo(() => {
     if (!event?.ticket_types || !selectedTicketType) return null;
     return event.ticket_types.find(tt => tt.id.toString() === selectedTicketType);
@@ -192,6 +191,27 @@ export default function EventDetailPage() {
     setCurrentImageIndex(index);
     setShowLightbox(true);
   };
+
+  // ✅ Keyboard navigation for lightbox
+  useEffect(() => {
+    if (!showLightbox) return;
+
+    const handleKeyDown = (e) => {
+      if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        prevImage();
+      } else if (e.key === "ArrowRight") {
+        e.preventDefault();
+        nextImage();
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        setShowLightbox(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [showLightbox, prevImage, nextImage]);
 
   const handleReservation = async () => {
     if (!isLoggedIn) {
@@ -266,7 +286,6 @@ export default function EventDetailPage() {
         <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-none">
           {mainImage ? (
             <div className="relative">
-              {/* ✅ Smanjena visina slike */}
               <img
                 src={resolveImage(mainImage)}
                 alt={event.title}
@@ -402,15 +421,6 @@ export default function EventDetailPage() {
                   <div className="max-h-60 overflow-y-auto pr-2">
                     <Comments eventId={id} isOrganizer={isOrganizer} />
                   </div>
-
-                  {/*{isOrganizer && (
-                    <div className="mt-3 rounded-lg bg-yellow-50 border border-yellow-200 p-3">
-                      <p className="text-sm text-yellow-800 flex items-center gap-2">
-                        <AlertCircle className="h-4 w-4" />
-                        Organizers cannot review their own events
-                      </p>
-                    </div>
-                  )}*/}
                 </section>
               </div>
 
@@ -614,13 +624,12 @@ export default function EventDetailPage() {
         </div>
       </div>
 
-      {/* ✅ Lightbox - vidljive kontrole sa tamnom pozadinom */}
+      {/* Lightbox */}
       {showLightbox && allImages.length > 0 && (
         <div
           className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-4"
           onClick={() => setShowLightbox(false)}
         >
-          {/* Close button - tamna pozadina, jasno vidljiv */}
           <button
             onClick={() => setShowLightbox(false)}
             className="absolute top-4 right-4 
@@ -635,7 +644,6 @@ export default function EventDetailPage() {
             <X className="h-5 w-5" />
           </button>
 
-          {/* Navigation arrows - tamna pozadina, jasno vidljive */}
           {allImages.length > 1 && (
             <>
               <button
@@ -667,7 +675,6 @@ export default function EventDetailPage() {
             </>
           )}
 
-          {/* Slika */}
           <img
             src={resolveImage(allImages[currentImageIndex].path)}
             alt={event.title}
@@ -675,7 +682,6 @@ export default function EventDetailPage() {
             onClick={(e) => e.stopPropagation()}
           />
 
-          {/* Counter badge */}
           <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white text-sm font-medium bg-gray-900/80 backdrop-blur-sm px-3 py-1.5 rounded-lg border border-white/20">
             {currentImageIndex + 1} / {allImages.length}
           </div>
