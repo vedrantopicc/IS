@@ -170,7 +170,7 @@ export default function EventDetailPage() {
     return () => { alive = false; };
   }, [id, isLoggedIn]);
 
-  
+
   const selectedTicket = useMemo(() => {
     if (!event?.ticket_types || !selectedTicketType) return null;
     return event.ticket_types.find(tt => tt.id.toString() === selectedTicketType);
@@ -356,8 +356,8 @@ export default function EventDetailPage() {
                         <div
                           key={tt.id}
                           className={`rounded-xl border px-4 py-3 flex items-center justify-between gap-4 transition-colors ${tt.available_seats > 0
-                              ? "border-gray-200 bg-gray-50 hover:border-blue-300"
-                              : "border-gray-200 bg-gray-50 opacity-70"
+                            ? "border-gray-200 bg-gray-50 hover:border-blue-300"
+                            : "border-gray-200 bg-gray-50 opacity-70"
                             }`}
                         >
                           <div className="min-w-0">
@@ -399,17 +399,18 @@ export default function EventDetailPage() {
                     Reviews
                   </h3>
 
-                  {isOrganizer ? (
-                    <div className="rounded-lg bg-gray-50 p-3 text-left">
-                      <p className="text-sm text-gray-600">
+                  <div className="max-h-60 overflow-y-auto pr-2">
+                    <Comments eventId={id} isOrganizer={isOrganizer} />
+                  </div>
+
+                  {/*{isOrganizer && (
+                    <div className="mt-3 rounded-lg bg-yellow-50 border border-yellow-200 p-3">
+                      <p className="text-sm text-yellow-800 flex items-center gap-2">
+                        <AlertCircle className="h-4 w-4" />
                         Organizers cannot review their own events
                       </p>
                     </div>
-                  ) : (
-                    <div className="max-h-60 overflow-y-auto pr-2">
-                      <Comments eventId={id} isOrganizer={isOrganizer} />
-                    </div>
-                  )}
+                  )}*/}
                 </section>
               </div>
 
