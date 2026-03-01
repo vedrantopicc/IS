@@ -1,15 +1,15 @@
 import { Router } from "express";
 import {
-  getAllEvents,
-  getEventById,
-  deleteEventById,
-  getOrganizerEvents,
-  createEvent,
-  updateEvent,
-  deleteOrganizerEvent,
-  getEventReservations,
-  getEventSalesProgress,
-  getEventTimeStats
+    getAllEvents,
+    getEventById,
+    deleteEventById,
+    getOrganizerEvents,
+    createEvent,
+    updateEvent,
+    deleteOrganizerEvent,
+    getEventReservations,
+    getEventSalesProgress,
+    getEventTimeStats
 } from "../controllers/events-controller.js";
 
 import { requireAdmin, requireOrganizer } from "../middleware/auth-middleware.js";
@@ -20,13 +20,13 @@ const router = Router();
 // javno
 router.get("/", getAllEvents);
 
-// organizer (mora prije /:id)
+// organizator (mora ići prije /:id)
 router.get("/organizer/my-events", requireOrganizer, getOrganizerEvents);
 
-// ✅ CREATE: upload.array za više slika (max 10)
+// ✅ KREIRANJE: upload.array za više slika (najviše 10)
 router.post("/organizer/create", requireOrganizer, upload.array("images", 10), createEvent);
 
-// ✅ UPDATE: takođe upload.array za više slika (max 10)
+// ✅ AŽURIRANJE: takođe upload.array za više slika (najviše 10)
 router.put("/organizer/:id", requireOrganizer, upload.array("images", 10), updateEvent);
 
 router.delete("/organizer/:id", requireOrganizer, deleteOrganizerEvent);
@@ -34,10 +34,10 @@ router.get("/organizer/:eventId/reservations", requireOrganizer, getEventReserva
 router.get("/organizer/:eventId/sales-progress", requireOrganizer, getEventSalesProgress);
 router.get("/organizer/:eventId/time-stats", requireOrganizer, getEventTimeStats);
 
-// admin
+// administrator
 router.delete("/:id", requireAdmin, deleteEventById);
 
-// pojedinacni event (uvijek na kraju)
+// pojedinačni događaj (uvijek na kraju)
 router.get("/:id", getEventById);
 
 export default router;

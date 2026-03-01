@@ -3,88 +3,88 @@ import { pool } from "../db.js";
 import crypto from "crypto";
 
 export async function createReservation(req, res, next) {
-  try {
-    const { eventId } = req.params;
-    const { ticketTypeId, numberOfTickets = 1 } = req.body;
-    const userId = req.user.id;
+    try {
+        const { eventId } = req.params;
+        const { ticketTypeId, numberOfTickets = 1 } = req.body;
+        const userId = req.user.id;
 
-    // Proveri da li događaj i tip ulaznice postoje
-    const [ticketTypeRows] = await pool.query(
-      `SELECT 
+        // Proveri da li događaj i tip ulaznice postoje
+        const [ticketTypeRows] = await pool.query(
+            `SELECT 
          tt.id, tt.price, tt.total_seats, tt.event_id,
          e.title as event_title,
          e.user_id as event_owner_id
        FROM ticket_type tt
        JOIN event e ON e.id = tt.event_id
        WHERE tt.id = ? AND tt.event_id = ?`,
-      [ticketTypeId, eventId]
-    );
+            [ticketTypeId, eventId]
+        );
 
-    if (!ticketTypeRows.length) {
-      return res.status(404).json({ error: "Ticket type or event not found" });
-    }
+        if (!ticketTypeRows.length) {
+            return res.status(404).json({ error: "Tip ulaznice ili događaj nije pronađen" });
+        }
 
-    const ticketType = ticketTypeRows[0];
+        const ticketType = ticketTypeRows[0];
 
-    // ✅ ZABRANI REZERVACIJU AKO JE KORISNIK VLASNIK DOGAĐAJA
-    if (ticketType.event_owner_id === userId) {
-      return res.status(403).json({ error: "You cannot reserve tickets for your own event." });
-    }
+        // ✅ ZABRANI REZERVACIJU AKO JE KORISNIK VLASNIK DOGAĐAJA
+        if (ticketType.event_owner_id === userId) {
+            return res.status(403).json({ error: "Ne možete rezervisati ulaznice za svoj vlastiti događaj." });
+        }
 
-    // Proveri da li korisnik već ima rezervaciju za taj tip ulaznice
-    const [existing] = await pool.query(
-      "SELECT id FROM reservation WHERE user_id = ? AND ticket_type_id = ? LIMIT 1",
-      [userId, ticketTypeId]
-    );
+        // Proveri da li korisnik već ima rezervaciju za taj tip ulaznice
+        const [existing] = await pool.query(
+            "SELECT id FROM reservation WHERE user_id = ? AND ticket_type_id = ? LIMIT 1",
+            [userId, ticketTypeId]
+        );
 
-    if (existing.length) {
-      return res.status(400).json({ error: "You already have a reservation for this ticket type" });
-    }
+        if (existing.length) {
+            return res.status(400).json({ error: "Već imate rezervaciju za ovaj tip ulaznice" });
+        }
 
-    // Proveri dostupna mesta
-    const [reservedResult] = await pool.query(
-      "SELECT COALESCE(SUM(number_of_tickets), 0) AS reserved FROM reservation WHERE ticket_type_id = ?",
-      [ticketTypeId]
-    );
+        // Proveri dostupna mesta
+        const [reservedResult] = await pool.query(
+            "SELECT COALESCE(SUM(number_of_tickets), 0) AS reserved FROM reservation WHERE ticket_type_id = ?",
+            [ticketTypeId]
+        );
 
-    const reserved = reservedResult[0].reserved;
-    const available = ticketType.total_seats - reserved;
+        const reserved = reservedResult[0].reserved;
+        const available = ticketType.total_seats - reserved;
 
-    if (available < numberOfTickets) {
-      return res.status(400).json({
-        error: `Not enough seats available for '${ticketType.name}'. Only ${available} left.`
-      });
-    }
+        if (available < numberOfTickets) {
+            return res.status(400).json({
+                error: `Nema dovoljno dostupnih mjesta za '${ticketType.name}'. Preostalo je samo ${available}.`
+            });
+        }
 
-    // Kreiraj rezervaciju
-    const reservationCode = crypto.randomUUID();
-    const [result] = await pool.query(
-      `INSERT INTO reservation 
+        // Kreiraj rezervaciju
+        const reservationCode = crypto.randomUUID();
+        const [result] = await pool.query(
+            `INSERT INTO reservation 
         (user_id, event_id, ticket_type_id, number_of_tickets, reservation_date, code) 
        VALUES (?, ?, ?, ?, NOW(), ?)`,
-      [userId, eventId, ticketTypeId, numberOfTickets, reservationCode]
-    );
+            [userId, eventId, ticketTypeId, numberOfTickets, reservationCode]
+        );
 
-    res.status(201).json({
-      message: "Reservation created successfully",
-      reservationId: result.insertId,
-      reservationCode,
-      numberOfTickets,
-      ticketType: ticketType.name,
-      totalPrice: (ticketType.price * numberOfTickets).toFixed(2)
-    });
+        res.status(201).json({
+            message: "Rezervacija je uspješno kreirana",
+            reservationId: result.insertId,
+            reservationCode,
+            numberOfTickets,
+            ticketType: ticketType.name,
+            totalPrice: (ticketType.price * numberOfTickets).toFixed(2)
+        });
 
-  } catch (err) {
-    next(err);
-  }
+    } catch (err) {
+        next(err);
+    }
 }
 
 export async function getUserReservations(req, res, next) {
-  try {
-    const userId = req.user.id;
+    try {
+        const userId = req.user.id;
 
-    const [rows] = await pool.query(
-      `SELECT 
+        const [rows] = await pool.query(
+            `SELECT 
          r.id,
          r.number_of_tickets,
          r.reservation_date,
@@ -101,43 +101,43 @@ export async function getUserReservations(req, res, next) {
        JOIN event e ON e.id = r.event_id
        WHERE r.user_id = ?
        ORDER BY r.reservation_date DESC`,
-      [userId]
-    );
+            [userId]
+        );
 
-    res.json(rows);
-  } catch (err) {
-    next(err);
-  }
+        res.json(rows);
+    } catch (err) {
+        next(err);
+    }
 }
 
 export async function deleteReservation(req, res, next) {
-  try {
-    const { reservationId } = req.params;
-    const userId = req.user.id;
+    try {
+        const { reservationId } = req.params;
+        const userId = req.user.id;
 
-    const [reservation] = await pool.query(
-      "SELECT id, user_id FROM reservation WHERE id = ? AND user_id = ? LIMIT 1",
-      [reservationId, userId]
-    );
+        const [reservation] = await pool.query(
+            "SELECT id, user_id FROM reservation WHERE id = ? AND user_id = ? LIMIT 1",
+            [reservationId, userId]
+        );
 
-    if (!reservation.length) {
-      return res.status(404).json({ error: "Reservation not found" });
+        if (!reservation.length) {
+            return res.status(404).json({ error: "Rezervacija nije pronađena" });
+        }
+
+        await pool.query("DELETE FROM reservation WHERE id = ?", [reservationId]);
+        res.json({ message: "Rezervacija je uspješno obrisana" });
+    } catch (err) {
+        next(err);
     }
-
-    await pool.query("DELETE FROM reservation WHERE id = ?", [reservationId]);
-    res.json({ message: "Reservation deleted successfully" });
-  } catch (err) {
-    next(err);
-  }
 }
 
 export async function getReservationById(req, res, next) {
-  try {
-    const { reservationId } = req.params;
-    const userId = req.user.id;
+    try {
+        const { reservationId } = req.params;
+        const userId = req.user.id;
 
-    const [rows] = await pool.query(
-      `SELECT 
+        const [rows] = await pool.query(
+            `SELECT 
          r.id AS reservation_id,
          r.number_of_tickets,
          r.reservation_date,
@@ -155,16 +155,15 @@ export async function getReservationById(req, res, next) {
        JOIN event e ON e.id = r.event_id
        WHERE r.id = ? AND r.user_id = ?
        LIMIT 1`,
-      [reservationId, userId]
-    );
+            [reservationId, userId]
+        );
 
-    if (!rows.length) {
-      return res.status(404).json({ error: "Reservation not found" });
+        if (!rows.length) {
+            return res.status(404).json({ error: "Rezervacija nije pronađena" });
+        }
+
+        res.json(rows[0]);
+    } catch (err) {
+        next(err);
     }
-
-    res.json(rows[0]);
-  } catch (err) {
-    next(err);
-  }
 }
-
