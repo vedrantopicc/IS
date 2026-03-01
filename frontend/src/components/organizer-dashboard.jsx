@@ -3,8 +3,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Avatar, AvatarFallback } from "../components/ui/avatar";
 import {
-  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
-  DropdownMenuItem, DropdownMenuLabel
+    DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
+    DropdownMenuItem, DropdownMenuLabel
 } from "../components/ui/dropdown-menu";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -22,1512 +22,1419 @@ import { getOrganizerEvents, createEvent, updateEvent, deleteEvent, getEventRese
 import { toast } from "react-toastify";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { resolveImage } from "../lib/image";
-
 // Helper funkcije
 function getToken() { return localStorage.getItem("token"); }
 function decodeJwt(token) {
-  try {
-    const b = token.split(".")[1];
-    const j = atob(b.replace(/-/g, "+").replace(/_/g, "/"));
-    return JSON.parse(decodeURIComponent(escape(j)));
-  } catch {
-    return null;
-  }
+    try {
+        const b = token.split(".")[1];
+        const j = atob(b.replace(/-/g, "+").replace(/_/g, "/"));
+        return JSON.parse(decodeURIComponent(escape(j)));
+    } catch {
+        return null;
+    }
 }
 function getDisplayName(p) {
-  if (!p) return "User";
-  if (p.name && p.surname) return `${p.name} ${p.surname}`;
-  return p.name || p.username || p.email || "User";
+    if (!p) return "Korisnik";
+    if (p.name && p.surname) return `${p.name} ${p.surname}`;
+    return p.name || p.username || p.email || "Korisnik";
 }
 function getInitials(name) {
-  return (name.split(" ").filter(Boolean).slice(0, 2).map(s => s[0]?.toUpperCase() || "").join("")) || "U";
+    return (name.split(" ").filter(Boolean).slice(0, 2).map(s => s[0]?.toUpperCase() || "").join("")) || "K";
 }
 function getCurrentUserRole() {
-  const token = getToken();
-  if (!token) return null;
-  const userStr = localStorage.getItem("user");
-  if (userStr) {
-    try {
-      const user = JSON.parse(userStr);
-      return user.role;
-    } catch { }
-  }
-  return null;
+    const token = getToken();
+    if (!token) return null;
+    const userStr = localStorage.getItem("user");
+    if (userStr) {
+        try {
+            const user = JSON.parse(userStr);
+            return user.role;
+        } catch { }
+    }
+    return null;
 }
 const formatDateTime = (dateTimeString) => {
-  if (!dateTimeString) return { date: "", time: "" };
-  const dt = new Date(dateTimeString);
-  const date = dt.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
-  const time = dt.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
-  return { date, time };
+    if (!dateTimeString) return { date: "", time: "" };
+    const dt = new Date(dateTimeString);
+    const date = dt.toLocaleDateString('sr-Latn-RS', { year: "numeric", month: "long", day: "numeric" });
+    const time = dt.toLocaleTimeString('sr-Latn-RS', { hour: "2-digit", minute: "2-digit" });
+    return { date, time };
 };
 const isEventInPast = (dateTimeString) => {
-  const eventDate = new Date(dateTimeString);
-  const currentDate = new Date();
-  return eventDate < currentDate;
+    const eventDate = new Date(dateTimeString);
+    const currentDate = new Date();
+    return eventDate < currentDate;
 };
 const formatDateTimeForMySQL = (dateTime) => {
-  const date = new Date(dateTime);
-  return date.getFullYear() + '-' +
-    String(date.getMonth() + 1).padStart(2, '0') + '-' +
-    String(date.getDate()).padStart(2, '0') + ' ' +
-    String(date.getHours()).padStart(2, '0') + ':' +
-    String(date.getMinutes()).padStart(2, '0') + ':' +
-    String(date.getSeconds()).padStart(2, '0');
+    const date = new Date(dateTime);
+    return date.getFullYear() + '-' +
+        String(date.getMonth() + 1).padStart(2, '0') + '-' +
+        String(date.getDate()).padStart(2, '0') + ' ' +
+        String(date.getHours()).padStart(2, '0') + ':' +
+        String(date.getMinutes()).padStart(2, '0') + ':' +
+        String(date.getSeconds()).padStart(2, '0');
 };
-
 export default function OrganizerDashboard() {
-  const navigate = useNavigate();
-  const payload = useMemo(() => getToken() ? decodeJwt(getToken()) : null, []);
-  const displayName = useMemo(() => getDisplayName(payload), [payload]);
-  const initials = useMemo(() => getInitials(displayName), [displayName]);
-  const userRole = useMemo(() => getCurrentUserRole(), []);
-  const isAdmin = userRole === "Admin";
-  const formatCategoryLabel = (name = "") => name.trim().toUpperCase();
-
-  const [loading, setLoading] = useState(true);
-  const [events, setEvents] = useState([]);
-  const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [showEditDialog, setShowEditDialog] = useState(false);
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [showReservationsDialog, setShowReservationsDialog] = useState(false);
-  const [showProgressDialog, setShowProgressDialog] = useState(false);
-  const [selectedEvent, setSelectedEvent] = useState(null);
-  const [reservations, setReservations] = useState([]);
-  const [salesProgress, setSalesProgress] = useState(null);
-  const [ticketTypes, setTicketTypes] = useState([{ name: "", price: "", total_seats: "" }]);
-  const [categories, setCategories] = useState([]);
-  const [categoryId, setCategoryId] = useState("");
-  const [page, setPage] = useState(1);
-  const [limit] = useState(9);
-  const [meta, setMeta] = useState({ page: 1, limit: 9, total: 0, totalPages: 1 });
-
-  // ✅ Niz slika umesto jedne
-  const [imageFiles, setImageFiles] = useState([]);
-  const [imagePreview, setImagePreview] = useState("");
-
-  // ✅ PRAĆENJE OBRISANIH SLIKA
-  const [deletedImageIds, setDeletedImageIds] = useState([]);
-
-  const [q, setQ] = useState("");
-  const [qDebounced, setQDebounced] = useState("");
-  const fallbackUrl =
-    "https://images.pexels.com/photos/1190298/pexels-photo-1190298.jpeg?auto=compress&cs=tinysrgb&w=800";
-
-  const getInitialFormData = () => {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    tomorrow.setHours(12, 0, 0, 0);
-    return {
-      title: "",
-      description: "",
-      location: "",
-      date_and_time: tomorrow.toISOString().slice(0, 16),
-      image: "",
-      status: "DRAFT"
+    const navigate = useNavigate();
+    const payload = useMemo(() => getToken() ? decodeJwt(getToken()) : null, []);
+    const displayName = useMemo(() => getDisplayName(payload), [payload]);
+    const initials = useMemo(() => getInitials(displayName), [displayName]);
+    const userRole = useMemo(() => getCurrentUserRole(), []);
+    const isAdmin = userRole === "Admin";
+    const formatCategoryLabel = (name = "") => name.trim().toUpperCase();
+    const [loading, setLoading] = useState(true);
+    const [events, setEvents] = useState([]);
+    const [showCreateDialog, setShowCreateDialog] = useState(false);
+    const [showEditDialog, setShowEditDialog] = useState(false);
+    const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+    const [showReservationsDialog, setShowReservationsDialog] = useState(false);
+    const [showProgressDialog, setShowProgressDialog] = useState(false);
+    const [selectedEvent, setSelectedEvent] = useState(null);
+    const [reservations, setReservations] = useState([]);
+    const [salesProgress, setSalesProgress] = useState(null);
+    const [ticketTypes, setTicketTypes] = useState([{ name: "", price: "", total_seats: "" }]);
+    const [categories, setCategories] = useState([]);
+    const [categoryId, setCategoryId] = useState("");
+    const [page, setPage] = useState(1);
+    const [limit] = useState(9);
+    const [meta, setMeta] = useState({ page: 1, limit: 9, total: 0, totalPages: 1 });
+    // ✅ Niz slika umesto jedne
+    const [imageFiles, setImageFiles] = useState([]);
+    const [imagePreview, setImagePreview] = useState("");
+    // ✅ PRAĆENJE OBRISANIH SLIKA
+    const [deletedImageIds, setDeletedImageIds] = useState([]);
+    const [q, setQ] = useState("");
+    const [qDebounced, setQDebounced] = useState("");
+    const fallbackUrl =
+        "https://images.pexels.com/photos/1190298/pexels-photo-1190298.jpeg?auto=compress&cs=tinysrgb&w=800";
+    const getInitialFormData = () => {
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        tomorrow.setHours(12, 0, 0, 0);
+        return {
+            title: "",
+            description: "",
+            location: "",
+            date_and_time: tomorrow.toISOString().slice(0, 16),
+            image: "",
+            status: "DRAFT"
+        };
     };
-  };
-
-  const [formData, setFormData] = useState(getInitialFormData());
-
-  // ✅ Funkcija za više slika
-  const onPickImages = (files) => {
-    const newFiles = Array.from(files || []);
-    setImageFiles(prev => [...prev, ...newFiles.map(file => ({
-      type: 'new',
-      file: file,
-      path: URL.createObjectURL(file),
-      isMain: false
-    }))]);
-    if (imageFiles.length === 0 && newFiles.length > 0) {
-      setImagePreview(URL.createObjectURL(newFiles[0]));
-    }
-  };
-
-  // ✅ Obriši pojedinačnu sliku - SA PRAĆENJEM OBRISANIH ID-JEVA
-  const removeImage = (index) => {
-    const removedImg = imageFiles[index];
-
-    // ✅ Ako je slika iz baze, sačuvaj njen ID za brisanje
-    if (removedImg?.type === 'existing' && removedImg?.id) {
-      setDeletedImageIds(prev => [...prev, removedImg.id]);
-    }
-
-    const newFiles = imageFiles.filter((_, i) => i !== index);
-    setImageFiles(newFiles);
-    if (newFiles.length > 0) {
-      if (newFiles[0].file) {
-        setImagePreview(URL.createObjectURL(newFiles[0].file));
-      } else {
-        setImagePreview(resolveImage(newFiles[0].path));
-      }
-    } else {
-      setImagePreview("");
-    }
-  };
-
-  useEffect(() => {
-    loadEvents();
-  }, [page]);
-
-  useEffect(() => {
-    const t = setTimeout(() => setQDebounced(q), 350);
-    return () => clearTimeout(t);
-  }, [q]);
-
-  useEffect(() => {
-    setPage(1);
-  }, [qDebounced]);
-
-  useEffect(() => {
-    let alive = true;
-    (async () => {
-      try {
-        const cats = await getCategories();
-        if (alive) setCategories(cats);
-      } catch (err) {
-        console.error("Failed to load categories:", err);
-        toast.error("Failed to load categories");
-      }
-    })();
-    return () => { alive = false; };
-  }, []);
-
-  const loadEvents = async () => {
-    try {
-      setLoading(true);
-      const resp = await getOrganizerEvents({ page, limit, q: qDebounced });
-      const items = Array.isArray(resp) ? resp : (resp?.items ?? []);
-      const meta = Array.isArray(resp)
-        ? { page, limit, total: items.length, totalPages: 1 }
-        : (resp?.meta ?? { page, limit, total: 0, totalPages: 1 });
-      setEvents(items);
-      setMeta(meta);
-    } catch (err) {
-      console.error("Failed to load events:", err);
-      toast.error("Failed to load events");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const addTicketType = () => {
-    setTicketTypes([...ticketTypes, { name: "", price: "", total_seats: "" }]);
-  };
-
-  const removeTicketType = (index) => {
-    if (ticketTypes.length > 1) {
-      const newTypes = ticketTypes.filter((_, i) => i !== index);
-      setTicketTypes(newTypes);
-    }
-  };
-
-  const updateTicketType = (index, field, value) => {
-    const newTypes = [...ticketTypes];
-    newTypes[index][field] = value;
-    setTicketTypes(newTypes);
-  };
-
-  const validateTicketTypes = () => {
-    for (let tt of ticketTypes) {
-      if (!tt.name.trim() || tt.price === "" || tt.total_seats === "" ||
-        isNaN(parseFloat(tt.price)) || isNaN(parseInt(tt.total_seats)) ||
-        parseFloat(tt.price) < 0 || parseInt(tt.total_seats) <= 0) {
-        return false;
-      }
-    }
-    return true;
-  };
-
-  // ✅ Slanje više slika
-  const handleCreateEvent = async (status = "DRAFT") => {
-    const cid = Number(categoryId);
-    if (!Number.isInteger(cid) || cid <= 0) {
-      toast.error("Please select a valid category");
-      return;
-    }
-    if (!formData.date_and_time || new Date(formData.date_and_time) <= new Date()) {
-      toast.error("Event date must be in the future");
-      return;
-    }
-    if (!validateTicketTypes()) {
-      toast.error("Please fill all ticket type fields correctly (name, price ≥ 0, seats > 0)");
-      return;
-    }
-    try {
-      const fd = new FormData();
-      fd.append("title", formData.title.trim());
-      fd.append("description", formData.description.trim());
-      fd.append("location", formData.location.trim());
-      fd.append("date_and_time", formatDateTimeForMySQL(formData.date_and_time));
-      fd.append("category_id", String(cid));
-      fd.append("status", status);
-      fd.append("ticketTypes", JSON.stringify(
-        ticketTypes.map(tt => ({
-          name: tt.name.trim(),
-          price: parseFloat(tt.price),
-          total_seats: parseInt(tt.total_seats)
-        }))
-      ));
-      // ✅ SLANJE VIŠE SLIKA
-      if (imageFiles && imageFiles.length > 0) {
-        imageFiles.forEach(fileObj => {
-          if (fileObj.file) {
-            fd.append("images", fileObj.file);
-          }
-        });
-      } else if (formData.image.trim()) {
-        fd.append("images", formData.image.trim());
-      }
-      await createEvent(fd);
-      toast.success(status === "DRAFT" ? "Event saved as draft" : "Event created successfully");
-      setShowCreateDialog(false);
-      resetForm();
-      setPage(1);
-      loadEvents();
-    } catch (err) {
-      console.error("Failed to create event:", err);
-      toast.error(err.message || "Failed to create event");
-    }
-  };
-
-  // ✅ Slanje više slika pri ažuriranju - SA DELETED IMAGES I TICKET TYPES
-  const handleUpdateEvent = async (status = null) => {
-    const cid = Number(categoryId);
-    if (!formData.date_and_time || new Date(formData.date_and_time) <= new Date()) {
-      toast.error("Event date must be in the future");
-      return;
-    }
-    if (!categoryId) {
-      toast.error("Please select a category");
-      return;
-    }
-    if (!validateTicketTypes()) {
-      toast.error("Please fill all ticket type fields correctly (name, price ≥ 0, seats > 0)");
-      return;
-    }
-    try {
-      const fd = new FormData();
-      fd.append("title", formData.title.trim());
-      fd.append("description", formData.description.trim());
-      fd.append("location", formData.location.trim());
-      fd.append("date_and_time", formatDateTimeForMySQL(formData.date_and_time));
-      fd.append("category_id", String(cid));
-      if (status) fd.append("status", status);
-
-      // ✅ SLANJE GLAVNE SLIKE I DODATNIH SLIKA
-      if (imageFiles && imageFiles.length > 0) {
-        // Prva slika je uvijek glavna
-        const mainImage = imageFiles[0];
-
-        if (mainImage.type === 'new' && mainImage.file) {
-          fd.append("image", mainImage.file);
-        } else if (mainImage.type === 'existing' && mainImage.path) {
-          fd.append("image", mainImage.path);
+    const [formData, setFormData] = useState(getInitialFormData());
+    // ✅ Funkcija za više slika
+    const onPickImages = (files) => {
+        const newFiles = Array.from(files || []);
+        setImageFiles(prev => [...prev, ...newFiles.map(file => ({
+            type: 'new',
+            file: file,
+            path: URL.createObjectURL(file),
+            isMain: false
+        }))]);
+        if (imageFiles.length === 0 && newFiles.length > 0) {
+            setImagePreview(URL.createObjectURL(newFiles[0]));
         }
-
-        // Pošalji ostale nove slike
-        imageFiles.slice(1).forEach(fileObj => {
-          if (fileObj.type === 'new' && fileObj.file) {
-            fd.append("images", fileObj.file);
-          }
-        });
-      } else if (formData.image.trim()) {
-        fd.append("image", formData.image.trim());
-      }
-
-      // ✅ POŠALJI ID-JEVE OBRISANIH SLIKA
-      if (deletedImageIds.length > 0) {
-        fd.append("deletedImages", JSON.stringify(deletedImageIds));
-      }
-
-      // ✅ POŠALJI TICKET TYPES
-      fd.append("ticketTypes", JSON.stringify(
-        ticketTypes.map(tt => ({
-          name: tt.name.trim(),
-          price: parseFloat(tt.price),
-          total_seats: parseInt(tt.total_seats)
-        }))
-      ));
-
-      await updateEvent(selectedEvent.id, fd);
-      toast.success(status === "DRAFT" ? "Event saved as draft" : "Event updated successfully");
-      setShowEditDialog(false);
-      resetForm();
-      setPage(1);
-      loadEvents();
-    } catch (err) {
-      console.error("Failed to update event:", err);
-      toast.error(err.message || "Failed to update event");
-    }
-  };
-
-  const handleDeleteEvent = async () => {
-    try {
-      await deleteEvent(selectedEvent.id);
-      toast.success("Event deleted successfully");
-      setShowDeleteDialog(false);
-      setSelectedEvent(null);
-      setPage(1);
-      loadEvents();
-    } catch (err) {
-      console.error("Failed to delete event:", err);
-      toast.error(err.message || "Failed to delete event");
-    }
-  };
-
-  const handleViewReservations = async (event) => {
-    try {
-      setSelectedEvent(event);
-      const data = await getEventReservations(event.id);
-      setReservations(data);
-      setShowReservationsDialog(true);
-    } catch (err) {
-      console.error("Failed to load reservations:", err);
-      toast.error(`Failed to load reservations: ${err.message}`);
-    }
-  };
-
-  const handleViewSalesProgress = async (event) => {
-    try {
-      setSelectedEvent(event);
-      const data = await getEventSalesProgress(event.id);
-      setSalesProgress(data);
-      setShowProgressDialog(true);
-    } catch (err) {
-      console.error("Failed to load sales progress:", err);
-      toast.error(`Failed to load sales progress: ${err.message}`);
-    }
-  };
-
-  // ✅ Učitavanje postojećih slika - SA RESETOM DELETED IDs
-  const handleEdit = (event) => {
-    setDeletedImageIds([]); // ✅ RESETUJ PRI OTVARANJU EDIT
-    setSelectedEvent(event);
-    setFormData({
-      title: event.title,
-      description: event.description || "",
-      location: event.location || "",
-      date_and_time: new Date(event.date_and_time).toISOString().slice(0, 16),
-      image: event.image || "",
-      status: event.status || "DRAFT"
-    });
-    setCategoryId(String(event.category_id || ""));
-
-    // ✅ UČITAJ POSTOJEĆE TICKET TYPES
-    if (event.ticket_types && event.ticket_types.length > 0) {
-      setTicketTypes(event.ticket_types.map(tt => ({
-        name: tt.name || "",
-        price: String(tt.price || ""),
-        total_seats: String(tt.total_seats || "")
-      })));
-    } else {
-      setTicketTypes([{ name: "", price: "", total_seats: "" }]);
-    }
-
-    // ✅ UČITAJ POSTOJEĆE DODATNE SLIKE IZ BAZE
-    if (event.additional_images && event.additional_images.length > 0) {
-      const existingImages = event.additional_images.map(img => ({
-        type: 'existing',
-        path: img.image_path,
-        id: img.id
-      }));
-
-      // ✅ Ako event ima glavnu sliku, stavi je na prvu poziciju
-      if (event.image) {
-        const mainImageIndex = existingImages.findIndex(img => img.path === event.image);
-        if (mainImageIndex !== -1) {
-          const [mainImg] = existingImages.splice(mainImageIndex, 1);
-          existingImages.unshift(mainImg);
-        }
-      }
-
-      setImageFiles(existingImages);
-    } else {
-      setImageFiles([]);
-    }
-
-    setImagePreview("");
-    setShowEditDialog(true);
-  };
-
-  const resetForm = () => {
-    setFormData(getInitialFormData());
-    setCategoryId("");
-    setImageFiles([]);
-    setImagePreview("");
-    setDeletedImageIds([]); // ✅ RESETUJ I OVDJE
-    setTicketTypes([{ name: "", price: "", total_seats: "" }]);
-  };
-
-  const handleLogout = async () => {
-    try { await logoutApi(); } catch { } finally {
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
-      navigate("/");
-    }
-  };
-
-  function renderPagination() {
-    const totalPages = meta?.totalPages ?? 1;
-    if (totalPages <= 1) return null;
-    const go = (p) => setPage(Math.min(totalPages, Math.max(1, p)));
-    const maxMiddle = 5;
-    const pages = [];
-    const start = Math.max(2, page - Math.floor(maxMiddle / 2));
-    const end = Math.min(totalPages - 1, start + maxMiddle - 1);
-    const startFixed = Math.max(2, end - maxMiddle + 1);
-
-    const PageBtn = ({ p, active }) => (
-      <button
-        type="button"
-        onClick={() => go(p)}
-        className={[
-          "h-10 w-10 rounded-full text-sm font-medium transition",
-          "hover:bg-gray-100 active:scale-[0.98]",
-          active ? "ring-2 ring-gray-900 text-gray-900 bg-white" : "text-gray-700",
-        ].join(" ")}
-        aria-current={active ? "page" : undefined}
-      >
-        {p}
-      </button>
-    );
-
-    const ArrowBtn = ({ dir }) => {
-      const disabled = dir === "left" ? page === 1 : page === totalPages;
-      const Icon = dir === "left" ? ChevronLeft : ChevronRight;
-      return (
-        <button
-          type="button"
-          onClick={() => go(dir === "left" ? page - 1 : page + 1)}
-          disabled={disabled}
-          className={[
-            "h-10 w-10 rounded-full grid place-items-center transition",
-            disabled ? "text-gray-300 cursor-not-allowed" : "text-gray-800 hover:bg-gray-100",
-          ].join(" ")}
-          aria-label={dir === "left" ? "Previous page" : "Next page"}
-        >
-          <Icon className="h-5 w-5" />
-        </button>
-      );
     };
-
-    return (
-      <div className="mt-10 flex items-center justify-center gap-2 select-none">
-        <ArrowBtn dir="left" />
-        <PageBtn p={1} active={page === 1} />
-        {startFixed > 2 && <span className="px-1 text-gray-400">…</span>}
-        {(() => {
-          for (let p = startFixed; p <= end; p++) {
-            pages.push(<PageBtn key={p} p={p} active={p === page} />);
-          }
-          return pages;
-        })()}
-        {end < totalPages - 1 && <span className="px-1 text-gray-400">…</span>}
-        {totalPages > 1 && <PageBtn p={totalPages} active={page === totalPages} />}
-        <ArrowBtn dir="right" />
-      </div>
-    );
-  }
-
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="sticky top-0 z-10 w-full bg-white/80 backdrop-blur border-b">
-        <div className="mx-auto max-w-7xl px-4 py-3 flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold text-gray-900">Organizer Dashboard</h1>
-            <p className="text-sm text-gray-600">
-              Welcome, <span className="font-semibold">{displayName}</span>
-            </p>
-          </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-10 w-10 rounded-full p-0 relative z-50 cursor-pointer hover:bg-gray-100 transition-colors">
-                <Avatar className="h-9 w-9">
-                  <AvatarFallback className="bg-gray-900 text-white text-sm font-medium">
-                    {initials}
-                  </AvatarFallback>
-                </Avatar>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align="end"
-              className="w-60 text-gray-900 bg-white shadow-xl border border-gray-200 rounded-md z-[9999] mt-2"
-              side="bottom"
-              sideOffset={8}
-            >
-              <div className="px-4 py-3 border-b border-gray-100">
-                <p className="text-sm font-medium text-gray-900 truncate">{displayName}</p>
-              </div>
-              {isAdmin && (
-                <>
-                  <div className="p-1">
-                    <DropdownMenuItem
-                      onClick={() => navigate("/admin")}
-                      className="flex items-center px-3 py-2 text-sm hover:bg-gray-100 cursor-pointer rounded-sm"
-                    >
-                      <Shield className="mr-3 h-4 w-4" />
-                      <span>Admin Panel</span>
-                    </DropdownMenuItem>
-                  </div>
-                  <div className="h-px bg-gray-100 mx-2"></div>
-                </>
-              )}
-              <div className="p-1">
-                <DropdownMenuItem
-                  onClick={() => navigate("/events")}
-                  className="flex items-center px-3 py-2 text-sm hover:bg-gray-100 cursor-pointer rounded-sm"
-                >
-                  <Calendar className="mr-3 h-4 w-4" />
-                  <span>View Events</span>
-                </DropdownMenuItem>
-              </div>
-              <div className="h-px bg-gray-100 mx-2"></div>
-              <div className="p-1">
-                <DropdownMenuItem
-                  onClick={() => navigate("/student-dashboard")}
-                  className="flex items-center px-3 py-2 text-sm hover:bg-gray-100 cursor-pointer rounded-sm"
-                >
-                  <Users className="mr-3 h-4 w-4" />
-                  <span>Student Dashboard</span>
-                </DropdownMenuItem>
-              </div>
-              <div className="p-1">
-                <DropdownMenuItem
-                  onClick={() => navigate("/settings")}
-                  className="flex items-center px-3 py-2 text-sm hover:bg-gray-100 cursor-pointer rounded-sm"
-                >
-                  <Settings className="mr-3 h-4 w-4" />
-                  <span>Settings</span>
-                </DropdownMenuItem>
-              </div>
-              <div className="h-px bg-gray-100 mx-2"></div>
-              <div className="p-1">
-                <DropdownMenuItem
-                  onClick={handleLogout}
-                  className="flex items-center px-3 py-2 text-sm hover:bg-red-50 hover:text-red-700 cursor-pointer rounded-sm"
-                >
-                  <LogOut className="mr-3 h-4 w-4" />
-                  <span>Logout</span>
-                </DropdownMenuItem>
-              </div>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </header>
-
-      <main className="max-w-7xl mx-auto p-6">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-gray-900">My Events</h2>
-          <Button
-            onClick={() => setShowCreateDialog(true)}
-            className="!bg-blue-600 hover:!bg-blue-700 !text-white cursor-pointer font-semibold shadow-md border-0 px-6 py-2"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Create Event
-          </Button>
-        </div>
-
-        {loading ? (
-          <p className="text-center text-gray-500">Loading events...</p>
-        ) : events.length === 0 ? (
-          <Card>
-            <CardContent className="text-center py-12">
-              <Calendar className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No events yet</h3>
-              <p className="text-gray-500 mb-4">Create your first event to get started.</p>
-              <Button onClick={() => setShowCreateDialog(true)} className="!bg-blue-600 hover:!bg-blue-700 !text-white cursor-pointer font-semibold shadow-md border-0 px-6 py-2">
-                <Plus className="mr-2 h-4 w-4" />
-                Create Event
-              </Button>
-            </CardContent>
-          </Card>
-        ) : (
-          <>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {events.map((event) => {
-                const { date, time } = formatDateTime(event.date_and_time);
-                const isPast = isEventInPast(event.date_and_time);
-                return (
-                  <Card key={event.id} className={`overflow-hidden bg-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02] ${isPast ? 'opacity-75' : ''} relative`}>
-                    {event.status === "DRAFT" && (
-                      <Badge className="absolute top-2 left-2 bg-yellow-500 text-white z-10">
-                        Draft
-                      </Badge>
-                    )}
-                    <div className="relative h-48 overflow-hidden">
-                      {event.image ? (
-                        <img
-                          src={resolveImage(event.image)}
-                          alt={event.title}
-                          className="w-full h-full object-cover transition-transform duration-300 hover:scale-110"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-400">
-                          <Calendar className="h-12 w-12" />
-                        </div>
-                      )}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
-                      {isPast && (
-                        <Badge className="absolute top-2 right-2 bg-gray-600/90 text-white">
-                          Past Event
-                        </Badge>
-                      )}
-                    </div>
-                    <CardContent className="p-6 space-y-4">
-                      <h3 className="text-xl font-bold text-gray-900 line-clamp-2 leading-tight">
-                        {event.title}
-                      </h3>
-                      <div className="flex items-center space-x-2 text-gray-600">
-                        <MapPin className="w-4 h-4 text-blue-600 flex-shrink-0" />
-                        <span className="text-sm font-medium line-clamp-1">{event.location || "Location not specified"}</span>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-4 text-gray-600">
-                        <div className="flex items-center space-x-2">
-                          <Calendar className="w-4 h-4 text-blue-600 flex-shrink-0" />
-                          <span className="text-sm font-medium">{date}</span>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Clock className="w-4 h-4 text-blue-600 flex-shrink-0" />
-                          <span className="text-sm font-medium">{time}</span>
-                        </div>
-                        {event.averageRating && parseFloat(event.averageRating) > 0 && (
-                          <div className="flex items-center space-x-1">
-                            <Star className="w-4 h-4 fill-yellow-400 text-yellow-400 flex-shrink-0" />
-                            <span className="text-sm font-bold text-gray-900">{parseFloat(event.averageRating).toFixed(1)}</span>
-                          </div>
-                        )}
-                      </div>
-                      <div className="pt-2 border-t border-gray-100 space-y-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleViewReservations(event)}
-                          className="w-full text-gray-700 hover:text-gray-900 border-gray-300 hover:bg-gray-100 cursor-pointer"
-                        >
-                          <Users className="mr-2 h-4 w-4" />
-                          View Reservations
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleViewSalesProgress(event)}
-                          className="w-full text-green-600 hover:text-green-700 border-green-300 hover:bg-green-50 cursor-pointer"
-                        >
-                          <BarChart3 className="mr-2 h-4 w-4" />
-                          Sales Progress
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => navigate(`/organizer/event-stats/${event.id}`)}
-                          className="w-full text-purple-600 hover:text-purple-700 border-purple-300 hover:bg-purple-50 cursor-pointer flex items-center justify-center gap-2"
-                        >
-                          <TrendingUp className="h-4 w-4" />
-                          <span className="font-medium">Analytics</span>
-                        </Button>
-                        <div className="flex gap-2 pt-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleEdit(event)}
-                            className="flex-1 text-blue-600 hover:text-blue-700 border-blue-300 hover:bg-blue-50 cursor-pointer"
-                          >
-                            <Edit className="mr-2 h-4 w-4" />
-                            Edit
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setSelectedEvent(event);
-                              setShowDeleteDialog(true);
-                            }}
-                            className="flex-1 text-red-600 hover:text-red-700 hover:bg-red-50 cursor-pointer"
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Delete
-                          </Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-            {renderPagination()}
-          </>
-        )}
-
-        {/* CREATE DIALOG */}
-        <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-          <DialogContent className="bg-white text-black max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Create New Event</DialogTitle>
-              <DialogDescription>Fill in event details and ticket types.</DialogDescription>
-            </DialogHeader>
-            <form className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
-              <div>
-                <label className="block text-sm font-medium mb-1">Event Title *</label>
-                <Input
-                  value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  placeholder="Enter event title"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Location</label>
-                <Input
-                  value={formData.location}
-                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                  placeholder="Enter event location"
-                />
-              </div>
-              <div className="mb-4">
-                <label className="block text-sm font-medium mb-1">Category *</label>
-                <Select value={categoryId} onValueChange={setCategoryId}>
-                  <SelectTrigger className="w-52 bg-white text-black">
-                    <SelectValue placeholder="Select category" />
-                  </SelectTrigger>
-                  <SelectContent className="z-[99999] bg-white text-black border">
-                    {categories.map((c) => (
-                      <SelectItem key={c.id} value={String(c.id)}>
-                        {formatCategoryLabel(c.name)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Description</label>
-                <Textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="Enter event description"
-                  rows={3}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1">Date & Time *</label>
-                  <Input
-                    type="datetime-local"
-                    value={formData.date_and_time}
-                    onChange={(e) => setFormData({ ...formData, date_and_time: e.target.value })}
-                    min={new Date().toISOString().slice(0, 16)}
-                    required
-                  />
-                </div>
-                <div className="col-span-2">
-  <label className="block text-sm font-medium mb-2">Event Images</label>
-
-  <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
-    {/* LEFT: picker */}
-    <div className="md:col-span-5">
-      <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-sm font-semibold text-gray-900">Add photos</p>
-
-          {imageFiles.length > 0 && (
-            <Button
-              type="button"
-              variant="outline"
-           onClick={() => {
-  // ✅ zapamti sve existing slike za brisanje
-  const ids = imageFiles
-    .filter(img => img.type === "existing" && img.id)
-    .map(img => img.id);
-
-  if (ids.length) setDeletedImageIds(prev => [...prev, ...ids]);
-
-  setImageFiles([]);
-  setImagePreview("");
-}}
-              className="h-8 px-3 text-xs"
-            >
-              Remove all
-            </Button>
-          )}
-        </div>
-
-        <p className="mt-1 text-xs text-gray-600">
-          JPG/PNG/WEBP • max ~5MB • up to 10 images
-        </p>
-
-        <div className="mt-3 flex items-center gap-2">
-          <Input
-            type="file"
-            accept="image/*"
-             disabled={imageFiles.length >= 10}
-            multiple
-            onChange={(e) => {
-              onPickImages(e.target.files);
-              e.target.value = "";
-            }}
-            className="bg-white"
-          />
-        </div>
-
-        <div className="mt-3 text-xs text-gray-600">
-          Tip: click a photo to set it as <span className="font-semibold">Main</span>.
-        </div>
-      </div>
-    </div>
-
-    {/* RIGHT: preview */}
-    <div className="md:col-span-7">
-      {imageFiles.length === 0 ? (
-        <div className="h-[132px] rounded-xl border border-dashed border-gray-300 grid place-items-center bg-white">
-          <div className="text-center">
-            <p className="text-sm font-medium text-gray-700">No images yet</p>
-            <p className="text-xs text-gray-500 mt-1">Add 1–10 images (optional)</p>
-          </div>
-        </div>
-      ) : (
-        <div className="rounded-xl border border-gray-200 bg-white p-3">
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-semibold text-gray-900">
-              Preview <span className="text-gray-500 font-medium">({imageFiles.length})</span>
-            </p>
-            <p className="text-xs text-gray-500">
-              Main is used on cards
-            </p>
-          </div>
-
-          <div className="mt-3 max-h-[180px] overflow-auto pr-1">
-            <div className="grid grid-cols-4 gap-2">
-              {imageFiles.map((img, idx) => {
-                const isMain = idx === 0;
-                const isFile = img.type === "new";
-
-                return (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => {
-                      // set main = move to front
-                      const newFiles = [...imageFiles];
-                      const [picked] = newFiles.splice(idx, 1);
-                      newFiles.unshift(picked);
-                      setImageFiles(newFiles);
-
-                      // (opciono) upiši main u formData.image ako želiš
-                      const clicked = imageFiles[idx];
-                      setFormData((prev) => ({
-                        ...prev,
-                        image: clicked.path, // ako je existing path ili blob path
-                      }));
-                    }}
-                    className={[
-                      "relative group rounded-lg overflow-hidden border",
-                      isMain ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200 hover:border-gray-300",
-                      "focus:outline-none focus:ring-2 focus:ring-blue-300",
-                    ].join(" ")}
-                    title="Click to set as main"
-                  >
-                    <img
-                      src={isFile ? img.path : resolveImage(img.path)}
-                      alt={`Image ${idx + 1}`}
-                      className="h-20 w-full object-cover"
-                    />
-
-                    {/* Main badge */}
-                    {isMain && (
-                      <div className="absolute left-1 top-1 rounded-md bg-blue-600 text-white text-[10px] px-2 py-0.5 font-semibold">
-                        MAIN
-                      </div>
-                    )}
-
-                    {/* Remove */}
-                    <span
-                      role="button"
-                      tabIndex={0}
-                     onClick={(e) => {
-  e.stopPropagation();
-  removeImage(idx); // ✅ ovo puni deletedImageIds za existing slike
-}}
-                      className="absolute right-1 top-1 opacity-0 group-hover:opacity-100 transition
-                                 rounded-full bg-black/70 text-white text-[11px] w-6 h-6 grid place-items-center"
-                      title="Remove"
-                    >
-                      ✕
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  </div>
-</div>
-              </div>
-              <div>
-                <div className="flex justify-between items-center mb-2">
-                  <label className="block text-sm font-medium">Ticket Types *</label>
-                  <Button type="button" size="sm" variant="outline" onClick={addTicketType} className="!h-7 !px-2">
-                    <Plus className="h-3 w-3 mr-1" /> Add
-                  </Button>
-                </div>
-                <div className="space-y-3 p-3 bg-white rounded-lg border border-black">
-                  {ticketTypes.map((tt, index) => (
-                    <div key={index} className="grid grid-cols-12 gap-3 items-end">
-                      <div className="col-span-5">
-                        <label className="block text-xs font-medium text-black mb-1">Name</label>
-                        <Input
-                          className="focus-visible:outline-none focus-visible:ring-0 h-10"
-                          placeholder="e.g. VIP, Regular"
-                          value={tt.name}
-                          onChange={(e) => updateTicketType(index, "name", e.target.value)}
-                          required
-                        />
-                      </div>
-                      <div className="col-span-3">
-                        <label className="block text-xs font-medium text-black mb-1">Price (KM)</label>
-                        <Input
-                          className="focus-visible:outline-none focus-visible:ring-0 h-10"
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          placeholder="0.00"
-                          value={tt.price}
-                          onChange={(e) => updateTicketType(index, "price", e.target.value)}
-                          required
-                        />
-                      </div>
-                      <div className="col-span-3">
-                        <label className="block text-xs font-medium text-black mb-1">Seats</label>
-                        <Input
-                          className="focus-visible:outline-none focus-visible:ring-0 h-10"
-                          type="number"
-                          min="1"
-                          placeholder="100"
-                          value={tt.total_seats}
-                          onChange={(e) => updateTicketType(index, "total_seats", e.target.value)}
-                          required
-                        />
-                      </div>
-                      <div className="col-span-1 flex items-end pb-1">
-                        {ticketTypes.length > 1 && (
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => removeTicketType(index)}
-                            className="text-red-500 hover:bg-red-50 hover:text-red-700 p-2 h-9 w-9 rounded-md"
-                            title="Remove ticket type"
-                          >
-                            <Minus className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </form>
-            <DialogFooter className="flex flex-col sm:flex-row gap-2">
-              <Button
+    // ✅ Obriši pojedinačnu sliku - SA PRAĆENJEM OBRISANIH ID-JEVA
+    const removeImage = (index) => {
+        const removedImg = imageFiles[index];
+        // ✅ Ako je slika iz baze, sačuvaj njen ID za brisanje
+        if (removedImg?.type === 'existing' && removedImg?.id) {
+            setDeletedImageIds(prev => [...prev, removedImg.id]);
+        }
+        const newFiles = imageFiles.filter((_, i) => i !== index);
+        setImageFiles(newFiles);
+        if (newFiles.length > 0) {
+            if (newFiles[0].file) {
+                setImagePreview(URL.createObjectURL(newFiles[0].file));
+            } else {
+                setImagePreview(resolveImage(newFiles[0].path));
+            }
+        } else {
+            setImagePreview("");
+        }
+    };
+    useEffect(() => {
+        loadEvents();
+    }, [page]);
+    useEffect(() => {
+        const t = setTimeout(() => setQDebounced(q), 350);
+        return () => clearTimeout(t);
+    }, [q]);
+    useEffect(() => {
+        setPage(1);
+    }, [qDebounced]);
+    useEffect(() => {
+        let alive = true;
+        (async () => {
+            try {
+                const cats = await getCategories();
+                if (alive) setCategories(cats);
+            } catch (err) {
+                console.error("Failed to load categories:", err);
+                toast.error("Učitavanje kategorija nije uspjelo");
+            }
+        })();
+        return () => { alive = false; };
+    }, []);
+    const loadEvents = async () => {
+        try {
+            setLoading(true);
+            const resp = await getOrganizerEvents({ page, limit, q: qDebounced });
+            const items = Array.isArray(resp) ? resp : (resp?.items ?? []);
+            const meta = Array.isArray(resp)
+                ? { page, limit, total: items.length, totalPages: 1 }
+                : (resp?.meta ?? { page, limit, total: 0, totalPages: 1 });
+            setEvents(items);
+            setMeta(meta);
+        } catch (err) {
+            console.error("Failed to load events:", err);
+            toast.error("Učitavanje događaja nije uspjelo");
+        } finally {
+            setLoading(false);
+        }
+    };
+    const addTicketType = () => {
+        setTicketTypes([...ticketTypes, { name: "", price: "", total_seats: "" }]);
+    };
+    const removeTicketType = (index) => {
+        if (ticketTypes.length > 1) {
+            const newTypes = ticketTypes.filter((_, i) => i !== index);
+            setTicketTypes(newTypes);
+        }
+    };
+    const updateTicketType = (index, field, value) => {
+        const newTypes = [...ticketTypes];
+        newTypes[index][field] = value;
+        setTicketTypes(newTypes);
+    };
+    const validateTicketTypes = () => {
+        for (let tt of ticketTypes) {
+            if (!tt.name.trim() || tt.price === "" || tt.total_seats === "" ||
+                isNaN(parseFloat(tt.price)) || isNaN(parseInt(tt.total_seats)) ||
+                parseFloat(tt.price) < 0 || parseInt(tt.total_seats) <= 0) {
+                return false;
+            }
+        }
+        return true;
+    };
+    // ✅ Slanje više slika
+    const handleCreateEvent = async (status = "DRAFT") => {
+        const cid = Number(categoryId);
+        if (!Number.isInteger(cid) || cid <= 0) {
+            toast.error("Molimo odaberite ispravnu kategoriju");
+            return;
+        }
+        if (!formData.date_and_time || new Date(formData.date_and_time) <= new Date()) {
+            toast.error("Datum događaja mora biti u budućnosti");
+            return;
+        }
+        if (!validateTicketTypes()) {
+            toast.error("Molimo popunite sva polja za vrste karata ispravno (naziv, cijena ≥ 0, mjesta > 0)");
+            return;
+        }
+        try {
+            const fd = new FormData();
+            fd.append("title", formData.title.trim());
+            fd.append("description", formData.description.trim());
+            fd.append("location", formData.location.trim());
+            fd.append("date_and_time", formatDateTimeForMySQL(formData.date_and_time));
+            fd.append("category_id", String(cid));
+            fd.append("status", status);
+            fd.append("ticketTypes", JSON.stringify(
+                ticketTypes.map(tt => ({
+                    name: tt.name.trim(),
+                    price: parseFloat(tt.price),
+                    total_seats: parseInt(tt.total_seats)
+                }))
+            ));
+            // ✅ SLANJE VIŠE SLIKA
+            if (imageFiles && imageFiles.length > 0) {
+                imageFiles.forEach(fileObj => {
+                    if (fileObj.file) {
+                        fd.append("images", fileObj.file);
+                    }
+                });
+            } else if (formData.image.trim()) {
+                fd.append("images", formData.image.trim());
+            }
+            await createEvent(fd);
+            toast.success(status === "DRAFT" ? "Događaj je sačuvan kao nacrt" : "Događaj je uspješno kreiran");
+            setShowCreateDialog(false);
+            resetForm();
+            setPage(1);
+            loadEvents();
+        } catch (err) {
+            console.error("Failed to create event:", err);
+            toast.error(err.message || "Kreiranje događaja nije uspjelo");
+        }
+    };
+    // ✅ Slanje više slika pri ažuriranju - SA DELETED IMAGES I TICKET TYPES
+    const handleUpdateEvent = async (status = null) => {
+        const cid = Number(categoryId);
+        if (!formData.date_and_time || new Date(formData.date_and_time) <= new Date()) {
+            toast.error("Datum događaja mora biti u budućnosti");
+            return;
+        }
+        if (!categoryId) {
+            toast.error("Molimo odaberite kategoriju");
+            return;
+        }
+        if (!validateTicketTypes()) {
+            toast.error("Molimo popunite sva polja za vrste karata ispravno (naziv, cijena ≥ 0, mjesta > 0)");
+            return;
+        }
+        try {
+            const fd = new FormData();
+            fd.append("title", formData.title.trim());
+            fd.append("description", formData.description.trim());
+            fd.append("location", formData.location.trim());
+            fd.append("date_and_time", formatDateTimeForMySQL(formData.date_and_time));
+            fd.append("category_id", String(cid));
+            if (status) fd.append("status", status);
+            // ✅ SLANJE GLAVNE SLIKE I DODATNIH SLIKA
+            if (imageFiles && imageFiles.length > 0) {
+                // Prva slika je uvijek glavna
+                const mainImage = imageFiles[0];
+                if (mainImage.type === 'new' && mainImage.file) {
+                    fd.append("image", mainImage.file);
+                } else if (mainImage.type === 'existing' && mainImage.path) {
+                    fd.append("image", mainImage.path);
+                }
+                // Pošalji ostale nove slike
+                imageFiles.slice(1).forEach(fileObj => {
+                    if (fileObj.type === 'new' && fileObj.file) {
+                        fd.append("images", fileObj.file);
+                    }
+                });
+            } else if (formData.image.trim()) {
+                fd.append("image", formData.image.trim());
+            }
+            // ✅ POŠALJI ID-JEVE OBRISANIH SLIKA
+            if (deletedImageIds.length > 0) {
+                fd.append("deletedImages", JSON.stringify(deletedImageIds));
+            }
+            // ✅ POŠALJI TICKET TYPES
+            fd.append("ticketTypes", JSON.stringify(
+                ticketTypes.map(tt => ({
+                    name: tt.name.trim(),
+                    price: parseFloat(tt.price),
+                    total_seats: parseInt(tt.total_seats)
+                }))
+            ));
+            await updateEvent(selectedEvent.id, fd);
+            toast.success(status === "DRAFT" ? "Događaj je sačuvan kao nacrt" : "Događaj je uspješno ažuriran");
+            setShowEditDialog(false);
+            resetForm();
+            setPage(1);
+            loadEvents();
+        } catch (err) {
+            console.error("Failed to update event:", err);
+            toast.error(err.message || "Ažuriranje događaja nije uspjelo");
+        }
+    };
+    const handleDeleteEvent = async () => {
+        try {
+            await deleteEvent(selectedEvent.id);
+            toast.success("Događaj je uspješno obrisan");
+            setShowDeleteDialog(false);
+            setSelectedEvent(null);
+            setPage(1);
+            loadEvents();
+        } catch (err) {
+            console.error("Failed to delete event:", err);
+            toast.error(err.message || "Brisanje događaja nije uspjelo");
+        }
+    };
+    const handleViewReservations = async (event) => {
+        try {
+            setSelectedEvent(event);
+            const data = await getEventReservations(event.id);
+            setReservations(data);
+            setShowReservationsDialog(true);
+        } catch (err) {
+            console.error("Failed to load reservations:", err);
+            toast.error(`Učitavanje rezervacija nije uspjelo: ${err.message}`);
+        }
+    };
+    const handleViewSalesProgress = async (event) => {
+        try {
+            setSelectedEvent(event);
+            const data = await getEventSalesProgress(event.id);
+            setSalesProgress(data);
+            setShowProgressDialog(true);
+        } catch (err) {
+            console.error("Failed to load sales progress:", err);
+            toast.error(`Učitavanje napretka prodaje nije uspjelo: ${err.message}`);
+        }
+    };
+    // ✅ Učitavanje postojećih slika - SA RESETOM DELETED IDs
+    const handleEdit = (event) => {
+        setDeletedImageIds([]); // ✅ RESETUJ PRI OTVARANJU EDIT
+        setSelectedEvent(event);
+        setFormData({
+            title: event.title,
+            description: event.description || "",
+            location: event.location || "",
+            date_and_time: new Date(event.date_and_time).toISOString().slice(0, 16),
+            image: event.image || "",
+            status: event.status || "DRAFT"
+        });
+        setCategoryId(String(event.category_id || ""));
+        // ✅ UČITAJ POSTOJEĆE TICKET TYPES
+        if (event.ticket_types && event.ticket_types.length > 0) {
+            setTicketTypes(event.ticket_types.map(tt => ({
+                name: tt.name || "",
+                price: String(tt.price || ""),
+                total_seats: String(tt.total_seats || "")
+            })));
+        } else {
+            setTicketTypes([{ name: "", price: "", total_seats: "" }]);
+        }
+        // ✅ UČITAJ POSTOJEĆE DODATNE SLIKE IZ BAZE
+        if (event.additional_images && event.additional_images.length > 0) {
+            const existingImages = event.additional_images.map(img => ({
+                type: 'existing',
+                path: img.image_path,
+                id: img.id
+            }));
+            // ✅ Ako event ima glavnu sliku, stavi je na prvu poziciju
+            if (event.image) {
+                const mainImageIndex = existingImages.findIndex(img => img.path === event.image);
+                if (mainImageIndex !== -1) {
+                    const [mainImg] = existingImages.splice(mainImageIndex, 1);
+                    existingImages.unshift(mainImg);
+                }
+            }
+            setImageFiles(existingImages);
+        } else {
+            setImageFiles([]);
+        }
+        setImagePreview("");
+        setShowEditDialog(true);
+    };
+    const resetForm = () => {
+        setFormData(getInitialFormData());
+        setCategoryId("");
+        setImageFiles([]);
+        setImagePreview("");
+        setDeletedImageIds([]); // ✅ RESETUJ I OVDJE
+        setTicketTypes([{ name: "", price: "", total_seats: "" }]);
+    };
+    const handleLogout = async () => {
+        try { await logoutApi(); } catch { } finally {
+            localStorage.removeItem("token");
+            localStorage.removeItem("user");
+            navigate("/");
+        }
+    };
+    function renderPagination() {
+        const totalPages = meta?.totalPages ?? 1;
+        if (totalPages <= 1) return null;
+        const go = (p) => setPage(Math.min(totalPages, Math.max(1, p)));
+        const maxMiddle = 5;
+        const pages = [];
+        const start = Math.max(2, page - Math.floor(maxMiddle / 2));
+        const end = Math.min(totalPages - 1, start + maxMiddle - 1);
+        const startFixed = Math.max(2, end - maxMiddle + 1);
+        const PageBtn = ({ p, active }) => (
+            <button
                 type="button"
-                variant="outline"
-                onClick={() => setShowCreateDialog(false)}
-                className="!bg-gray-100 hover:!bg-gray-200 !text-gray-700 !border-gray-300 cursor-pointer font-medium px-6 py-2"
-              >
-                Cancel
-              </Button>
-              <div className="flex gap-2 flex-1 justify-end">
-                <Button
-                  type="button"
-                  onClick={() => handleCreateEvent("DRAFT")}
-                  className="!bg-yellow-500 hover:!bg-yellow-600 !text-white cursor-pointer font-semibold shadow-md px-6 py-2"
-                >
-                  Save as Draft
-                </Button>
-                <Button
-                  type="button"
-                  onClick={() => handleCreateEvent("PUBLISHED")}
-                  className="!bg-blue-600 hover:!bg-blue-700 !text-white cursor-pointer font-semibold shadow-md px-6 py-2"
-                >
-                  Publish
-                </Button>
-              </div>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {/* ✅ EDIT DIALOG - AŽURIRAN ZA ODABIR GLAVNE SLIKE */}
-      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-  <DialogContent className="bg-white text-black max-w-2xl">
-    <DialogHeader>
-      <DialogTitle>Edit Event</DialogTitle>
-      <DialogDescription>Update basic event details.</DialogDescription>
-    </DialogHeader>
-
-    <form className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
-      <div>
-        <label className="block text-sm font-medium mb-1">Event Title *</label>
-        <Input
-          value={formData.title}
-          onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-          placeholder="Enter event title"
-          required
-        />
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium mb-1">Location</label>
-        <Input
-          value={formData.location}
-          onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-          placeholder="Enter event location"
-        />
-      </div>
-
-      <div className="mb-4">
-        <label className="block text-sm font-medium mb-1">Category *</label>
-        <Select value={categoryId} onValueChange={setCategoryId}>
-          <SelectTrigger className="w-52 bg-white text-black">
-            <SelectValue placeholder="Select category" />
-          </SelectTrigger>
-          <SelectContent className="z-[99999] bg-white text-black border">
-            {categories.map((c) => (
-              <SelectItem key={c.id} value={String(c.id)}>
-                {formatCategoryLabel(c.name)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium mb-1">Description</label>
-        <Textarea
-          value={formData.description}
-          onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-          placeholder="Enter event description"
-          rows={3}
-        />
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium mb-1">Date & Time *</label>
-          <Input
-            type="datetime-local"
-            value={formData.date_and_time}
-            onChange={(e) => setFormData({ ...formData, date_and_time: e.target.value })}
-            required
-          />
-        </div>
-
-        {/* ako ti treba da poravna grid, ostavi prazno ili makni col-span u image sekciji */}
-      </div>
-
-      {/* ✅ ISTI IMAGE UI KAO CREATE */}
-      <div className="col-span-2">
-        <label className="block text-sm font-medium mb-2">Event Images</label>
-
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
-          {/* LEFT: picker */}
-          <div className="md:col-span-5">
-            <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-semibold text-gray-900">Add photos</p>
-
-                {imageFiles.length > 0 && (
-                  <Button
+                onClick={() => go(p)}
+                className={[
+                    "h-10 w-10 rounded-full text-sm font-medium transition",
+                    "hover:bg-gray-100 active:scale-[0.98]",
+                    active ? "ring-2 ring-gray-900 text-gray-900 bg-white" : "text-gray-700",
+                ].join(" ")}
+                aria-current={active ? "page" : undefined}
+            >
+                {p}
+            </button>
+        );
+        const ArrowBtn = ({ dir }) => {
+            const disabled = dir === "left" ? page === 1 : page === totalPages;
+            const Icon = dir === "left" ? ChevronLeft : ChevronRight;
+            return (
+                <button
                     type="button"
-                    variant="outline"
-                   onClick={() => {
-  // ✅ zapamti sve existing slike za brisanje
-  const ids = imageFiles
-    .filter(img => img.type === "existing" && img.id)
-    .map(img => img.id);
-
-  if (ids.length) setDeletedImageIds(prev => [...prev, ...ids]);
-
-  setImageFiles([]);
-  setImagePreview("");
-}}
-                    className="h-8 px-3 text-xs"
-                  >
-                    Remove all
-                  </Button>
-                )}
-              </div>
-
-              <p className="mt-1 text-xs text-gray-600">
-                JPG/PNG/WEBP • max ~5MB • up to 10 images
-              </p>
-
-              <div className="mt-3 flex items-center gap-2">
-                <Input
-                  type="file"
-                  accept="image/*"
-                   disabled={imageFiles.length >= 10}
-                  multiple
-                  onChange={(e) => {
-                    onPickImages(e.target.files); // ✅ isto kao create
-                    e.target.value = "";
-                  }}
-                  className="bg-white"
-                />
-              </div>
-
-              <div className="mt-3 text-xs text-gray-600">
-                Tip: click a photo to set it as <span className="font-semibold">Main</span>.
-              </div>
+                    onClick={() => go(dir === "left" ? page - 1 : page + 1)}
+                    disabled={disabled}
+                    className={[
+                        "h-10 w-10 rounded-full grid place-items-center transition",
+                        disabled ? "text-gray-300 cursor-not-allowed" : "text-gray-800 hover:bg-gray-100",
+                    ].join(" ")}
+                    aria-label={dir === "left" ? "Prethodna stranica" : "Sljedeća stranica"}
+                >
+                    <Icon className="h-5 w-5" />
+                </button>
+            );
+        };
+        return (
+            <div className="mt-10 flex items-center justify-center gap-2 select-none">
+                <ArrowBtn dir="left" />
+                <PageBtn p={1} active={page === 1} />
+                {startFixed > 2 && <span className="px-1 text-gray-400">…</span>}
+                {(() => {
+                    for (let p = startFixed; p <= end; p++) {
+                        pages.push(<PageBtn key={p} p={p} active={p === page} />);
+                    }
+                    return pages;
+                })()}
+                {end < totalPages - 1 && <span className="px-1 text-gray-400">…</span>}
+                {totalPages > 1 && <PageBtn p={totalPages} active={page === totalPages} />}
+                <ArrowBtn dir="right" />
             </div>
-          </div>
-
-          {/* RIGHT: preview */}
-          <div className="md:col-span-7">
-            {imageFiles.length === 0 ? (
-              <div className="h-[132px] rounded-xl border border-dashed border-gray-300 grid place-items-center bg-white">
-                <div className="text-center">
-                  <p className="text-sm font-medium text-gray-700">No images yet</p>
-                  <p className="text-xs text-gray-500 mt-1">Add 1–10 images (optional)</p>
-                </div>
-              </div>
-            ) : (
-              <div className="rounded-xl border border-gray-200 bg-white p-3">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-semibold text-gray-900">
-                    Preview <span className="text-gray-500 font-medium">({imageFiles.length})</span>
-                  </p>
-                  <p className="text-xs text-gray-500">Main is used on cards</p>
-                </div>
-
-                <div className="mt-3 max-h-[180px] overflow-auto pr-1">
-                  <div className="grid grid-cols-4 gap-2">
-                    {imageFiles.map((img, idx) => {
-                      const isMain = idx === 0;
-                      const isFile = img.type === "new";
-
-                      return (
-                        <button
-                          key={idx}
-                          type="button"
-                          onClick={() => {
-                            // set main = move to front
-                            const newFiles = [...imageFiles];
-                            const [picked] = newFiles.splice(idx, 1);
-                            newFiles.unshift(picked);
-                            setImageFiles(newFiles);
-
-                            // opciono: main image u formData
-                            const clicked = imageFiles[idx];
-                            setFormData((prev) => ({
-                              ...prev,
-                              image: clicked.path,
-                            }));
-                          }}
-                          className={[
-                            "relative group rounded-lg overflow-hidden border",
-                            isMain
-                              ? "border-blue-500 ring-2 ring-blue-200"
-                              : "border-gray-200 hover:border-gray-300",
-                            "focus:outline-none focus:ring-2 focus:ring-blue-300",
-                          ].join(" ")}
-                          title="Click to set as main"
-                        >
-                          <img
-                            src={isFile ? img.path : resolveImage(img.path)}
-                            alt={`Image ${idx + 1}`}
-                            className="h-20 w-full object-cover"
-                          />
-
-                          {/* Main badge */}
-                          {isMain && (
-                            <div className="absolute left-1 top-1 rounded-md bg-blue-600 text-white text-[10px] px-2 py-0.5 font-semibold">
-                              MAIN
-                            </div>
-                          )}
-
-                          {/* Remove */}
-                          <span
-                            role="button"
-                            tabIndex={0}
-                           onClick={(e) => {
-  e.stopPropagation();
-  removeImage(idx); // ✅ ovo puni deletedImageIds za existing slike
-}}
-                            className="absolute right-1 top-1 opacity-0 group-hover:opacity-100 transition
-                                       rounded-full bg-black/70 text-white text-[11px] w-6 h-6 grid place-items-center"
-                            title="Remove"
-                          >
-                            ✕
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* ✅ TICKET TYPES SEKCIJA (ostaje kako imaš) */}
-      <div>
-        <div className="flex justify-between items-center mb-2">
-          <label className="block text-sm font-medium">Ticket Types *</label>
-          <Button type="button" size="sm" variant="outline" onClick={addTicketType} className="!h-7 !px-2">
-            <Plus className="h-3 w-3 mr-1" /> Add
-          </Button>
-        </div>
-
-        <div className="space-y-3 p-3 bg-white rounded-lg border border-black">
-          {ticketTypes.map((tt, index) => (
-            <div key={index} className="grid grid-cols-12 gap-3 items-end">
-              <div className="col-span-5">
-                <label className="block text-xs font-medium text-black mb-1">Name</label>
-                <Input
-                  className="focus-visible:outline-none focus-visible:ring-0 h-10"
-                  placeholder="e.g. VIP, Regular"
-                  value={tt.name}
-                  onChange={(e) => updateTicketType(index, "name", e.target.value)}
-                  required
-                />
-              </div>
-
-              <div className="col-span-3">
-                <label className="block text-xs font-medium text-black mb-1">Price (KM)</label>
-                <Input
-                  className="focus-visible:outline-none focus-visible:ring-0 h-10"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  placeholder="0.00"
-                  value={tt.price}
-                  onChange={(e) => updateTicketType(index, "price", e.target.value)}
-                  required
-                />
-              </div>
-
-              <div className="col-span-3">
-                <label className="block text-xs font-medium text-black mb-1">Seats</label>
-                <Input
-                  className="focus-visible:outline-none focus-visible:ring-0 h-10"
-                  type="number"
-                  min="1"
-                  placeholder="100"
-                  value={tt.total_seats}
-                  onChange={(e) => updateTicketType(index, "total_seats", e.target.value)}
-                  required
-                />
-              </div>
-
-              <div className="col-span-1 flex items-end pb-1">
-                {ticketTypes.length > 1 && (
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => removeTicketType(index)}
-                    className="text-red-500 hover:bg-red-50 hover:text-red-700 p-2 h-9 w-9 rounded-md"
-                    title="Remove ticket type"
-                  >
-                    <Minus className="h-4 w-4" />
-                  </Button>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </form>
-
-    <DialogFooter className="flex flex-col sm:flex-row gap-2">
-      <Button
-        type="button"
-        variant="outline"
-        onClick={() => {
-          setShowEditDialog(false);
-          resetForm();
-        }}
-        className="!bg-gray-100 hover:!bg-gray-200 !text-gray-700 !border-gray-300 cursor-pointer font-medium px-6 py-2"
-      >
-        Cancel
-      </Button>
-
-      <div className="flex gap-2 flex-1 justify-end">
-        {formData.status === "DRAFT" && (
-          <Button
-            type="button"
-            onClick={() => handleUpdateEvent("DRAFT")}
-            className="!bg-yellow-500 hover:!bg-yellow-600 !text-white cursor-pointer font-semibold shadow-md px-6 py-2"
-          >
-            Save as Draft
-          </Button>
-        )}
-
-        <Button
-          type="button"
-          onClick={() => handleUpdateEvent("PUBLISHED")}
-          className="!bg-green-600 hover:!bg-green-700 !text-white cursor-pointer font-semibold shadow-md px-6 py-2"
-        >
-          {formData.status === "DRAFT" ? "Publish" : "Save Changes"}
-        </Button>
-      </div>
-    </DialogFooter>
-  </DialogContent>
-</Dialog>
-
-        {/* DELETE DIALOG */}
-        <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-          <AlertDialogContent className="bg-white text-black">
-            <AlertDialogHeader>
-              <AlertDialogTitle>Delete Event</AlertDialogTitle>
-              <AlertDialogDescription>
-                Are you sure you want to delete "{selectedEvent?.title}"? This action cannot be undone.
-                All reservations for this event will also be deleted.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel className="!bg-gray-100 hover:!bg-gray-200 !text-gray-700 !border-gray-300 cursor-pointer font-medium px-6 py-2">Cancel</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={handleDeleteEvent}
-                className="!bg-red-600 hover:!bg-red-700 !text-white cursor-pointer font-semibold shadow-md border-0 px-6 py-2"
-              >
-                Delete Event
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-
-        {/* RESERVATIONS DIALOG */}
-        <Dialog open={showReservationsDialog} onOpenChange={setShowReservationsDialog}>
-          <DialogContent className="bg-white text-black max-w-4xl max-h-[80vh] overflow-y-auto border-2 border-gray-200 shadow-2xl rounded-lg">
-            <DialogHeader className="border-b border-gray-100 pb-4">
-              <DialogTitle className="text-xl font-bold text-gray-900">Event Reservations - {selectedEvent?.title}</DialogTitle>
-              <DialogDescription className="text-gray-600">
-                View all reservations for this event
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              {reservations.length === 0 ? (
-                <div className="text-center py-12">
-                  <Users className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                  <p className="text-gray-500 text-lg">No reservations yet</p>
-                </div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow className="border-b border-gray-200">
-                      <TableHead className="text-gray-900 font-semibold">Student</TableHead>
-                      <TableHead className="text-gray-900 font-semibold">Ticket Type</TableHead>
-                      <TableHead className="text-gray-900 font-semibold">Tickets</TableHead>
-                      <TableHead className="text-gray-900 font-semibold">Reserved On</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {reservations.map((reservation) => (
-                      <TableRow key={reservation.id} className="border-b border-gray-100 hover:bg-gray-50">
-                        <TableCell>
-                          <div className="text-sm font-medium text-gray-900">
-                            {reservation.student_name}
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            @{reservation.student_username}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-gray-900">
-                          {reservation.ticket_type_name || "N/A"}
-                        </TableCell>
-                        <TableCell className="text-gray-900 font-medium">
-                          {reservation.number_of_tickets}
-                        </TableCell>
-                        <TableCell className="text-gray-900">
-                          {new Date(reservation.reservation_date).toLocaleDateString('en-US', {
-                            year: 'numeric',
-                            month: 'short',
-                            day: 'numeric'
-                          })}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </div>
-            <DialogFooter className="border-t border-gray-100 pt-4">
-              <Button
-                onClick={() => setShowReservationsDialog(false)}
-                variant="outline"
-                className="!bg-gray-100 hover:!bg-gray-200 !text-gray-700 !border-gray-300 cursor-pointer font-medium px-6 py-2"
-              >
-                Close
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {/* SALES PROGRESS DIALOG */}
-        <Dialog open={showProgressDialog} onOpenChange={setShowProgressDialog}>
-          <DialogContent className="bg-white text-black max-w-2xl max-h-[80vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Sales Progress – {selectedEvent?.title}</DialogTitle>
-              <DialogDescription>Track ticket sales for this event.</DialogDescription>
-            </DialogHeader>
-            {salesProgress ? (
-              <div className="space-y-6">
-                <div>
-                  <div className="flex justify-between mb-2">
-                    <span className="font-medium">Total Sold</span>
-                    <span>
-                      {parseInt(salesProgress.total_sold) || 0} / {parseInt(salesProgress.total_seats) || 0} (
-                      {Math.round(((parseInt(salesProgress.total_sold) || 0) / (parseInt(salesProgress.total_seats) || 1)) * 100)}%
-                      )
-                    </span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-4">
-                    <div
-                      className="bg-green-500 h-4 rounded-full"
-                      style={{ width: `${salesProgress.percentage_sold}%` }}
-                    ></div>
-                  </div>
-                </div>
-                <div>
-                  <h4 className="font-semibold mb-3">By Ticket Type:</h4>
-                  {salesProgress.ticket_types.map((tt) => (
-                    <div key={tt.id} className="mb-4">
-                      <div className="flex justify-between text-sm mb-1">
-                        <span>{tt.name}</span>
-                        <span>
-                          {parseInt(tt.sold) || 0} / {parseInt(tt.total_seats) || 0} (
-                          {Math.round(((parseInt(tt.sold) || 0) / (parseInt(tt.total_seats) || 1)) * 100)}%
-                          )
-                        </span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2.5">
-                        <div
-                          className="bg-blue-500 h-2.5 rounded-full"
-                          style={{ width: `${tt.percentage}%` }}
-                        ></div>
-                      </div>
+        );
+    }
+    return (
+        <div className="min-h-screen bg-gray-50">
+            <header className="sticky top-0 z-10 w-full bg-white/80 backdrop-blur border-b">
+                <div className="mx-auto max-w-7xl px-4 py-3 flex items-center justify-between">
+                    <div>
+                        <h1 className="text-xl font-bold text-gray-900">Panel organizatora</h1>
+                        <p className="text-sm text-gray-600">
+                            Dobrodošli, <span className="font-semibold">{displayName}</span>
+                        </p>
                     </div>
-                  ))}
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="h-10 w-10 rounded-full p-0 relative z-50 cursor-pointer hover:bg-gray-100 transition-colors">
+                                <Avatar className="h-9 w-9">
+                                    <AvatarFallback className="bg-gray-900 text-white text-sm font-medium">
+                                        {initials}
+                                    </AvatarFallback>
+                                </Avatar>
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent
+                            align="end"
+                            className="w-60 text-gray-900 bg-white shadow-xl border border-gray-200 rounded-md z-[99999] mt-2"
+                            side="bottom"
+                            sideOffset={8}
+                        >
+                            <div className="px-4 py-3 border-b border-gray-100">
+                                <p className="text-sm font-medium text-gray-900 truncate">{displayName}</p>
+                            </div>
+                            {isAdmin && (
+                                <>
+                                    <div className="p-1">
+                                        <DropdownMenuItem
+                                            onClick={() => navigate("/admin")}
+                                            className="flex items-center px-3 py-2 text-sm hover:bg-gray-100 cursor-pointer rounded-sm"
+                                        >
+                                            <Shield className="mr-3 h-4 w-4" />
+                                            <span>Administratorski panel</span>
+                                        </DropdownMenuItem>
+                                    </div>
+                                    <div className="h-px bg-gray-100 mx-2"></div>
+                                </>
+                            )}
+                            <div className="p-1">
+                                <DropdownMenuItem
+                                    onClick={() => navigate("/events")}
+                                    className="flex items-center px-3 py-2 text-sm hover:bg-gray-100 cursor-pointer rounded-sm"
+                                >
+                                    <Calendar className="mr-3 h-4 w-4" />
+                                    <span>Pregled događaja</span>
+                                </DropdownMenuItem>
+                            </div>
+                            <div className="h-px bg-gray-100 mx-2"></div>
+                            <div className="p-1">
+                                <DropdownMenuItem
+                                    onClick={() => navigate("/student-dashboard")}
+                                    className="flex items-center px-3 py-2 text-sm hover:bg-gray-100 cursor-pointer rounded-sm"
+                                >
+                                    <Users className="mr-3 h-4 w-4" />
+                                    <span>Panel studenta</span>
+                                </DropdownMenuItem>
+                            </div>
+                            <div className="p-1">
+                                <DropdownMenuItem
+                                    onClick={() => navigate("/settings")}
+                                    className="flex items-center px-3 py-2 text-sm hover:bg-gray-100 cursor-pointer rounded-sm"
+                                >
+                                    <Settings className="mr-3 h-4 w-4" />
+                                    <span>Postavke</span>
+                                </DropdownMenuItem>
+                            </div>
+                            <div className="h-px bg-gray-100 mx-2"></div>
+                            <div className="p-1">
+                                <DropdownMenuItem
+                                    onClick={handleLogout}
+                                    className="flex items-center px-3 py-2 text-sm hover:bg-red-50 hover:text-red-700 cursor-pointer rounded-sm"
+                                >
+                                    <LogOut className="mr-3 h-4 w-4" />
+                                    <span>Odjava</span>
+                                </DropdownMenuItem>
+                            </div>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 </div>
-              </div>
-            ) : (
-              <p className="text-gray-500">Loading...</p>
-            )}
-            <DialogFooter>
-              <Button
-                onClick={() => setShowProgressDialog(false)}
-                variant="outline"
-                className="!bg-gray-100 hover:!bg-gray-200 !text-gray-700 !border-gray-300"
-              >
-                Close
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </main>
-    </div>
-  );
+            </header>
+            <main className="max-w-7xl mx-auto p-6">
+                <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-2xl font-bold text-gray-900">Moji događaji</h2>
+                    <Button
+                        onClick={() => setShowCreateDialog(true)}
+                        className="!bg-blue-600 hover:!bg-blue-700 !text-white cursor-pointer font-semibold shadow-md border-0 px-6 py-2"
+                    >
+                        <Plus className="mr-2 h-4 w-4" />
+                        Kreiraj događaj
+                    </Button>
+                </div>
+                {loading ? (
+                    <p className="text-center text-gray-500">Učitavanje događaja…</p>
+                ) : events.length === 0 ? (
+                    <Card>
+                        <CardContent className="text-center py-12">
+                            <Calendar className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                            <h3 className="text-lg font-medium text-gray-900 mb-2">Još nema događaja</h3>
+                            <p className="text-gray-500 mb-4">Kreirajte svoj prvi događaj da biste počeli.</p>
+                            <Button onClick={() => setShowCreateDialog(true)} className="!bg-blue-600 hover:!bg-blue-700 !text-white cursor-pointer font-semibold shadow-md border-0 px-6 py-2">
+                                <Plus className="mr-2 h-4 w-4" />
+                                Kreiraj događaj
+                            </Button>
+                        </CardContent>
+                    </Card>
+                ) : (
+                    <>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {events.map((event) => {
+                                const { date, time } = formatDateTime(event.date_and_time);
+                                const isPast = isEventInPast(event.date_and_time);
+                                return (
+                                    <Card key={event.id} className={`overflow-hidden bg-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02] ${isPast ? 'opacity-75' : ''} relative`}>
+                                        {event.status === "DRAFT" && (
+                                            <Badge className="absolute top-2 left-2 bg-yellow-500 text-white z-10">
+                                                Nacrt
+                                            </Badge>
+                                        )}
+                                        <div className="relative h-48 overflow-hidden">
+                                            {event.image ? (
+                                                <img
+                                                    src={resolveImage(event.image)}
+                                                    alt={event.title}
+                                                    className="w-full h-full object-cover transition-transform duration-300 hover:scale-110"
+                                                />
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-400">
+                                                    <Calendar className="h-12 w-12" />
+                                                </div>
+                                            )}
+                                            <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
+                                            {isPast && (
+                                                <Badge className="absolute top-2 right-2 bg-gray-600/90 text-white">
+                                                    Prošli događaj
+                                                </Badge>
+                                            )}
+                                        </div>
+                                        <CardContent className="p-6 space-y-4">
+                                            <h3 className="text-xl font-bold text-gray-900 line-clamp-2 leading-tight">
+                                                {event.title}
+                                            </h3>
+                                            <div className="flex items-center space-x-2 text-gray-600">
+                                                <MapPin className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                                                <span className="text-sm font-medium line-clamp-1">{event.location || "Lokacija nije navedena"}</span>
+                                            </div>
+                                            <div className="flex flex-wrap items-center gap-4 text-gray-600">
+                                                <div className="flex items-center space-x-2">
+                                                    <Calendar className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                                                    <span className="text-sm font-medium">{date}</span>
+                                                </div>
+                                                <div className="flex items-center space-x-2">
+                                                    <Clock className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                                                    <span className="text-sm font-medium">{time}</span>
+                                                </div>
+                                                {event.averageRating && parseFloat(event.averageRating) > 0 && (
+                                                    <div className="flex items-center space-x-1">
+                                                        <Star className="w-4 h-4 fill-yellow-400 text-yellow-400 flex-shrink-0" />
+                                                        <span className="text-sm font-bold text-gray-900">{parseFloat(event.averageRating).toFixed(1)}</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div className="pt-2 border-t border-gray-100 space-y-2">
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    onClick={() => handleViewReservations(event)}
+                                                    className="w-full text-gray-700 hover:text-gray-900 border-gray-300 hover:bg-gray-100 cursor-pointer"
+                                                >
+                                                    <Users className="mr-2 h-4 w-4" />
+                                                    Pregled rezervacija
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    onClick={() => handleViewSalesProgress(event)}
+                                                    className="w-full text-green-600 hover:text-green-700 border-green-300 hover:bg-green-50 cursor-pointer"
+                                                >
+                                                    <BarChart3 className="mr-2 h-4 w-4" />
+                                                    Napredak prodaje
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    onClick={() => navigate(`/organizer/event-stats/${event.id}`)}
+                                                    className="w-full text-purple-600 hover:text-purple-700 border-purple-300 hover:bg-purple-50 cursor-pointer flex items-center justify-center gap-2"
+                                                >
+                                                    <TrendingUp className="h-4 w-4" />
+                                                    <span className="font-medium">Analitika</span>
+                                                </Button>
+                                                <div className="flex gap-2 pt-2">
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                        onClick={() => handleEdit(event)}
+                                                        className="flex-1 text-blue-600 hover:text-blue-700 border-blue-300 hover:bg-blue-50 cursor-pointer"
+                                                    >
+                                                        <Edit className="mr-2 h-4 w-4" />
+                                                        Uredi
+                                                    </Button>
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                        onClick={() => {
+                                                            setSelectedEvent(event);
+                                                            setShowDeleteDialog(true);
+                                                        }}
+                                                        className="flex-1 text-red-600 hover:text-red-700 hover:bg-red-50 cursor-pointer"
+                                                    >
+                                                        <Trash2 className="mr-2 h-4 w-4" />
+                                                        Obriši
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                );
+                            })}
+                        </div>
+                        {renderPagination()}
+                    </>
+                )}
+                {/* CREATE DIALOG */}
+                <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+                    <DialogContent className="bg-white text-black max-w-2xl">
+                        <DialogHeader>
+                            <DialogTitle>Kreiraj novi događaj</DialogTitle>
+                            <DialogDescription>Popunite detalje događaja i vrste karata.</DialogDescription>
+                        </DialogHeader>
+                        <form className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Naslov događaja *</label>
+                                <Input
+                                    value={formData.title}
+                                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                                    placeholder="Unesite naslov događaja"
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Lokacija</label>
+                                <Input
+                                    value={formData.location}
+                                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                                    placeholder="Unesite lokaciju događaja"
+                                />
+                            </div>
+                            <div className="mb-4">
+                                <label className="block text-sm font-medium mb-1">Kategorija *</label>
+                                <Select value={categoryId} onValueChange={setCategoryId}>
+                                    <SelectTrigger className="w-52 bg-white text-black">
+                                        <SelectValue placeholder="Odaberite kategoriju" />
+                                    </SelectTrigger>
+                                    <SelectContent className="z-[99999] bg-white text-black border">
+                                        {categories.map((c) => (
+                                            <SelectItem key={c.id} value={String(c.id)}>
+                                                {formatCategoryLabel(c.name)}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Opis</label>
+                                <Textarea
+                                    value={formData.description}
+                                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                                    placeholder="Unesite opis događaja"
+                                    rows={3}
+                                />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Datum i vrijeme *</label>
+                                    <Input
+                                        type="datetime-local"
+                                        value={formData.date_and_time}
+                                        onChange={(e) => setFormData({ ...formData, date_and_time: e.target.value })}
+                                        min={new Date().toISOString().slice(0, 16)}
+                                        required
+                                    />
+                                </div>
+                                <div className="col-span-2">
+                                    <label className="block text-sm font-medium mb-2">Slike događaja</label>
+                                    <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+                                        {/* LEFT: picker */}
+                                        <div className="md:col-span-5">
+                                            <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <p className="text-sm font-semibold text-gray-900">Dodaj fotografije</p>
+                                                    {imageFiles.length > 0 && (
+                                                        <Button
+                                                            type="button"
+                                                            variant="outline"
+                                                            onClick={() => {
+                                                                // ✅ zapamti sve existing slike za brisanje
+                                                                const ids = imageFiles
+                                                                    .filter(img => img.type === "existing" && img.id)
+                                                                    .map(img => img.id);
+                                                                if (ids.length) setDeletedImageIds(prev => [...prev, ...ids]);
+                                                                setImageFiles([]);
+                                                                setImagePreview("");
+                                                            }}
+                                                            className="h-8 px-3 text-xs"
+                                                        >
+                                                            Ukloni sve
+                                                        </Button>
+                                                    )}
+                                                </div>
+                                                <p className="mt-1 text-xs text-gray-600">
+                                                    JPG/PNG/WEBP • maks. ~5MB • do 10 slika
+                                                </p>
+                                                <div className="mt-3 flex items-center gap-2">
+                                                    <Input
+                                                        type="file"
+                                                        accept="image/*"
+                                                        disabled={imageFiles.length >= 10}
+                                                        multiple
+                                                        onChange={(e) => {
+                                                            onPickImages(e.target.files);
+                                                            e.target.value = "";
+                                                        }}
+                                                        className="bg-white"
+                                                    />
+                                                </div>
+                                                <div className="mt-3 text-xs text-gray-600">
+                                                    Savjet: kliknite na fotografiju da biste je postavili kao <span className="font-semibold">Glavnu</span>.
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {/* RIGHT: preview */}
+                                        <div className="md:col-span-7">
+                                            {imageFiles.length === 0 ? (
+                                                <div className="h-[132px] rounded-xl border border-dashed border-gray-300 grid place-items-center bg-white">
+                                                    <div className="text-center">
+                                                        <p className="text-sm font-medium text-gray-700">Još nema slika</p>
+                                                        <p className="text-xs text-gray-500 mt-1">Dodajte 1–10 slika (opcionalno)</p>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div className="rounded-xl border border-gray-200 bg-white p-3">
+                                                    <div className="flex items-center justify-between">
+                                                        <p className="text-sm font-semibold text-gray-900">
+                                                            Pregled <span className="text-gray-500 font-medium">({imageFiles.length})</span>
+                                                        </p>
+                                                        <p className="text-xs text-gray-500">
+                                                            Glavna se koristi na karticama
+                                                        </p>
+                                                    </div>
+                                                    <div className="mt-3 max-h-[180px] overflow-auto pr-1">
+                                                        <div className="grid grid-cols-4 gap-2">
+                                                            {imageFiles.map((img, idx) => {
+                                                                const isMain = idx === 0;
+                                                                const isFile = img.type === "new";
+                                                                return (
+                                                                    <button
+                                                                        key={idx}
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                            // set main = move to front
+                                                                            const newFiles = [...imageFiles];
+                                                                            const [picked] = newFiles.splice(idx, 1);
+                                                                            newFiles.unshift(picked);
+                                                                            setImageFiles(newFiles);
+                                                                            // (opciono) upiši main u formData.image ako želiš
+                                                                            const clicked = imageFiles[idx];
+                                                                            setFormData((prev) => ({
+                                                                                ...prev,
+                                                                                image: clicked.path, // ako je existing path ili blob path
+                                                                            }));
+                                                                        }}
+                                                                        className={[
+                                                                            "relative group rounded-lg overflow-hidden border",
+                                                                            isMain ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200 hover:border-gray-300",
+                                                                            "focus:outline-none focus:ring-2 focus:ring-blue-300",
+                                                                        ].join(" ")}
+                                                                        title="Kliknite da postavite kao glavnu"
+                                                                    >
+                                                                        <img
+                                                                            src={isFile ? img.path : resolveImage(img.path)}
+                                                                            alt={`Slika ${idx + 1}`}
+                                                                            className="h-20 w-full object-cover"
+                                                                        />
+                                                                        {/* Main badge */}
+                                                                        {isMain && (
+                                                                            <div className="absolute left-1 top-1 rounded-md bg-blue-600 text-white text-[10px] px-2 py-0.5 font-semibold">
+                                                                                GLAVNA
+                                                                            </div>
+                                                                        )}
+                                                                        {/* Remove */}
+                                                                        <span
+                                                                            role="button"
+                                                                            tabIndex={0}
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                removeImage(idx); // ✅ ovo puni deletedImageIds za existing slike
+                                                                            }}
+                                                                            className="absolute right-1 top-1 opacity-0 group-hover:opacity-100 transition
+rounded-full bg-black/70 text-white text-[11px] w-6 h-6 grid place-items-center"
+                                                                            title="Ukloni"
+                                                                        >
+                                                                            ✕
+                                                                        </span>
+                                                                    </button>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div>
+                                <div className="flex justify-between items-center mb-2">
+                                    <label className="block text-sm font-medium">Vrste karata *</label>
+                                    <Button type="button" size="sm" variant="outline" onClick={addTicketType} className="!h-7 !px-2">
+                                        <Plus className="h-3 w-3 mr-1" /> Dodaj
+                                    </Button>
+                                </div>
+                                <div className="space-y-3 p-3 bg-white rounded-lg border border-black">
+                                    {ticketTypes.map((tt, index) => (
+                                        <div key={index} className="grid grid-cols-12 gap-3 items-end">
+                                            <div className="col-span-5">
+                                                <label className="block text-xs font-medium text-black mb-1">Naziv</label>
+                                                <Input
+                                                    className="focus-visible:outline-none focus-visible:ring-0 h-10"
+                                                    placeholder="npr. VIP, Obična"
+                                                    value={tt.name}
+                                                    onChange={(e) => updateTicketType(index, "name", e.target.value)}
+                                                    required
+                                                />
+                                            </div>
+                                            <div className="col-span-3">
+                                                <label className="block text-xs font-medium text-black mb-1">Cijena (KM)</label>
+                                                <Input
+                                                    className="focus-visible:outline-none focus-visible:ring-0 h-10"
+                                                    type="number"
+                                                    step="0.01"
+                                                    min="0"
+                                                    placeholder="0.00"
+                                                    value={tt.price}
+                                                    onChange={(e) => updateTicketType(index, "price", e.target.value)}
+                                                    required
+                                                />
+                                            </div>
+                                            <div className="col-span-3">
+                                                <label className="block text-xs font-medium text-black mb-1">Mjesta</label>
+                                                <Input
+                                                    className="focus-visible:outline-none focus-visible:ring-0 h-10"
+                                                    type="number"
+                                                    min="1"
+                                                    placeholder="100"
+                                                    value={tt.total_seats}
+                                                    onChange={(e) => updateTicketType(index, "total_seats", e.target.value)}
+                                                    required
+                                                />
+                                            </div>
+                                            <div className="col-span-1 flex items-end pb-1">
+                                                {ticketTypes.length > 1 && (
+                                                    <Button
+                                                        type="button"
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        onClick={() => removeTicketType(index)}
+                                                        className="text-red-500 hover:bg-red-50 hover:text-red-700 p-2 h-9 w-9 rounded-md"
+                                                        title="Ukloni vrstu karte"
+                                                    >
+                                                        <Minus className="h-4 w-4" />
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </form>
+                        <DialogFooter className="flex flex-col sm:flex-row gap-2">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setShowCreateDialog(false)}
+                                className="!bg-gray-100 hover:!bg-gray-200 !text-gray-700 !border-gray-300 cursor-pointer font-medium px-6 py-2"
+                            >
+                                Otkaži
+                            </Button>
+                            <div className="flex gap-2 flex-1 justify-end">
+                                <Button
+                                    type="button"
+                                    onClick={() => handleCreateEvent("DRAFT")}
+                                    className="!bg-yellow-500 hover:!bg-yellow-600 !text-white cursor-pointer font-semibold shadow-md px-6 py-2"
+                                >
+                                    Sačuvaj kao nacrt
+                                </Button>
+                                <Button
+                                    type="button"
+                                    onClick={() => handleCreateEvent("PUBLISHED")}
+                                    className="!bg-blue-600 hover:!bg-blue-700 !text-white cursor-pointer font-semibold shadow-md px-6 py-2"
+                                >
+                                    Objavi
+                                </Button>
+                            </div>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+                {/* ✅ EDIT DIALOG - AŽURIRAN ZA ODABIR GLAVNE SLIKE */}
+                <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+                    <DialogContent className="bg-white text-black max-w-2xl">
+                        <DialogHeader>
+                            <DialogTitle>Uredi događaj</DialogTitle>
+                            <DialogDescription>Ažurirajte osnovne detalje događaja.</DialogDescription>
+                        </DialogHeader>
+                        <form className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Naslov događaja *</label>
+                                <Input
+                                    value={formData.title}
+                                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                                    placeholder="Unesite naslov događaja"
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Lokacija</label>
+                                <Input
+                                    value={formData.location}
+                                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                                    placeholder="Unesite lokaciju događaja"
+                                />
+                            </div>
+                            <div className="mb-4">
+                                <label className="block text-sm font-medium mb-1">Kategorija *</label>
+                                <Select value={categoryId} onValueChange={setCategoryId}>
+                                    <SelectTrigger className="w-52 bg-white text-black">
+                                        <SelectValue placeholder="Odaberite kategoriju" />
+                                    </SelectTrigger>
+                                    <SelectContent className="z-[99999] bg-white text-black border">
+                                        {categories.map((c) => (
+                                            <SelectItem key={c.id} value={String(c.id)}>
+                                                {formatCategoryLabel(c.name)}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Opis</label>
+                                <Textarea
+                                    value={formData.description}
+                                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                                    placeholder="Unesite opis događaja"
+                                    rows={3}
+                                />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Datum i vrijeme *</label>
+                                    <Input
+                                        type="datetime-local"
+                                        value={formData.date_and_time}
+                                        onChange={(e) => setFormData({ ...formData, date_and_time: e.target.value })}
+                                        required
+                                    />
+                                </div>
+                                {/* ako ti treba da poravna grid, ostavi prazno ili makni col-span u image sekciji */}
+                            </div>
+                            {/* ✅ ISTI IMAGE UI KAO CREATE */}
+                            <div className="col-span-2">
+                                <label className="block text-sm font-medium mb-2">Slike događaja</label>
+                                <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+                                    {/* LEFT: picker */}
+                                    <div className="md:col-span-5">
+                                        <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
+                                            <div className="flex items-center justify-between gap-2">
+                                                <p className="text-sm font-semibold text-gray-900">Dodaj fotografije</p>
+                                                {imageFiles.length > 0 && (
+                                                    <Button
+                                                        type="button"
+                                                        variant="outline"
+                                                        onClick={() => {
+                                                            // ✅ zapamti sve existing slike za brisanje
+                                                            const ids = imageFiles
+                                                                .filter(img => img.type === "existing" && img.id)
+                                                                .map(img => img.id);
+                                                            if (ids.length) setDeletedImageIds(prev => [...prev, ...ids]);
+                                                            setImageFiles([]);
+                                                            setImagePreview("");
+                                                        }}
+                                                        className="h-8 px-3 text-xs"
+                                                    >
+                                                        Ukloni sve
+                                                    </Button>
+                                                )}
+                                            </div>
+                                            <p className="mt-1 text-xs text-gray-600">
+                                                JPG/PNG/WEBP • maks. ~5MB • do 10 slika
+                                            </p>
+                                            <div className="mt-3 flex items-center gap-2">
+                                                <Input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    disabled={imageFiles.length >= 10}
+                                                    multiple
+                                                    onChange={(e) => {
+                                                        onPickImages(e.target.files); // ✅ isto kao create
+                                                        e.target.value = "";
+                                                    }}
+                                                    className="bg-white"
+                                                />
+                                            </div>
+                                            <div className="mt-3 text-xs text-gray-600">
+                                                Savjet: kliknite na fotografiju da biste je postavili kao <span className="font-semibold">Glavnu</span>.
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {/* RIGHT: preview */}
+                                    <div className="md:col-span-7">
+                                        {imageFiles.length === 0 ? (
+                                            <div className="h-[132px] rounded-xl border border-dashed border-gray-300 grid place-items-center bg-white">
+                                                <div className="text-center">
+                                                    <p className="text-sm font-medium text-gray-700">Još nema slika</p>
+                                                    <p className="text-xs text-gray-500 mt-1">Dodajte 1–10 slika (opcionalno)</p>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="rounded-xl border border-gray-200 bg-white p-3">
+                                                <div className="flex items-center justify-between">
+                                                    <p className="text-sm font-semibold text-gray-900">
+                                                        Pregled <span className="text-gray-500 font-medium">({imageFiles.length})</span>
+                                                    </p>
+                                                    <p className="text-xs text-gray-500">Glavna se koristi na karticama</p>
+                                                </div>
+                                                <div className="mt-3 max-h-[180px] overflow-auto pr-1">
+                                                    <div className="grid grid-cols-4 gap-2">
+                                                        {imageFiles.map((img, idx) => {
+                                                            const isMain = idx === 0;
+                                                            const isFile = img.type === "new";
+                                                            return (
+                                                                <button
+                                                                    key={idx}
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        // set main = move to front
+                                                                        const newFiles = [...imageFiles];
+                                                                        const [picked] = newFiles.splice(idx, 1);
+                                                                        newFiles.unshift(picked);
+                                                                        setImageFiles(newFiles);
+                                                                        // opciono: main image u formData
+                                                                        const clicked = imageFiles[idx];
+                                                                        setFormData((prev) => ({
+                                                                            ...prev,
+                                                                            image: clicked.path,
+                                                                        }));
+                                                                    }}
+                                                                    className={[
+                                                                        "relative group rounded-lg overflow-hidden border",
+                                                                        isMain
+                                                                            ? "border-blue-500 ring-2 ring-blue-200"
+                                                                            : "border-gray-200 hover:border-gray-300",
+                                                                        "focus:outline-none focus:ring-2 focus:ring-blue-300",
+                                                                    ].join(" ")}
+                                                                    title="Kliknite da postavite kao glavnu"
+                                                                >
+                                                                    <img
+                                                                        src={isFile ? img.path : resolveImage(img.path)}
+                                                                        alt={`Slika ${idx + 1}`}
+                                                                        className="h-20 w-full object-cover"
+                                                                    />
+                                                                    {/* Main badge */}
+                                                                    {isMain && (
+                                                                        <div className="absolute left-1 top-1 rounded-md bg-blue-600 text-white text-[10px] px-2 py-0.5 font-semibold">
+                                                                            GLAVNA
+                                                                        </div>
+                                                                    )}
+                                                                    {/* Remove */}
+                                                                    <span
+                                                                        role="button"
+                                                                        tabIndex={0}
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            removeImage(idx); // ✅ ovo puni deletedImageIds za existing slike
+                                                                        }}
+                                                                        className="absolute right-1 top-1 opacity-0 group-hover:opacity-100 transition
+rounded-full bg-black/70 text-white text-[11px] w-6 h-6 grid place-items-center"
+                                                                        title="Ukloni"
+                                                                    >
+                                                                        ✕
+                                                                    </span>
+                                                                </button>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                            {/* ✅ TICKET TYPES SEKCIJA (ostaje kako imaš) */}
+                            <div>
+                                <div className="flex justify-between items-center mb-2">
+                                    <label className="block text-sm font-medium">Vrste karata *</label>
+                                    <Button type="button" size="sm" variant="outline" onClick={addTicketType} className="!h-7 !px-2">
+                                        <Plus className="h-3 w-3 mr-1" /> Dodaj
+                                    </Button>
+                                </div>
+                                <div className="space-y-3 p-3 bg-white rounded-lg border border-black">
+                                    {ticketTypes.map((tt, index) => (
+                                        <div key={index} className="grid grid-cols-12 gap-3 items-end">
+                                            <div className="col-span-5">
+                                                <label className="block text-xs font-medium text-black mb-1">Naziv</label>
+                                                <Input
+                                                    className="focus-visible:outline-none focus-visible:ring-0 h-10"
+                                                    placeholder="npr. VIP, Obična"
+                                                    value={tt.name}
+                                                    onChange={(e) => updateTicketType(index, "name", e.target.value)}
+                                                    required
+                                                />
+                                            </div>
+                                            <div className="col-span-3">
+                                                <label className="block text-xs font-medium text-black mb-1">Cijena (KM)</label>
+                                                <Input
+                                                    className="focus-visible:outline-none focus-visible:ring-0 h-10"
+                                                    type="number"
+                                                    step="0.01"
+                                                    min="0"
+                                                    placeholder="0.00"
+                                                    value={tt.price}
+                                                    onChange={(e) => updateTicketType(index, "price", e.target.value)}
+                                                    required
+                                                />
+                                            </div>
+                                            <div className="col-span-3">
+                                                <label className="block text-xs font-medium text-black mb-1">Mjesta</label>
+                                                <Input
+                                                    className="focus-visible:outline-none focus-visible:ring-0 h-10"
+                                                    type="number"
+                                                    min="1"
+                                                    placeholder="100"
+                                                    value={tt.total_seats}
+                                                    onChange={(e) => updateTicketType(index, "total_seats", e.target.value)}
+                                                    required
+                                                />
+                                            </div>
+                                            <div className="col-span-1 flex items-end pb-1">
+                                                {ticketTypes.length > 1 && (
+                                                    <Button
+                                                        type="button"
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        onClick={() => removeTicketType(index)}
+                                                        className="text-red-500 hover:bg-red-50 hover:text-red-700 p-2 h-9 w-9 rounded-md"
+                                                        title="Ukloni vrstu karte"
+                                                    >
+                                                        <Minus className="h-4 w-4" />
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </form>
+                        <DialogFooter className="flex flex-col sm:flex-row gap-2">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => {
+                                    setShowEditDialog(false);
+                                    resetForm();
+                                }}
+                                className="!bg-gray-100 hover:!bg-gray-200 !text-gray-700 !border-gray-300 cursor-pointer font-medium px-6 py-2"
+                            >
+                                Otkaži
+                            </Button>
+                            <div className="flex gap-2 flex-1 justify-end">
+                                {formData.status === "DRAFT" && (
+                                    <Button
+                                        type="button"
+                                        onClick={() => handleUpdateEvent("DRAFT")}
+                                        className="!bg-yellow-500 hover:!bg-yellow-600 !text-white cursor-pointer font-semibold shadow-md px-6 py-2"
+                                    >
+                                        Sačuvaj kao nacrt
+                                    </Button>
+                                )}
+                                <Button
+                                    type="button"
+                                    onClick={() => handleUpdateEvent("PUBLISHED")}
+                                    className="!bg-green-600 hover:!bg-green-700 !text-white cursor-pointer font-semibold shadow-md px-6 py-2"
+                                >
+                                    {formData.status === "DRAFT" ? "Objavi" : "Sačuvaj promjene"}
+                                </Button>
+                            </div>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+                {/* DELETE DIALOG */}
+                <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+                    <AlertDialogContent className="bg-white text-black">
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Obriši događaj</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                Jeste li sigurni da želite obrisati "{selectedEvent?.title}"? Ova radnja se ne može poništiti.
+                                Sve rezervacije za ovaj događaj će također biti obrisane.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel className="!bg-gray-100 hover:!bg-gray-200 !text-gray-700 !border-gray-300 cursor-pointer font-medium px-6 py-2">Otkaži</AlertDialogCancel>
+                            <AlertDialogAction
+                                onClick={handleDeleteEvent}
+                                className="!bg-red-600 hover:!bg-red-700 !text-white cursor-pointer font-semibold shadow-md border-0 px-6 py-2"
+                            >
+                                Obriši događaj
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+                {/* RESERVATIONS DIALOG */}
+                <Dialog open={showReservationsDialog} onOpenChange={setShowReservationsDialog}>
+                    <DialogContent className="bg-white text-black max-w-4xl max-h-[80vh] overflow-y-auto border-2 border-gray-200 shadow-2xl rounded-lg">
+                        <DialogHeader className="border-b border-gray-100 pb-4">
+                            <DialogTitle className="text-xl font-bold text-gray-900">Rezervacije događaja - {selectedEvent?.title}</DialogTitle>
+                            <DialogDescription className="text-gray-600">
+                                Pregledajte sve rezervacije za ovaj događaj
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-4 py-4">
+                            {reservations.length === 0 ? (
+                                <div className="text-center py-12">
+                                    <Users className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                                    <p className="text-gray-500 text-lg">Još nema rezervacija</p>
+                                </div>
+                            ) : (
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow className="border-b border-gray-200">
+                                            <TableHead className="text-gray-900 font-semibold">Student</TableHead>
+                                            <TableHead className="text-gray-900 font-semibold">Vrsta karte</TableHead>
+                                            <TableHead className="text-gray-900 font-semibold">Karte</TableHead>
+                                            <TableHead className="text-gray-900 font-semibold">Rezervisano</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {reservations.map((reservation) => (
+                                            <TableRow key={reservation.id} className="border-b border-gray-100 hover:bg-gray-50">
+                                                <TableCell>
+                                                    <div className="text-sm font-medium text-gray-900">
+                                                        {reservation.student_name}
+                                                    </div>
+                                                    <div className="text-xs text-gray-500">
+                                                        @{reservation.student_username}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell className="text-gray-900">
+                                                    {reservation.ticket_type_name || "N/A"}
+                                                </TableCell>
+                                                <TableCell className="text-gray-900 font-medium">
+                                                    {reservation.number_of_tickets}
+                                                </TableCell>
+                                                <TableCell className="text-gray-900">
+                                                    {new Date(reservation.reservation_date).toLocaleDateString('sr-Latn-RS', {
+                                                        year: 'numeric',
+                                                        month: 'short',
+                                                        day: 'numeric'
+                                                    })}
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            )}
+                        </div>
+                        <DialogFooter className="border-t border-gray-100 pt-4">
+                            <Button
+                                onClick={() => setShowReservationsDialog(false)}
+                                variant="outline"
+                                className="!bg-gray-100 hover:!bg-gray-200 !text-gray-700 !border-gray-300 cursor-pointer font-medium px-6 py-2"
+                            >
+                                Zatvori
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+                {/* SALES PROGRESS DIALOG */}
+                <Dialog open={showProgressDialog} onOpenChange={setShowProgressDialog}>
+                    <DialogContent className="bg-white text-black max-w-2xl max-h-[80vh] overflow-y-auto">
+                        <DialogHeader>
+                            <DialogTitle>Napredak prodaje – {selectedEvent?.title}</DialogTitle>
+                            <DialogDescription>Pratite prodaju karata za ovaj događaj.</DialogDescription>
+                        </DialogHeader>
+                        {salesProgress ? (
+                            <div className="space-y-6">
+                                <div>
+                                    <div className="flex justify-between mb-2">
+                                        <span className="font-medium">Ukupno prodano</span>
+                                        <span>
+                                            {parseInt(salesProgress.total_sold) || 0} / {parseInt(salesProgress.total_seats) || 0} (
+                                            {Math.round(((parseInt(salesProgress.total_sold) || 0) / (parseInt(salesProgress.total_seats) || 1)) * 100)}%
+                                            )
+                                        </span>
+                                    </div>
+                                    <div className="w-full bg-gray-200 rounded-full h-4">
+                                        <div
+                                            className="bg-green-500 h-4 rounded-full"
+                                            style={{ width: `${salesProgress.percentage_sold}%` }}
+                                        ></div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <h4 className="font-semibold mb-3">Po vrsti karte:</h4>
+                                    {salesProgress.ticket_types.map((tt) => (
+                                        <div key={tt.id} className="mb-4">
+                                            <div className="flex justify-between text-sm mb-1">
+                                                <span>{tt.name}</span>
+                                                <span>
+                                                    {parseInt(tt.sold) || 0} / {parseInt(tt.total_seats) || 0} (
+                                                    {Math.round(((parseInt(tt.sold) || 0) / (parseInt(tt.total_seats) || 1)) * 100)}%
+                                                    )
+                                                </span>
+                                            </div>
+                                            <div className="w-full bg-gray-200 rounded-full h-2.5">
+                                                <div
+                                                    className="bg-blue-500 h-2.5 rounded-full"
+                                                    style={{ width: `${tt.percentage}%` }}
+                                                ></div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ) : (
+                            <p className="text-gray-500">Učitavanje…</p>
+                        )}
+                        <DialogFooter>
+                            <Button
+                                onClick={() => setShowProgressDialog(false)}
+                                variant="outline"
+                                className="!bg-gray-100 hover:!bg-gray-200 !text-gray-700 !border-gray-300"
+                            >
+                                Zatvori
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+            </main>
+        </div>
+    );
 }
