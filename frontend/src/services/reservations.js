@@ -26,7 +26,7 @@ export async function createReservation(eventId, ticketTypeId, numberOfTickets =
 }
 
 export async function getUserReservations() {
-    const res = await fetch(`${BASE}/reservations}`, {
+    const res = await fetch(`${BASE}/reservations`, {
         method: "GET",
         headers: authHeaders(),
     });
