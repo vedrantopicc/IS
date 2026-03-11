@@ -105,8 +105,7 @@ export default function OrganizerDashboard() {
     const [deletedImageIds, setDeletedImageIds] = useState([]);
     const [q, setQ] = useState("");
     const [qDebounced, setQDebounced] = useState("");
-    const fallbackUrl =
-        "https://images.pexels.com/photos/1190298/pexels-photo-1190298.jpeg?auto=compress&cs=tinysrgb&w=800";
+    //const fallbackUrl = "https://images.pexels.com/photos/1190298/pexels-photo-1190298.jpeg?auto=compress&cs=tinysrgb&w=800";
     const getInitialFormData = () => {
         const tomorrow = new Date();
         tomorrow.setDate(tomorrow.getDate() + 1);
