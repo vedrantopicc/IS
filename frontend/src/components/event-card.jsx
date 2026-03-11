@@ -1,8 +1,7 @@
 import { Calendar, Clock, MapPin, Star } from "lucide-react";
 import { Card, CardContent } from "./ui/card";
 import { resolveImage } from "../lib/image";
-const fallbackUrl =
-    "https://images.pexels.com/photos/1190298/pexels-photo-1190298.jpeg?auto=compress&cs=tinysrgb&w=800  ";
+
 export default function EventCard({
     image,
     title,
@@ -18,7 +17,7 @@ export default function EventCard({
         <Card className={`overflow-hidden bg-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02] cursor-pointer ${isPastEvent ? 'opacity-75' : ''} ${className}`}>
             <div className="relative h-48 overflow-hidden">
                 <img
-                    src={resolveImage(image) || fallbackUrl}
+                    src={resolveImage(image) }
                     alt={title}
                     className="w-full h-full object-cover transition-transform duration-300 hover:scale-110"
                 />

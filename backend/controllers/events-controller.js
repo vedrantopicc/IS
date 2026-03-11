@@ -323,10 +323,30 @@ export async function updateEvent(req, res, next) {
         const { id } = req.params;
         const userId = req.user.id;
 
-        let { title, description, location, date_and_time, image, category_id, status, deletedImages, ticketTypes } = req.body;
+        let {
+            title,
+            description,
+            location,
+            date_and_time,
+            image,
+            category_id,
+            status,
+            deletedImages,
+            ticketTypes
+        } = req.body;
 
         const [existing] = await pool.query(
-            "SELECT id, status, title, image FROM event WHERE id = ? AND user_id = ?",
+            `SELECT 
+                id,
+                status,
+                title,
+                description,
+                image,
+                location,
+                date_and_time,
+                category_id
+             FROM event
+             WHERE id = ? AND user_id = ?`,
             [id, userId]
         );
 
@@ -335,21 +355,50 @@ export async function updateEvent(req, res, next) {
         }
 
         const oldStatus = existing[0].status;
-        const eventTitle = existing[0].title;
+        const oldTitle = existing[0].title;
+        const oldDescription = existing[0].description;
         const oldImage = existing[0].image;
+        const oldLocation = existing[0].location;
+        const oldDateTime = existing[0].date_and_time;
+        const oldCategoryId = existing[0].category_id;
 
-        // ✅ PROMJENJENO: Obrada glavne slike
+        const finalTitle = title ?? oldTitle;
+        const finalDescription = description ?? oldDescription;
+        const finalLocation = location ?? oldLocation;
+        const finalDateTime = date_and_time ?? oldDateTime;
+        const finalCategoryId = category_id != null ? Number(category_id) : oldCategoryId;
+        const newStatus = status ?? oldStatus;
+
+        const normalizeStatus = (v) => String(v || "").trim().toUpperCase();
+        const normalizeText = (v) => String(v ?? "").trim();
+
+        const normalizeDateMs = (v) => {
+            if (!v) return null;
+            const d = new Date(v);
+            return Number.isNaN(d.getTime()) ? null : d.getTime();
+        };
+
+        const oldStatusNorm = normalizeStatus(oldStatus);
+        const newStatusNorm = normalizeStatus(newStatus);
+
+        const locationChanged =
+            normalizeText(oldLocation) !== normalizeText(finalLocation);
+
+        const dateTimeChanged =
+            normalizeDateMs(oldDateTime) !== normalizeDateMs(finalDateTime);
+
         let newMainImage = oldImage;
 
-        // Ako je frontend poslao drugu putanju za glavnu sliku
-        if (image && image !== oldImage && image.trim()) {
+        if (typeof image === "string" && image.trim() && image !== oldImage) {
             newMainImage = image.trim();
         }
 
-        // Ako su uploadovani novi fajlovi
+        // Dodavanje novih slika
         if (req.files && req.files.length > 0) {
             const [maxOrder] = await pool.query(
-                `SELECT COALESCE(MAX(display_order), -1) AS max_order FROM event_image WHERE event_id = ?`,
+                `SELECT COALESCE(MAX(display_order), -1) AS max_order
+                 FROM event_image
+                 WHERE event_id = ?`,
                 [id]
             );
 
@@ -358,30 +407,31 @@ export async function updateEvent(req, res, next) {
             const imageValues = req.files.map((file, index) => [
                 id,
                 `/uploads/${file.filename}`,
-                0, // ✅ VAŽNO: Sve nove slike idu sa is_primary = 0
+                0,
                 startOrder + index
             ]);
 
             await pool.query(
                 `INSERT INTO event_image (event_id, image_path, is_primary, display_order)
-         VALUES ?`,
+                 VALUES ?`,
                 [imageValues]
             );
-
-            {/*// Prva uploadovana slika postaje glavna ako nije već postavljena
-      if (!newMainImage || newMainImage === oldImage) {
-        newMainImage = `/uploads/${req.files[0].filename}`;
-      }*/}
         }
 
-        // ✅ BRISANJE OZNAČENIH SLIKA IZ BAZE
+        // Brisanje označenih slika
         if (deletedImages) {
             try {
-                const deletedIds = JSON.parse(deletedImages);
+                const deletedIds =
+                    typeof deletedImages === "string"
+                        ? JSON.parse(deletedImages)
+                        : deletedImages;
+
                 if (Array.isArray(deletedIds) && deletedIds.length > 0) {
-                    const placeholders = deletedIds.map(() => '?').join(',');
+                    const placeholders = deletedIds.map(() => "?").join(",");
+
                     await pool.query(
-                        `DELETE FROM event_image WHERE id IN (${placeholders}) AND event_id = ?`,
+                        `DELETE FROM event_image
+                         WHERE id IN (${placeholders}) AND event_id = ?`,
                         [...deletedIds, id]
                     );
                 }
@@ -390,33 +440,37 @@ export async function updateEvent(req, res, next) {
             }
         }
 
-        // ✅ KLJUČNI KORAK: Postavi is_primary = 1 SAMO za odabranu glavnu sliku
+        // Postavljanje glavne slike
         if (newMainImage && newMainImage.trim()) {
-            // Prvo resetuj sve na 0
             await pool.query(
-                `UPDATE event_image SET is_primary = 0 WHERE event_id = ?`,
+                `UPDATE event_image
+                 SET is_primary = 0
+                 WHERE event_id = ?`,
                 [id]
             );
 
-            // Zatim postavi 1 samo za odabranu sliku
             await pool.query(
-                `UPDATE event_image SET is_primary = 1 WHERE event_id = ? AND image_path = ?`,
+                `UPDATE event_image
+                 SET is_primary = 1
+                 WHERE event_id = ? AND image_path = ?`,
                 [id, newMainImage.trim()]
             );
         }
 
-        // ✅ AŽURIRANJE TICKET TYPES
+        // Ažuriranje tipova ulaznica
         if (ticketTypes) {
             try {
-                const parsedTicketTypes = typeof ticketTypes === "string"
-                    ? JSON.parse(ticketTypes)
-                    : ticketTypes;
+                const parsedTicketTypes =
+                    typeof ticketTypes === "string"
+                        ? JSON.parse(ticketTypes)
+                        : ticketTypes;
 
                 if (Array.isArray(parsedTicketTypes) && parsedTicketTypes.length > 0) {
-                    // Obriši stare ticket types
-                    await pool.query(`DELETE FROM ticket_type WHERE event_id = ?`, [id]);
+                    await pool.query(
+                        `DELETE FROM ticket_type WHERE event_id = ?`,
+                        [id]
+                    );
 
-                    // Ubaci nove
                     const ticketTypeValues = parsedTicketTypes.map((tt) => [
                         id,
                         tt.name,
@@ -426,7 +480,7 @@ export async function updateEvent(req, res, next) {
 
                     await pool.query(
                         `INSERT INTO ticket_type (event_id, name, price, total_seats)
-             VALUES ?`,
+                         VALUES ?`,
                         [ticketTypeValues]
                     );
                 }
@@ -435,35 +489,36 @@ export async function updateEvent(req, res, next) {
             }
         }
 
-        // Ažuriraj event
+        // Ažuriranje eventa
         await pool.query(
-            `UPDATE event SET 
-         title = ?,
-         description = ?,
-         location = ?,
-         date_and_time = ?,
-         image = ?,
-         category_id = ?,
-         status = COALESCE(?, status)
-       WHERE id = ? AND user_id = ?`,
+            `UPDATE event SET
+                title = ?,
+                description = ?,
+                location = ?,
+                date_and_time = ?,
+                image = ?,
+                category_id = ?,
+                status = COALESCE(?, status)
+             WHERE id = ? AND user_id = ?`,
             [
-                title || null,
-                description || null,
-                location || null,
-                date_and_time || null,
+                finalTitle,
+                finalDescription,
+                finalLocation,
+                finalDateTime,
                 newMainImage,
-                Number(category_id),
+                finalCategoryId,
                 status,
                 id,
                 userId
             ]
         );
 
-        const newStatus = status || oldStatus;
-
-        if (newStatus === "PUBLISHED" && oldStatus === "DRAFT") {
+        // Kad se prvi put objavi
+        if (newStatusNorm === "PUBLISHED" && oldStatusNorm === "DRAFT") {
             const [students] = await pool.query(
-                `SELECT id FROM \`user\` WHERE role = 'Student' AND id != ?`,
+                `SELECT id
+                 FROM \`user\`
+                 WHERE role = 'Student' AND id != ?`,
                 [userId]
             );
 
@@ -471,36 +526,91 @@ export async function updateEvent(req, res, next) {
                 const values = students.map((s) => [
                     s.id,
                     "Novi događaj",
-                    `Događaj "${eventTitle}" je upravo objavljen! Pogledajte ga.`,
+                    `Događaj "${finalTitle}" je upravo objavljen! Pogledajte ga.`,
                     id,
                     0
                 ]);
 
                 await pool.query(
                     `INSERT INTO notification (user_id, title, message, event_id, is_read)
-           VALUES ?`,
+                     VALUES ?`,
+                    [values]
+                );
+            }
+        }
+
+        // Kad je već objavljen pa mu se promijeni lokacija ili vrijeme
+        if (
+            newStatusNorm === "PUBLISHED" &&
+            oldStatusNorm === "PUBLISHED" &&
+            (locationChanged || dateTimeChanged)
+        ) {
+            const [students] = await pool.query(
+                `SELECT id
+                 FROM \`user\`
+                 WHERE role = 'Student' AND id != ?`,
+                [userId]
+            );
+
+            if (students.length) {
+                let changeText = "";
+
+                if (locationChanged && dateTimeChanged) {
+                    changeText = "promijenjeni su lokacija i vrijeme";
+                } else if (locationChanged) {
+                    changeText = "promijenjena je lokacija";
+                } else if (dateTimeChanged) {
+                    changeText = "promijenjeno je vrijeme";
+                }
+
+                const values = students.map((s) => [
+                    s.id,
+                    "Izmjena događaja",
+                    `Za događaj "${finalTitle}" ${changeText}. Pogledajte nove informacije.`,
+                    id,
+                    0
+                ]);
+
+                await pool.query(
+                    `INSERT INTO notification (user_id, title, message, event_id, is_read)
+                     VALUES ?`,
                     [values]
                 );
             }
         }
 
         const [updated] = await pool.query(
-            `SELECT e.id, e.title, e.description, e.location, e.date_and_time, e.image,
-              e.user_id, e.category_id, e.status
-       FROM event e WHERE e.id = ?`,
+            `SELECT
+                e.id,
+                e.title,
+                e.description,
+                e.location,
+                e.date_and_time,
+                e.image,
+                e.user_id,
+                e.category_id,
+                e.status
+             FROM event e
+             WHERE e.id = ?`,
             [id]
         );
 
         const [additionalImages] = await pool.query(
-            `SELECT id, image_path, is_primary, display_order 
-       FROM event_image 
-       WHERE event_id = ? 
-       ORDER BY display_order ASC, id ASC`,
+            `SELECT
+                id,
+                image_path,
+                is_primary,
+                display_order
+             FROM event_image
+             WHERE event_id = ?
+             ORDER BY display_order ASC, id ASC`,
             [id]
         );
 
         const [ticketTypesResult] = await pool.query(
-            `SELECT id, name, price, total_seats FROM ticket_type WHERE event_id = ?`,
+            `SELECT id, name, price, total_seats
+             FROM ticket_type
+             WHERE event_id = ?`,
             [id]
         );
 

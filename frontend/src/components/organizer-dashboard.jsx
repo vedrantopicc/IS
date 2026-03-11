@@ -207,6 +207,17 @@ export default function OrganizerDashboard() {
         newTypes[index][field] = value;
         setTicketTypes(newTypes);
     };
+
+    const toDateTimeLocalValue = (value) => {
+    if (!value) return "";
+
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return "";
+
+    const pad = (n) => String(n).padStart(2, "0");
+
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
     const validateTicketTypes = () => {
         for (let tt of ticketTypes) {
             if (!tt.name.trim() || tt.price === "" || tt.total_seats === "" ||
@@ -375,7 +386,7 @@ export default function OrganizerDashboard() {
             title: event.title,
             description: event.description || "",
             location: event.location || "",
-            date_and_time: new Date(event.date_and_time).toISOString().slice(0, 16),
+            date_and_time: toDateTimeLocalValue(event.date_and_time),
             image: event.image || "",
             status: event.status || "DRAFT"
         });
