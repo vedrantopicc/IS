@@ -1303,7 +1303,7 @@ rounded-full bg-black/70 text-white text-[11px] w-6 h-6 grid place-items-center"
                             <AlertDialogTitle>Obriši događaj</AlertDialogTitle>
                             <AlertDialogDescription>
                                 Jeste li sigurni da želite obrisati "{selectedEvent?.title}"? Ova radnja se ne može poništiti.
-                                Sve rezervacije za ovaj događaj će također biti obrisane.
+                                Sve rezervacije za ovaj događaj će takođe biti obrisane.
                             </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
