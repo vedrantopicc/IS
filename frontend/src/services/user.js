@@ -13,7 +13,7 @@ export async function getUserById(id) {
         headers: authHeaders(),
     });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.error || "Neuspješno preuzimanje korisnika");
+    if (!res.ok) throw new Error(data.error || "NeuspjeÅ¡no preuzimanje korisnika");
     return data;
 }
 
@@ -24,7 +24,7 @@ export async function updateUserById(id, payload) {
         body: JSON.stringify(payload),
     });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.error || "Neuspješno auriranje korisnika");
+    if (!res.ok) throw new Error(data.error || "NeuspjeÅ¡no aÅ¾uriranje korisnika");
     return data;
 }
 
@@ -35,6 +35,6 @@ export async function changePasswordApi({ currentPassword, newPassword }) {
         body: JSON.stringify({ currentPassword, newPassword }),
     });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.error || "Neuspješna promjena lozinke");
+    if (!res.ok) throw new Error(data.error || "NeuspjeÅ¡na promjena lozinke");
     return data;
 }

@@ -89,7 +89,7 @@ export async function changePassword(req, res, next) {
         const userId = req.user?.id;
         const { currentPassword, newPassword } = req.body || {};
 
-        if (!userId) return res.status(401).json({ error: "Niste autorizirani" });
+        if (!userId) return res.status(401).json({ error: "Niste autorizovani" });
         if (!currentPassword || !newPassword) {
             return res.status(400).json({ error: "Trenutna i nova lozinka su obavezne" });
         }
@@ -164,7 +164,7 @@ export async function forgotPassword(req, res) {
 
         return res.json({ message: "Poslat vam je e-mail za ponovno postavljanje lozinke." });
     } catch (e) {
-        console.error("Greška pri zaboravljenoj lozinci:", e);
+        console.error("Greška pri promjeni lozinci:", e);
         return res.status(500).json({ error: "Greška na serveru" });
     }
 }
@@ -173,7 +173,7 @@ export async function resetPassword(req, res) {
     try {
         const { token, newPassword } = req.body;
         if (!token || !newPassword) {
-            return res.status(400).json({ error: "Token i nova lozinka su obavezni" });
+            return res.status(400).json({ error: "Token i nova lozinka su obavezne" });
         }
         if (newPassword.length < 6) {
             return res.status(400).json({ error: "Lozinka mora imati najmanje 6 znakova" });

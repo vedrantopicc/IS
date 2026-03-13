@@ -52,7 +52,7 @@ function decodeJwt(token) {
         }).join(""));
         return JSON.parse(jsonPayload);
     } catch (err) {
-        console.error("Greška pri dekodiranju JWT-a:", err);
+        console.error("Greška pri dekodovanju JWT-a:", err);
         return null;
     }
 }
@@ -80,8 +80,7 @@ export default function StudentDashboard() {
     const [selectedReservation, setSelectedReservation] = useState(null);
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
     const [requesting, setRequesting] = useState(false);
-    const fallbackUrl =
-        "https://images.pexels.com/photos/1190298/pexels-photo-1190298.jpeg?auto=compress&cs=tinysrgb&w=800  ";
+    //const fallbackUrl = "https://images.pexels.com/photos/1190298/pexels-photo-1190298.jpeg?auto=compress&cs=tinysrgb&w=800  ";
 
     const activeTab = searchParams.get("tab") || "events";
     const setActiveTab = (tab) => {
@@ -337,39 +336,39 @@ export default function StudentDashboard() {
     };
 
     const getNotificationMeta = (notification) => {
-    const title = (notification?.title || "").toLowerCase();
-    const message = (notification?.message || "").toLowerCase();
+        const title = (notification?.title || "").toLowerCase();
+        const message = (notification?.message || "").toLowerCase();
 
-    if (
-        title.includes("izmjena") ||
-        message.includes("promijenjen") ||
-        message.includes("promijenjena") ||
-        message.includes("promijenjeno")
-    ) {
+        if (
+            title.includes("izmjena") ||
+            message.includes("promijenjen") ||
+            message.includes("promijenjena") ||
+            message.includes("promijenjeno")
+        ) {
+            return {
+                badgeText: "IZMJENA",
+                badgeClass: "bg-amber-100 text-amber-700",
+                dotClass: "bg-amber-500",
+            };
+        }
+
+        if (
+            title.includes("novi događaj") ||
+            title.includes("objavljen")
+        ) {
+            return {
+                badgeText: "NOVO",
+                badgeClass: "bg-blue-100 text-blue-700",
+                dotClass: "bg-blue-600",
+            };
+        }
+
         return {
-            badgeText: "IZMJENA",
-            badgeClass: "bg-amber-100 text-amber-700",
-            dotClass: "bg-amber-500",
+            badgeText: "INFO",
+            badgeClass: "bg-gray-100 text-gray-700",
+            dotClass: "bg-gray-400",
         };
-    }
-
-    if (
-        title.includes("novi događaj") ||
-        title.includes("objavljen")
-    ) {
-        return {
-            badgeText: "NOVO",
-            badgeClass: "bg-blue-100 text-blue-700",
-            dotClass: "bg-blue-600",
-        };
-    }
-
-    return {
-        badgeText: "INFO",
-        badgeClass: "bg-gray-100 text-gray-700",
-        dotClass: "bg-gray-400",
     };
-};
 
     const openDeleteDialog = (reservation) => {
         setSelectedReservation(reservation);
@@ -404,8 +403,10 @@ export default function StudentDashboard() {
                     <div className="flex items-center gap-2">
 
                         {/* 🔔 Bell notification */}
-                        <DropdownMenu open={notifOpen} onOpenChange={(open) => {setNotifOpen(open);
-                        if (open) loadNotifications(); }}>
+                        <DropdownMenu open={notifOpen} onOpenChange={(open) => {
+                            setNotifOpen(open);
+                            if (open) loadNotifications();
+                        }}>
                             <DropdownMenuTrigger asChild>
                                 <Button
                                     variant="ghost"
@@ -449,47 +450,47 @@ export default function StudentDashboard() {
                                     {notifications.length === 0 ? (
                                         <div className="p-4 text-sm text-gray-500">Još nema obavještenja.</div>
                                     ) : (
-                                       notifications.map((n) => {
-    const meta = getNotificationMeta(n);
+                                        notifications.map((n) => {
+                                            const meta = getNotificationMeta(n);
 
-    return (
-        <DropdownMenuItem
-            key={n.id}
-            onClick={() => handleOpenNotification(n)}
-            className={[
-                "cursor-pointer flex items-start gap-3 px-3 py-3 border-b border-gray-100 last:border-b-0",
-                "focus:bg-gray-50",
-                n.is_read ? "opacity-80 bg-white" : "bg-blue-50/60"
-            ].join(" ")}
-        >
-            <div className="pt-1">
-                <span className={`block h-2.5 w-2.5 rounded-full ${n.is_read ? "bg-gray-300" : meta.dotClass}`} />
-            </div>
+                                            return (
+                                                <DropdownMenuItem
+                                                    key={n.id}
+                                                    onClick={() => handleOpenNotification(n)}
+                                                    className={[
+                                                        "cursor-pointer flex items-start gap-3 px-3 py-3 border-b border-gray-100 last:border-b-0",
+                                                        "focus:bg-gray-50",
+                                                        n.is_read ? "opacity-80 bg-white" : "bg-blue-50/60"
+                                                    ].join(" ")}
+                                                >
+                                                    <div className="pt-1">
+                                                        <span className={`block h-2.5 w-2.5 rounded-full ${n.is_read ? "bg-gray-300" : meta.dotClass}`} />
+                                                    </div>
 
-            <div className="min-w-0 flex-1">
-                <div className="flex items-start justify-between gap-2">
-                    <span className="text-sm font-semibold text-gray-900 line-clamp-1">
-                        {n.title}
-                    </span>
+                                                    <div className="min-w-0 flex-1">
+                                                        <div className="flex items-start justify-between gap-2">
+                                                            <span className="text-sm font-semibold text-gray-900 line-clamp-1">
+                                                                {n.title}
+                                                            </span>
 
-                    <span
-                        className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${meta.badgeClass}`}
-                    >
-                        {n.is_read ? "PROČITANO" : meta.badgeText}
-                    </span>
-                </div>
+                                                            <span
+                                                                className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${meta.badgeClass}`}
+                                                            >
+                                                                {n.is_read ? "PROČITANO" : meta.badgeText}
+                                                            </span>
+                                                        </div>
 
-                <div className="mt-1 text-xs text-gray-600 line-clamp-2">
-                    {n.message}
-                </div>
+                                                        <div className="mt-1 text-xs text-gray-600 line-clamp-2">
+                                                            {n.message}
+                                                        </div>
 
-                <div className="mt-2 text-[11px] text-gray-400">
-                    {formatDateTime(n.created_at)}
-                </div>
-            </div>
-        </DropdownMenuItem>
-    );
-})
+                                                        <div className="mt-2 text-[11px] text-gray-400">
+                                                            {formatDateTime(n.created_at)}
+                                                        </div>
+                                                    </div>
+                                                </DropdownMenuItem>
+                                            );
+                                        })
                                     )}
                                 </div>
                             </DropdownMenuContent>
@@ -722,11 +723,16 @@ export default function StudentDashboard() {
                                             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                                                 {availableEvents.map((event) => {
                                                     const totalAvailable = event.total_available_seats || 0;
-                                                    const seatsDisplay =
-                                                        totalAvailable > 0
-                                                            ? `${totalAvailable} dostupn${totalAvailable === 1 ? "o mjesto" : "ih mjesta"}`
-                                                            : "Nema dostupnih mjesta";
-
+                                                    let seatsDisplay;
+                                                    if (totalAvailable === 0) {
+                                                        seatsDisplay = "Nema dostupnih mjesta";
+                                                    } else if (totalAvailable === 1) {
+                                                        seatsDisplay = "1 dostupno mjesto";
+                                                    } else if (totalAvailable >= 2 && totalAvailable <= 4) {
+                                                        seatsDisplay = `${totalAvailable} dostupna mjesta`;
+                                                    } else {
+                                                        seatsDisplay = `${totalAvailable} dostupnih mjesta`;
+                                                    }
                                                     return (
                                                         <Card key={event.id} className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer">
                                                             <div className="relative h-48 overflow-hidden">

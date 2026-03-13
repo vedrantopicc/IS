@@ -17,12 +17,12 @@ export const getEventComments = async (eventId) => {
 
         if (!response.ok) {
             const errorData = await response.json();
-            throw new Error(errorData.message || "Neuspjeöno preuzimanje recenzija");
+                throw new Error(errorData.message || "Neuspje≈°no preuzimanje recenzija");
         }
 
         return await response.json();
     } catch (error) {
-        console.error("Greöka pri preuzimanju recenzija:", error);
+        console.error("GreÔøΩka pri preuzimanju recenzija:", error);
         throw error;
     }
 };
@@ -43,12 +43,12 @@ export const createComment = async (eventId, commentText, rating) => {
 
         if (!response.ok) {
             const errorData = await response.json();
-            throw new Error(errorData.message || "Neuspjeöno kreiranje recenzije");
+            throw new Error(errorData.message || "Neuspje≈°no kreiranje recenzije");
         }
 
         return await response.json();
     } catch (error) {
-        console.error("Greöka pri kreiranju recenzije:", error);
+        console.error("GreÔøΩka pri kreiranju recenzije:", error);
         throw error;
     }
 };
@@ -69,12 +69,12 @@ export const updateComment = async (commentId, commentText, rating) => {
 
         if (!response.ok) {
             const errorData = await response.json();
-            throw new Error(errorData.message || "Neuspjeöno aûuriranje recenzije");
+            throw new Error(errorData.message || "Neuspje≈°no a≈æuriranje recenzije");
         }
 
         return await response.json();
     } catch (error) {
-        console.error("Greöka pri aûuriranju recenzije:", error);
+        console.error("Gre≈°ka pri a≈æuriranju recenzije:", error);
         throw error;
     }
 };
@@ -91,12 +91,12 @@ export const deleteComment = async (commentId) => {
 
         if (!response.ok) {
             const errorData = await response.json();
-            throw new Error(errorData.message || "Neuspjeöno brisanje recenzije");
+            throw new Error(errorData.message || "Neuspje≈°no brisanje recenzije");
         }
 
         return await response.json();
     } catch (error) {
-        console.error("Greöka pri brisanju recenzije:", error);
+        console.error("Gre≈°ka pri brisanju recenzije:", error);
         throw error;
     }
 };

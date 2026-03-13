@@ -77,13 +77,13 @@ export default function ResetPassword() {
             const data = await res.json();
 
             if (res.ok) {
-                toast.success("Lozinka je uspješno resetovana! Preusmjeravanje na prijavu...");
+                toast.success("Lozinka je uspjeÅ¡no resetovana! Preusmjeravanje na prijavu...");
                 setTimeout(() => navigate("/"), 2000);
             } else {
                 toast.error(data.error || "Resetovanje lozinke nije uspjelo.");
             }
         } catch (err) {
-            toast.error("Došlo je do greške. Molimo pokušajte ponovo.");
+            toast.error("DoÅ¡lo je do greÅ¡ke. Molimo pokuÅ¡ajte ponovo.");
         } finally {
             setIsLoading(false);
         }
@@ -150,7 +150,7 @@ export default function ResetPassword() {
                                             type="button"
                                             onClick={() => setShowPassword((p) => !p)}
                                             className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 bg-transparent border-0 p-0 cursor-pointer"
-                                            aria-label={showPassword ? "Sakrij lozinku" : "Prikaži lozinku"}
+                                            aria-label={showPassword ? "Sakrij lozinku" : "PrikaÅ¾i lozinku"}
                                         >
                                             {showPassword ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                                         </button>
@@ -190,7 +190,7 @@ export default function ResetPassword() {
                                             type="button"
                                             onClick={() => setShowConfirmPassword((p) => !p)}
                                             className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 bg-transparent border-0 p-0 cursor-pointer"
-                                            aria-label={showConfirmPassword ? "Sakrij lozinku" : "Prikaži lozinku"}
+                                            aria-label={showConfirmPassword ? "Sakrij lozinku" : "PrikaÅ¾i lozinku"}
                                         >
                                             {showConfirmPassword ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                                         </button>

@@ -238,7 +238,11 @@ export default function EventDetailPage() {
         try {
             setReservationLoading(true);
             await createReservation(id, parseInt(selectedTicketType), numberOfTickets);
-            toast.success(`Uspješno ste rezervisali ${numberOfTickets} kartu${numberOfTickets > 1 ? 'e' : ''}!`);
+            // Ispravna verzija:
+            toast.success(`Uspješno ste rezervisali ${numberOfTickets} ${numberOfTickets === 1 ? 'kartu' :
+                    numberOfTickets >= 2 && numberOfTickets <= 4 ? 'karte' :
+                        'karata'
+                }!`);
 
             const [updatedEvent, updatedReservations] = await Promise.all([
                 getEvent(id),

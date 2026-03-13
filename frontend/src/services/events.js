@@ -39,3 +39,4 @@ export async function getEvent(id) {
     if (!res.ok) throw new Error(data.error || "Neuspješno preuzimanje događaja");
     return data;
 }
+

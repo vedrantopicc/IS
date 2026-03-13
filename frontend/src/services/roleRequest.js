@@ -3,7 +3,7 @@ export async function sendRoleRequest() {
     const token = localStorage.getItem("token");
 
     if (!token) {
-        throw new Error("Neuspjeöna autentifikacija");
+        throw new Error("Neuspje≈°na autentifikacija");
     }
 
     const response = await fetch("http://localhost:3000/role-requests", {
@@ -16,7 +16,7 @@ export async function sendRoleRequest() {
 
     if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.error || "Neuspjeöno slanje zahtjeva");
+        throw new Error(error.error || "Neuspje≈°no slanje zahtjeva");
     }
 
     return response.json();

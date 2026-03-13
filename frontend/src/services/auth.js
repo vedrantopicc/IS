@@ -14,7 +14,7 @@ export async function registerApi(payload) {
         body: JSON.stringify(payload),
     });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.error || "Neuspješna registracija");
+    if (!res.ok) throw new Error(data.error || "NeuspjeÅ¡na registracija");
     return data;
 }
 
@@ -25,7 +25,7 @@ export async function loginApi(payload) {
         body: JSON.stringify(payload),
     });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.error || "Neuspješna prijava");
+    if (!res.ok) throw new Error(data.error || "NeuspjeÅ¡na prijava");
     return data;
 }
 
@@ -36,6 +36,6 @@ export async function logoutApi() {
     });
     if (res.status === 204) return;
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.error || "Neuspješna odjava");
+    if (!res.ok) throw new Error(data.error || "NeuspjeÅ¡na odjava");
     return data;
 }

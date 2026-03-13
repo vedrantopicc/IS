@@ -832,19 +832,28 @@ export async function deleteEventById(req, res, next) {
     try {
         const { id } = req.params;
 
-        const [result] = await pool.query(
-            "UPDATE event SET deleted_at = NOW() WHERE id = ?",
+        // ✅ Provjeri da li je već obrisan
+        const [event] = await pool.query(
+            "SELECT id, deleted_at FROM event WHERE id = ?",
             [id]
         );
 
-        if (result.affectedRows === 0) {
+        if (!event.length) {
             return res.status(404).json({ error: "Događaj nije pronađen" });
         }
 
-        console.log(`Administrator je obrisao događaj ${id}`);
+        if (event[0].deleted_at !== null) {
+            return res.status(400).json({ error: "Događaj je već obrisan" });
+        }
+
+        // ✅ Postavi deleted_at I status na DELETED
+        const [result] = await pool.query(
+            "UPDATE event SET deleted_at = NOW(), status = 'DELETED' WHERE id = ?",
+            [id]
+        );
+
         res.json({ message: "Događaj je uspješno obrisan" });
     } catch (err) {
-        console.error("Greška u deleteEventById:", err);
         next(err);
     }
 }
@@ -903,3 +912,4 @@ export async function getEventTimeStats(req, res, next) {
         next(err);
     }
 }
+
