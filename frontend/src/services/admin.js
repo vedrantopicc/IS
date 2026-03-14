@@ -58,7 +58,7 @@ export async function getAllAdminEvents() {
 }
 
 export async function deleteEvent(eventId) {
-    const res = await fetch(`${BASE}/admin/events/${eventId}`, {
+    const res = await fetch(`${BASE}/events/${eventId}`, {
         method: "DELETE",
         headers: authHeaders(),
     });

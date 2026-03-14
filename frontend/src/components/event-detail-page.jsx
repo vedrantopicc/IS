@@ -574,7 +574,7 @@ export default function EventDetailPage() {
                                                                 disabled={reservationLoading || !selectedTicketType}
                                                                 className="w-full !bg-blue-600 hover:!bg-blue-700 !text-white disabled:opacity-50 cursor-pointer transition-colors disabled:cursor-not-allowed"
                                                             >
-                                                                {reservationLoading ? "Rezervisanje u toku..." : `Rezerviši ${numberOfTickets} kartu${numberOfTickets > 1 ? "e" : ""}`}
+                                                                {reservationLoading ? "Rezervisanje u toku..." : `Rezerviši ${numberOfTickets} kart${numberOfTickets > 1 ? "e" : "u"}`}
                                                             </Button>
                                                         </>
                                                     )}
