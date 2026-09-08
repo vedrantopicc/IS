@@ -41,7 +41,9 @@ app.use("/categories", categoriesRouter);
 app.use("/admin", adminRouter);
 app.use("/reservations", reservationsRouter);
 app.use("/comments", commentsRouter);
-app.use("/demo", demoRouter); // ← novi demo endpoint (samo u developmentu)
+if (process.env.ENABLE_DEMO_ROUTES === "true") {
+  app.use("/demo", demoRouter); // demo endpoint se ukljucuje samo eksplicitno
+}
 app.use("/role-requests", roleRequestRoutes);
 app.use("/notifications", notificationsRouter);
 // npr. backend/uploads
@@ -55,7 +57,9 @@ app.use((req, res) => {
 });
 
 app.use((err, req, res, next) => {
-  console.error(err);
+  if (process.env.NODE_ENV !== "test") {
+    console.error(err);
+  }
   const status = err.status || 500;
   res.status(status).json({ error: err.message || "Internal Server Error" });
 });

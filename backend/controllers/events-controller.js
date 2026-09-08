@@ -1,5 +1,16 @@
 import { pool } from "../db.js";
 
+function validateFutureDate(value) {
+    const date = new Date(value);
+    if (!value || Number.isNaN(date.getTime())) {
+        return "Datum događaja nije važeći";
+    }
+    if (date.getTime() <= Date.now()) {
+        return "Datum događaja mora biti u budućnosti";
+    }
+    return null;
+}
+
 // ✅ DOHVATI JEDAN DOGAĐAJ SA SVIM TIPOVIMA ULAZNICA I DODATNIM SLIKAMA
 export async function getEventById(req, res, next) {
     try {
@@ -104,7 +115,7 @@ export async function getAllEvents(req, res, next) {
             params.push(`%${search}%`);
         }
 
-        const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+        const whereSql = `WHERE ${where.join(" AND ")}`;
 
         const SORT_MAP = {
             date_asc: "e.date_and_time ASC",
@@ -204,6 +215,10 @@ export async function createEvent(req, res, next) {
         if (!title || !date_and_time || !Array.isArray(ticketTypes) || ticketTypes.length === 0) {
             return res.status(400).json({ error: "Naslov, datum i barem jedan tip ulaznice su obavezni" });
         }
+        const dateError = validateFutureDate(date_and_time);
+        if (dateError) {
+            return res.status(400).json({ error: dateError });
+        }
         if (!category_id) {
             return res.status(400).json({ error: "Kategorija je obavezna" });
         }
@@ -212,6 +227,17 @@ export async function createEvent(req, res, next) {
             if (!tt.name || tt.price == null || tt.total_seats == null || Number(tt.total_seats) <= 0) {
                 return res.status(400).json({ error: "Svaki tip ulaznice mora imati 'naziv', 'cijenu' i 'ukupan_broj_mjesta > 0'" });
             }
+            if (Number(tt.price) < 0) {
+                return res.status(400).json({ error: "Cijena ulaznice ne može biti negativna" });
+            }
+        }
+
+        const [categoryRows] = await pool.query(
+            "SELECT id FROM category WHERE id = ? LIMIT 1",
+            [category_id]
+        );
+        if (!categoryRows.length) {
+            return res.status(400).json({ error: "Kategorija nije pronađena" });
         }
 
         const eventStatus = status || "DRAFT";
@@ -369,6 +395,23 @@ export async function updateEvent(req, res, next) {
         const finalCategoryId = category_id != null ? Number(category_id) : oldCategoryId;
         const newStatus = status ?? oldStatus;
 
+        if (date_and_time !== undefined) {
+            const dateError = validateFutureDate(date_and_time);
+            if (dateError) {
+                return res.status(400).json({ error: dateError });
+            }
+        }
+
+        if (category_id !== undefined) {
+            const [categoryRows] = await pool.query(
+                "SELECT id FROM category WHERE id = ? LIMIT 1",
+                [finalCategoryId]
+            );
+            if (!categoryRows.length) {
+                return res.status(400).json({ error: "Kategorija nije pronađena" });
+            }
+        }
+
         const normalizeStatus = (v) => String(v || "").trim().toUpperCase();
         const normalizeText = (v) => String(v ?? "").trim();
 
@@ -466,6 +509,15 @@ export async function updateEvent(req, res, next) {
                         : ticketTypes;
 
                 if (Array.isArray(parsedTicketTypes) && parsedTicketTypes.length > 0) {
+                    for (const tt of parsedTicketTypes) {
+                        if (!tt.name || tt.price == null || tt.total_seats == null || Number(tt.total_seats) <= 0) {
+                            return res.status(400).json({ error: "Svaki tip ulaznice mora imati 'naziv', 'cijenu' i 'ukupan_broj_mjesta > 0'" });
+                        }
+                        if (Number(tt.price) < 0) {
+                            return res.status(400).json({ error: "Cijena ulaznice ne može biti negativna" });
+                        }
+                    }
+
                     await pool.query(
                         `DELETE FROM ticket_type WHERE event_id = ?`,
                         [id]
@@ -559,7 +611,7 @@ export async function updateEvent(req, res, next) {
                     changeText = "promijenjeni su lokacija i vrijeme";
                 } else if (locationChanged) {
                     changeText = "promijenjena je lokacija";
-                } else if (dateTimeChanged) {
+                } else {
                     changeText = "promijenjeno je vrijeme";
                 }
 

@@ -28,7 +28,7 @@ export async function login(req, res, _next) {
 
         const identifier = email || username;
         const [rows] = await pool.query(
-            "SELECT id, username, name, surname, email, password, role, is_organizer FROM `user` WHERE email = ? OR username = ? LIMIT 1",
+            "SELECT id, username, name, surname, email, password, role, is_organizer FROM `user` WHERE (email = ? OR username = ?) AND deleted_at IS NULL LIMIT 1",
             [identifier, identifier]
         );
 

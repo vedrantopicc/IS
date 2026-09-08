@@ -5,7 +5,15 @@
   "type": "module",
   "scripts": {
     "dev": "nodemon index.js",
-    "start": "node index.js"
+    "start": "node index.js",
+    "test": "vitest run tests/unit",
+    "test:unit": "vitest run tests/unit",
+    "test:integration": "vitest run tests/integration",
+    "test:all": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run tests/unit --coverage",
+    "test:coverage:integration": "vitest run tests/integration --coverage --no-file-parallelism --maxWorkers=1 --coverage.reporter=text --coverage.reporter=html",
+    "test:coverage:all": "vitest run --coverage"
   },
   "author": "",
   "license": "ISC",
@@ -23,6 +31,10 @@
     "uuid": "^11.1.0"
   },
   "devDependencies": {
-    "nodemon": "^3.1.11"
+    "@vitest/coverage-v8": "^4.0.13",
+    "artillery": "^2.0.32",
+    "nodemon": "^3.1.11",
+    "supertest": "^7.2.2",
+    "vitest": "^4.0.13"
   }
 }

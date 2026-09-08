@@ -1,5 +1,9 @@
 import { pool } from "../db.js";
 
+function containsScriptTag(value) {
+    return /<\s*script\b/i.test(String(value || ""));
+}
+
 export const getEventComments = async (req, res) => {
     try {
         const { eventId } = req.params;
@@ -46,6 +50,10 @@ export const createComment = async (req, res) => {
 
         if (comment_text && comment_text.length > 1000) {
             return res.status(400).json({ message: "Komentar je predugačak (najviše 1000 znakova)" });
+        }
+
+        if (containsScriptTag(comment_text)) {
+            return res.status(400).json({ message: "Komentar sadrži nedozvoljen sadržaj" });
         }
 
         const [eventCheck] = await pool.execute(
@@ -128,6 +136,10 @@ export const updateComment = async (req, res) => {
         // Validacija dužine teksta (ako je proslijeđen)
         if (comment_text && comment_text.length > 1000) {
             return res.status(400).json({ message: "Komentar je predugačak (najviše 1000 znakova)" });
+        }
+
+        if (containsScriptTag(comment_text)) {
+            return res.status(400).json({ message: "Komentar sadrži nedozvoljen sadržaj" });
         }
 
         const [commentCheck] = await pool.execute(

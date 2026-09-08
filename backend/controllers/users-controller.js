@@ -22,6 +22,12 @@ export async function createUser({ name, surname, email, username, password, isO
     if (!name || !surname || !email || !username || !password) {
         throw new Error("Nedostaju obavezna polja");
     }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email))) {
+        throw new Error("E-mail adresa nije važeća");
+    }
+    if (String(password).length < 6) {
+        throw new Error("Lozinka mora imati najmanje 6 znakova");
+    }
 
     const [dupe] = await pool.query(
         "SELECT id FROM `user` WHERE email = ? OR username = ? LIMIT 1",

@@ -3,79 +3,105 @@ import { pool } from "../db.js";
 import crypto from "crypto";
 
 export async function createReservation(req, res, next) {
+    let connection;
+
     try {
         const { eventId } = req.params;
         const { ticketTypeId, numberOfTickets = 1 } = req.body;
         const userId = req.user.id;
+        const requestedTickets = Number(numberOfTickets);
 
-        // Proveri da li događaj i tip ulaznice postoje
-        const [ticketTypeRows] = await pool.query(
+        if (!Number.isInteger(requestedTickets) || requestedTickets <= 0) {
+            return res.status(400).json({ error: "Broj ulaznica mora biti pozitivan cijeli broj" });
+        }
+
+        connection = await pool.getConnection();
+        await connection.beginTransaction();
+
+        const [ticketTypeRows] = await connection.query(
             `SELECT 
-         tt.id, tt.price, tt.total_seats, tt.event_id,
+         tt.id, tt.name, tt.price, tt.total_seats, tt.event_id,
          e.title as event_title,
-         e.user_id as event_owner_id
+         e.user_id as event_owner_id,
+         e.status as event_status,
+         e.deleted_at as event_deleted_at
        FROM ticket_type tt
        JOIN event e ON e.id = tt.event_id
-       WHERE tt.id = ? AND tt.event_id = ?`,
+       WHERE tt.id = ? AND tt.event_id = ?
+       FOR UPDATE`,
             [ticketTypeId, eventId]
         );
 
         if (!ticketTypeRows.length) {
+            await connection.rollback();
             return res.status(404).json({ error: "Tip ulaznice ili događaj nije pronađen" });
         }
 
         const ticketType = ticketTypeRows[0];
 
-        // ✅ ZABRANI REZERVACIJU AKO JE KORISNIK VLASNIK DOGAĐAJA
+        if (ticketType.event_status !== "PUBLISHED" || ticketType.event_deleted_at !== null) {
+            await connection.rollback();
+            return res.status(400).json({ error: "Rezervacije su moguće samo za objavljene aktivne događaje" });
+        }
+
         if (ticketType.event_owner_id === userId) {
+            await connection.rollback();
             return res.status(403).json({ error: "Ne možete rezervisati ulaznice za svoj vlastiti događaj." });
         }
 
-        // Proveri da li korisnik već ima rezervaciju za taj tip ulaznice
-        const [existing] = await pool.query(
+        const [existing] = await connection.query(
             "SELECT id FROM reservation WHERE user_id = ? AND ticket_type_id = ? LIMIT 1",
             [userId, ticketTypeId]
         );
 
         if (existing.length) {
+            await connection.rollback();
             return res.status(400).json({ error: "Već imate rezervaciju za ovaj tip ulaznice" });
         }
 
-        // Proveri dostupna mesta
-        const [reservedResult] = await pool.query(
+        const [reservedResult] = await connection.query(
             "SELECT COALESCE(SUM(number_of_tickets), 0) AS reserved FROM reservation WHERE ticket_type_id = ?",
             [ticketTypeId]
         );
 
-        const reserved = reservedResult[0].reserved;
-        const available = ticketType.total_seats - reserved;
+        const reserved = Number(reservedResult[0].reserved || 0);
+        const available = Number(ticketType.total_seats) - reserved;
 
-        if (available < numberOfTickets) {
+        if (available < requestedTickets) {
+            await connection.rollback();
             return res.status(400).json({
                 error: `Nema dovoljno dostupnih mjesta za '${ticketType.name}'. Preostalo je samo ${available}.`
             });
         }
 
-        // Kreiraj rezervaciju
         const reservationCode = crypto.randomUUID();
-        const [result] = await pool.query(
+        const [result] = await connection.query(
             `INSERT INTO reservation 
         (user_id, event_id, ticket_type_id, number_of_tickets, reservation_date, code) 
        VALUES (?, ?, ?, ?, NOW(), ?)`,
-            [userId, eventId, ticketTypeId, numberOfTickets, reservationCode]
+            [userId, eventId, ticketTypeId, requestedTickets, reservationCode]
         );
+
+        await connection.commit();
 
         res.status(201).json({
             message: "Rezervacija je uspješno kreirana",
             reservationId: result.insertId,
             reservationCode,
-            numberOfTickets,
+            numberOfTickets: requestedTickets,
             ticketType: ticketType.name,
-            totalPrice: (ticketType.price * numberOfTickets).toFixed(2)
+            totalPrice: (ticketType.price * requestedTickets).toFixed(2)
         });
 
     } catch (err) {
+        if (connection) {
+            try {
+                await connection.rollback();
+            } catch { }
+        }
         next(err);
+    } finally {
+        if (connection) connection.release();
     }
 }
 

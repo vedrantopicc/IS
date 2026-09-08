@@ -5,6 +5,7 @@ import {
     updateUserById,
     deleteUserById,
     getAdminActivityStats,
+    getTopActiveUsers,
     getUserRoleStats, // ← Dodata nova funkcija za brojanje organizatora
     getDeletedUsers,
     restoreUserById
@@ -16,6 +17,7 @@ const router = Router();
 // --- RUTE ZA STATISTIKU (Panel administratora) ---
 // Ove rute su specifične i moraju ići prve
 router.get("/stats/activity", requireAdmin, getAdminActivityStats);
+router.get("/stats/top-active", requireAdmin, getTopActiveUsers);
 router.get("/stats/roles", requireAdmin, getUserRoleStats); // ← Ova ruta puni "Raspodjela uloga" na frontendu
 
 // --- RUTE ZA UPRAVLJANJE KORISNICIMA ---

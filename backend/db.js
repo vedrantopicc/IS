@@ -15,7 +15,8 @@ export const getPool = () => {
     // Ovo ispod je samo za tvoju provjeru u konzoli
     console.log("🚀 Creating database pool for Aiven...");
     
-    _pool = mysql.createPool({
+    const useSsl = process.env.DB_SSL !== "false";
+    const config = {
       host: process.env.DB_HOST,
       user: process.env.DB_USER,
       password: process.env.DB_PASSWORD,
@@ -23,13 +24,24 @@ export const getPool = () => {
       port: Number(process.env.DB_PORT || 3306),
       waitForConnections: true,
       connectionLimit: 10,
-      // OVO JE MORALO BITI OVDJE:
-      ssl: {
-        rejectUnauthorized: false 
-      }
-    });
+    };
+
+    if (useSsl) {
+      config.ssl = {
+        rejectUnauthorized: false
+      };
+    }
+
+    _pool = mysql.createPool(config);
   }
   return _pool;
+};
+
+export const closePool = async () => {
+  if (_pool) {
+    await _pool.end();
+    _pool = null;
+  }
 };
 
 export const pool = new Proxy({}, {

@@ -3,7 +3,7 @@ import { pool } from "../db.js";
 
 const JWT_SECRET = process.env.JWT_SECRET || "super-secret";
 
-export function requireAuth(req, res, next) {
+export async function requireAuth(req, res, next) {
     const auth = req.headers.authorization || "";
     if (!auth.startsWith("Bearer ")) {
         return res.status(401).json({ error: "Nedostaje ili je neispravno zaglavlje za autorizaciju" });
@@ -11,8 +11,21 @@ export function requireAuth(req, res, next) {
     const token = auth.slice(7);
     try {
         const decoded = jwt.verify(token, JWT_SECRET);
+        const userId = Number(decoded.sub);
+
+        if (decoded.jti) {
+            const [rows] = await pool.query(
+                "SELECT id FROM `token` WHERE id = ? AND user_id = ? AND valid = 1 AND expires_at > UTC_TIMESTAMP() LIMIT 1",
+                [decoded.jti, userId]
+            );
+
+            if (!rows.length) {
+                return res.status(401).json({ error: "Token je neispravan ili je istekao" });
+            }
+        }
+
         req.user = {
-            id: Number(decoded.sub),
+            id: userId,
             jti: decoded.jti,
             role: decoded.role,
             isOrganizer: decoded.isOrganizer,
@@ -88,7 +101,7 @@ export async function requireOrganizer(req, res, next) {
         }
 
         // ✅ ISPRAVNA LOGIKA
-        if (rows[0].is_organizer !== 1 && rows[0].role !== "Student") {
+        if (rows[0].is_organizer !== 1 && rows[0].role !== "Organizer") {
             return res.status(403).json({ error: "Potreban je pristup organizatora" });
         }
 
