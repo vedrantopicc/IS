@@ -2,7 +2,7 @@
 
 Full-stack web application for managing events, organizers, users, tickets and reservations.
 
-## 📌 About the Project
+## About the Project
 
 This project is a full-stack web application that provides a platform for creating, publishing and managing events.
 
@@ -10,7 +10,7 @@ The system supports multiple user roles with different permissions and functiona
 
 The application also includes authentication, authorization, ticket management, reservations and an administration dashboard.
 
-## 🚀 Features
+## Features
 
 ### Student
 - User registration and login
@@ -37,7 +37,7 @@ The application also includes authentication, authorization, ticket management, 
 - View application activity
 - Access administration dashboard
 
-## 🛠️ Technologies
+## Technologies
 
 ### Frontend
 - React
@@ -65,7 +65,7 @@ The application also includes authentication, authorization, ticket management, 
 - GitHub
 - npm
 
-## 🏗️ Application Structure
+## Application Structure
 
 The project is divided into frontend and backend parts:
 
