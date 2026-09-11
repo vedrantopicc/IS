@@ -1,76 +1,83 @@
-# Event Management & Reservation System
+# StudLife — Event Management & Reservation System
 
-Full-stack web application for managing events, organizers, users, tickets and reservations.
+Full-stack web platform for centralizing and managing student events at a university. Built as a team project for the Information Systems course at the Faculty of Electrical Engineering, University of Banja Luka.
+
+## Screenshots
+
+**Admin dashboard**
+<img width="1348" height="681" alt="admin-panel" src="https://github.com/user-attachments/assets/414b6121-7552-433e-90ab-45d6271813b4" />
+
+**Organizer's event management panel**
+<img width="539" height="872" alt="organizer-panel" src="https://github.com/user-attachments/assets/05cb0a16-40ce-49f5-aa90-68e45ced01a8" />
+
+**Student event browsing view**
+<img width="504" height="800" alt="student-view" src="https://github.com/user-attachments/assets/9c3d7ee8-3e71-4fac-a905-63f53d952eb5" />
 
 ## About the Project
 
-This project is a full-stack web application that provides a platform for creating, publishing and managing events.
+StudLife lets students discover and reserve spots at university events, while organizers create and manage those events, and administrators oversee the whole platform.
 
-The system supports multiple user roles with different permissions and functionalities. Students can browse events and make reservations, organizers can create and manage events, while administrators can manage users, events and organizer requests.
+The system supports three user roles with distinct permissions:
 
-The application also includes authentication, authorization, ticket management, reservations and an administration dashboard.
+- **Students** browse and filter available events, reserve tickets, manage their reservations, and leave ratings/reviews after attending.
+- **Organizers** (approved students) create, edit, and publish events, define ticket types and pricing, and track reservations and interest.
+- **Administrators** manage user accounts, approve or reject organizer requests, oversee all events, and view platform-wide statistics.
 
 ## Features
 
 ### Student
-- User registration and login
-- Browse available events
-- View event details
-- Reserve tickets
-- View reservations
-- Leave reviews for events
+- Registration and login
+- Browse and search events, filter by category and date, sort by date/relevance
+- View event details and reserve tickets
+- Manage (view / cancel) personal reservations
+- Leave ratings and reviews for events attended
 
 ### Organizer
-- Request organizer approval
-- Create and manage events
-- Save events as drafts
-- Publish events
-- Manage ticket types
-- Set ticket prices and available seats
-- View reservations and ticket sales
+- Request organizer approval (role upgrade from student)
+- Create, edit, and delete own events (title, date, location, description, images, ticket types, seat capacity)
+- Save events as drafts before publishing
+- View reservations and sales statistics per event
+- Send notifications to students about new or updated events
 
 ### Administrator
-- Manage users
-- Approve or reject organizer requests
-- Manage events
-- Soft delete and restore users/events
-- View application activity
-- Access administration dashboard
+- Manage user accounts (create, update, soft-delete, restore)
+- Approve or reject organizer role requests
+- Manage all events on the platform, including soft delete / restore
+- View platform-wide activity statistics (most active users, totals, etc.)
+
+## Architecture
+
+Three-tier architecture: a React client, a Node.js/Express API server, and a MySQL database, communicating over a REST API with JSON payloads. Keeping the client without direct database access improves security and allows the frontend and backend to evolve independently.
+
+```
+Presentation layer   →  React client (UI + client-side logic)
+Application layer     →  Express REST API (business logic, auth, RBAC)
+Data layer            →  MySQL database
+```
+
+Authentication and authorization are handled via **JWT**, with **Role-Based Access Control (RBAC)** distinguishing Student, Organizer, and Administrator permissions on every protected route. Passwords are hashed with **BCrypt** before being stored.
 
 ## Technologies
 
 ### Frontend
-- React
-- JavaScript
-- Vite
-- HTML
-- CSS
+- React, JavaScript, Vite, HTML, CSS
 
 ### Backend
-- Node.js
-- Express.js
-- REST API
-- JWT authentication
+- Node.js, Express.js, REST API, JWT authentication
 
 ### Database
-- MySQL
+- MySQL (hosted on Aiven cloud in production)
 
 ### Testing
-- Vitest
-- SuperTest
-- V8 Coverage
+- Vitest, SuperTest — separate **unit** and **integration** test suites (auth, reservations, comments, email service, security checks), with coverage reporting via `npm run test:coverage`
 
 ### Other Tools
-- Git
-- GitHub
-- npm
+- Git, GitHub, npm
 
 ## Application Structure
 
-The project is divided into frontend and backend parts:
-
-```text
-IS/
+```
+StudLife/
 ├── frontend/
 │   ├── src/
 │   └── public/
@@ -79,7 +86,50 @@ IS/
 │   ├── routes/
 │   ├── controllers/
 │   ├── middleware/
-│   └── ...
+│   ├── utils/
+│   └── tests/
+│       ├── unit/
+│       └── integration/
 │
-├── package.json
 └── README.md
+```
+
+## Getting Started
+
+### Prerequisites
+- Node.js and npm
+- MySQL
+
+### Setup
+
+```bash
+# Backend
+cd backend
+npm install
+npm run dev
+
+# Frontend (in a separate terminal)
+cd frontend
+npm install
+npm run dev
+```
+
+Configure your database connection and JWT secret via environment variables in `backend/.env` (see `backend/.env.test.example` for the expected variables).
+
+### Running tests
+
+```bash
+cd backend
+npm run test:unit          # unit tests only
+npm run test:integration   # integration tests only
+npm run test:coverage      # full suite with coverage report
+```
+
+## Team
+
+Built by: Vedran Topić, Milena Vrakelja, Dragan Latinović, Ivana Mitošević
+
+## Author of this repository
+
+**Vedran Topić** — [github.com/vedrantopicc](https://github.com/vedrantopicc)
+
