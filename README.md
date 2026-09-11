@@ -5,13 +5,13 @@ Full-stack web platform for centralizing and managing student events at a univer
 ## Screenshots
 
 **Admin dashboard**
-<img width="1348" height="681" alt="admin-panel" src="https://github.com/user-attachments/assets/414b6121-7552-433e-90ab-45d6271813b4" />
+![Admin panel](./screenshots/admin-panel.png)
 
 **Organizer's event management panel**
-<img width="539" height="872" alt="organizer-panel" src="https://github.com/user-attachments/assets/05cb0a16-40ce-49f5-aa90-68e45ced01a8" />
+![Organizer panel](./screenshots/organizer-panel.png)
 
 **Student event browsing view**
-<img width="504" height="800" alt="student-view" src="https://github.com/user-attachments/assets/9c3d7ee8-3e71-4fac-a905-63f53d952eb5" />
+![Student view](./screenshots/student-view.png)
 
 ## About the Project
 
@@ -132,4 +132,3 @@ Built by: Vedran Topić, Milena Vrakelja, Dragan Latinović, Ivana Mitošević
 ## Author of this repository
 
 **Vedran Topić** — [github.com/vedrantopicc](https://github.com/vedrantopicc)
-
